@@ -59,6 +59,9 @@ function opencodePlugin() {
 
 export default defineConfig({
   plugins: [react(), opencodePlugin()],
+  define: {
+    "import.meta.env.VITE_OPENCODE_WORKDIR": JSON.stringify(OPENCODE_DIR),
+  },
   server: {
     port: 1421,
     strictPort: true,

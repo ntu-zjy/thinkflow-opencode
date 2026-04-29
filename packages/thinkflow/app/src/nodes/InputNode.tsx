@@ -27,17 +27,27 @@ export function InputNode({ id, data, selected }: NodeProps<InputNodeType>) {
   const setType = (t: InputType) => updateNodeData(id, { inputType: t })
   const setValue = (v: string) => updateNodeData(id, { value: v })
 
+  const readFile = useCallback(
+    (file: File) => {
+      const reader = new FileReader()
+      reader.onload = (ev) => {
+        const content = ev.target?.result as string ?? ""
+        updateNodeData(id, { value: content, label: file.name })
+      }
+      reader.readAsText(file)
+      setType("file")
+    },
+    [id],
+  )
+
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault()
       setIsDragging(false)
       const file = e.dataTransfer.files[0]
-      if (file) {
-        setValue(file.path ?? file.name)
-        setType("file")
-      }
+      if (file) readFile(file)
     },
-    [id],
+    [readFile],
   )
 
   return (
@@ -99,13 +109,15 @@ export function InputNode({ id, data, selected }: NodeProps<InputNodeType>) {
               input.type = "file"
               input.onchange = (e) => {
                 const file = (e.target as HTMLInputElement).files?.[0]
-                if (file) setValue(file.name)
+                if (file) readFile(file)
               }
               input.click()
             }}
           >
             {data.value ? (
-              <span style={{ color: "var(--text-secondary)" }}>{data.value}</span>
+              <span style={{ color: "var(--text-secondary)" }}>
+                {data.label !== "输入" ? data.label : "文件"} · 已读取 {data.value.length} 字
+              </span>
             ) : (
               <>
                 <div style={{ fontSize: 20, marginBottom: 4 }}>📂</div>

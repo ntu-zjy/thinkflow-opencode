@@ -32,7 +32,7 @@ export function Canvas() {
   const paneRef = useRef<HTMLDivElement>(null)
 
   const handlePaneContextMenu = useCallback(
-    (e: React.MouseEvent) => {
+    (e: MouseEvent | React.MouseEvent) => {
       e.preventDefault()
       const flowPos = screenToFlowPosition({ x: e.clientX, y: e.clientY })
       setContextMenu({ x: e.clientX, y: e.clientY, flowX: flowPos.x, flowY: flowPos.y })
