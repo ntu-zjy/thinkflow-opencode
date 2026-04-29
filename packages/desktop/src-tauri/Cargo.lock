@@ -2789,37 +2789,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "opencode-desktop"
-version = "0.0.0"
-dependencies = [
- "futures",
- "gtk",
- "listeners",
- "reqwest",
- "semver",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-clipboard-manager",
- "tauri-plugin-dialog",
- "tauri-plugin-http",
- "tauri-plugin-notification",
- "tauri-plugin-opener",
- "tauri-plugin-os",
- "tauri-plugin-process",
- "tauri-plugin-shell",
- "tauri-plugin-single-instance",
- "tauri-plugin-store",
- "tauri-plugin-updater",
- "tauri-plugin-window-state",
- "tokio",
- "uuid",
- "webkit2gtk",
- "windows",
-]
-
-[[package]]
 name = "option-ext"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4872,6 +4841,37 @@ dependencies = [
  "futf",
  "mac",
  "utf-8",
+]
+
+[[package]]
+name = "thinkflow-desktop"
+version = "0.0.0"
+dependencies = [
+ "futures",
+ "gtk",
+ "listeners",
+ "reqwest",
+ "semver",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-clipboard-manager",
+ "tauri-plugin-dialog",
+ "tauri-plugin-http",
+ "tauri-plugin-notification",
+ "tauri-plugin-opener",
+ "tauri-plugin-os",
+ "tauri-plugin-process",
+ "tauri-plugin-shell",
+ "tauri-plugin-single-instance",
+ "tauri-plugin-store",
+ "tauri-plugin-updater",
+ "tauri-plugin-window-state",
+ "tokio",
+ "uuid",
+ "webkit2gtk",
+ "windows",
 ]
 
 [[package]]
