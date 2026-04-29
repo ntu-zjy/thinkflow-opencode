@@ -12,6 +12,7 @@ const MODELS = [
 
 export function AgentNode({ id, data, selected }: NodeProps<AgentNodeType>) {
   const updateNodeData = useCanvasStore((s) => s.updateNodeData)
+  const removeNode = useCanvasStore((s) => s.removeNode)
   const runWorkflow = useCanvasStore((s) => s.runWorkflow)
   const abortWorkflow = useCanvasStore((s) => s.abortWorkflow)
 
@@ -41,6 +42,13 @@ export function AgentNode({ id, data, selected }: NodeProps<AgentNodeType>) {
         <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
           <div className={`tf-status-dot ${data.status}`} title={statusLabel[data.status]} />
           <span style={{ fontSize: 10, color: "var(--text-muted)" }}>{statusLabel[data.status]}</span>
+          {!isRunning && (
+            <button className="tf-node__delete" onClick={() => removeNode(id)} title="删除节点">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          )}
         </div>
       </div>
 
