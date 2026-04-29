@@ -117,11 +117,3 @@ export async function runMockWorkflow(
   onDone()
 }
 
-// ─── URL 内容抓取 ──────────────────────────────────────────────────────────────
-
-export async function fetchUrlContent(url: string): Promise<string> {
-  const resp = await fetch(url, { signal: AbortSignal.timeout(5000) }).catch(() => null)
-  if (!resp?.ok) return ""
-  const text = await resp.text()
-  return text.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 4000)
-}
