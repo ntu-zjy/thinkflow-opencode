@@ -18,25 +18,14 @@
 - [x] 多输出节点扇形阶梯初始布局（知乎 / 公众号 / 日记三平台预设）
 - [x] 多输出节点各自独立 AI 会话 + 平台专属指令
 - [x] Vitest 测试套件 35 个用例全部通过
+- [x] `OPENCODE_WORKDIR` 改为 vite define 动态注入，不再硬编码开发机路径
+- [x] TypeScript 编译零错误（File.path、Canvas 右键事件、updateNodeData 类型均已修复）
+- [x] 文件输入改为 FileReader 读取文本内容（显示文件名 + 字数）
+- [x] 链接输入先 fetch 抓取页面内容，CORS 失败时回退为指令告知 AI 自行抓取
 
 ---
 
 ## 待完成
-
-### 🔴 必须修复
-
-- [ ] **`OPENCODE_WORKDIR` 硬编码绝对路径**
-  `app/src/services/opencodeClient.ts:17` 当前写死为开发机路径，换机器即失效。
-  应通过 `vite.config.ts` 计算路径后注入 `import.meta.env.VITE_OPENCODE_WORKDIR`。
-
-- [ ] **三处 TypeScript 编译错误**
-  - `InputNode.tsx:36` — `File.path` 不存在，改用 `file.name`
-  - `Canvas.tsx:63` — 右键事件回调参数类型不兼容
-  - `canvasStore.ts:153` — `updateNodeData` set() 返回值类型推断错误
-
-- [ ] **输入类型为文件时，其实输入的是文件地址**
-
-- [ ] **输入的是链接的时候，无法获取链接信息，需要查一下问题在哪里并修复**
 
 ### 🟡 影响体验
 
