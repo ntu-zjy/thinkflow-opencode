@@ -1,0 +1,128 @@
+.tf-topbar {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  background: var(--tf-bg-secondary);
+  border-bottom: 1px solid var(--tf-border);
+  flex-shrink: 0;
+  gap: 12px;
+}
+
+.tf-topbar__left {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.tf-topbar__title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  color: var(--tf-text-primary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: var(--tf-radius-sm);
+  transition: background 0.12s;
+  font-family: var(--tf-font-body);
+}
+
+.tf-topbar__title:hover {
+  background: var(--tf-bg-hover);
+}
+
+.tf-topbar__title svg {
+  opacity: 0;
+  transition: opacity 0.15s;
+  color: var(--tf-text-muted);
+}
+
+.tf-topbar__title:hover svg {
+  opacity: 1;
+}
+
+.tf-topbar__title-static {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--tf-text-primary);
+  padding: 4px 6px;
+}
+
+.tf-topbar__title-input.ant-input {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--tf-text-primary);
+  background: transparent;
+  padding: 4px 6px;
+  height: auto;
+  width: 240px;
+}
+
+.tf-topbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tf-topbar__divider {
+  width: 1px;
+  height: 20px;
+  background: var(--tf-border);
+  margin: 0 4px;
+}
+
+.tf-toolbar-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: var(--tf-radius-sm);
+  border: 1px solid var(--tf-border);
+  background: transparent;
+  color: var(--tf-text-secondary);
+  font-size: 12px;
+  font-family: var(--tf-font-body);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.tf-toolbar-btn:hover {
+  background: var(--tf-bg-hover);
+  color: var(--tf-text-primary);
+  border-color: var(--tf-border-light);
+}
+
+.tf-toolbar-btn--input:hover {
+  border-color: var(--tf-node-input);
+  color: var(--tf-node-input);
+}
+
+.tf-toolbar-btn--agent:hover {
+  border-color: var(--tf-node-agent);
+  color: var(--tf-node-agent);
+}
+
+.tf-toolbar-btn--output:hover {
+  border-color: var(--tf-node-output);
+  color: var(--tf-node-output);
+}
+
+.tf-toolbar-btn--run {
+  background: var(--tf-accent);
+  border-color: var(--tf-accent);
+  color: #0d0d10;
+  font-weight: 500;
+}
+
+.tf-toolbar-btn--run:hover {
+  background: #7adfca;
+  border-color: #7adfca;
+  color: #0d0d10;
+}

@@ -1,0 +1,21 @@
+.tf-layout {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--tf-bg-primary);
+}
+
+.tf-layout__main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: margin-left 0.2s ease;
+}
+
+.tf-layout__content {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
