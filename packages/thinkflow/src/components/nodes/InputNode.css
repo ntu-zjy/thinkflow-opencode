@@ -1,0 +1,66 @@
+.tf-node--input {
+  border-color: rgba(107, 138, 255, 0.25);
+}
+
+.tf-node--input:hover {
+  border-color: rgba(107, 138, 255, 0.5);
+}
+
+.tf-input-type-select {
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.tf-input-textarea,
+.tf-input-field {
+  width: 100%;
+  margin-top: 0;
+  font-size: 13px;
+}
+
+.tf-drop-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 16px;
+  border: 1.5px dashed var(--tf-border-light);
+  border-radius: var(--tf-radius-md);
+  cursor: pointer;
+  color: var(--tf-text-muted);
+  font-size: 12px;
+  transition: border-color 0.15s, background 0.15s;
+  text-align: center;
+}
+
+.tf-drop-zone:hover {
+  border-color: var(--tf-node-input);
+  background: rgba(107, 138, 255, 0.05);
+  color: var(--tf-text-secondary);
+}
+
+.tf-drop-zone--has-file {
+  border-style: solid;
+  border-color: var(--tf-node-input);
+  background: rgba(107, 138, 255, 0.08);
+  color: var(--tf-node-input);
+  flex-direction: row;
+  gap: 8px;
+}
+
+.tf-drop-zone__name {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.tf-drop-zone__hint {
+  font-size: 11px;
+  color: var(--tf-text-muted);
+}
+
+.tf-feed-config {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}

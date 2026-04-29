@@ -1,0 +1,206 @@
+/* ThinkFlow Design System - Inspired by editorial restraint with bursts of accent energy */
+
+:root {
+  /* === Canvas Black / Dark Theme === */
+  --tf-bg-primary: #0d0d10;
+  --tf-bg-secondary: #141418;
+  --tf-bg-card: #1a1a20;
+  --tf-bg-elevated: #22222a;
+  --tf-bg-hover: #2a2a35;
+
+  /* === Borders === */
+  --tf-border: #2e2e3a;
+  --tf-border-light: #3a3a48;
+  --tf-border-accent: rgba(99, 210, 186, 0.3);
+
+  /* === Text === */
+  --tf-text-primary: #f0eee8;
+  --tf-text-secondary: #9896a0;
+  --tf-text-muted: #5a5870;
+
+  /* === Brand Colors - Deep teal meets warm coral === */
+  --tf-accent: #63d2ba;          /* Jade teal - primary accent */
+  --tf-accent-dim: rgba(99, 210, 186, 0.15);
+  --tf-accent-2: #ff7557;        /* Coral - secondary accent */
+  --tf-accent-2-dim: rgba(255, 117, 87, 0.15);
+  --tf-gold: #e8c56a;            /* Warm gold - for status/highlights */
+
+  /* === Node Status Colors === */
+  --tf-status-idle: #5a5870;
+  --tf-status-running: #63d2ba;
+  --tf-status-done: #4eda8f;
+  --tf-status-error: #ff5757;
+
+  /* === Node Type Colors === */
+  --tf-node-input: #6b8aff;      /* Blue-violet for input */
+  --tf-node-agent: #63d2ba;      /* Teal for agent */
+  --tf-node-output: #ff7557;     /* Coral for output */
+
+  /* === Typography === */
+  --tf-font-display: "DM Serif Display", Georgia, serif;
+  --tf-font-body: "Sora", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --tf-font-mono: "JetBrains Mono", "Fira Code", monospace;
+
+  /* === Spacing === */
+  --tf-radius-sm: 6px;
+  --tf-radius-md: 10px;
+  --tf-radius-lg: 16px;
+  --tf-radius-xl: 24px;
+  --tf-radius-pill: 9999px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--tf-bg-primary);
+  color: var(--tf-text-primary);
+  font-family: var(--tf-font-body);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* === Scrollbar === */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--tf-border-light);
+  border-radius: var(--tf-radius-pill);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--tf-text-muted);
+}
+
+/* === Selection === */
+::selection {
+  background: var(--tf-accent-dim);
+  color: var(--tf-accent);
+}
+
+/* === ReactFlow overrides === */
+.react-flow {
+  background: var(--tf-bg-primary) !important;
+}
+
+.react-flow__background {
+  background-color: var(--tf-bg-primary) !important;
+}
+
+.react-flow__background pattern circle,
+.react-flow__background pattern rect {
+  fill: var(--tf-border) !important;
+}
+
+.react-flow__edge-path {
+  stroke: var(--tf-border-light) !important;
+  stroke-width: 1.5px !important;
+}
+
+.react-flow__edge.animated .react-flow__edge-path {
+  stroke: var(--tf-accent) !important;
+  stroke-dasharray: 8 4 !important;
+  animation: edgeFlow 1.2s linear infinite !important;
+}
+
+@keyframes edgeFlow {
+  from { stroke-dashoffset: 24; }
+  to { stroke-dashoffset: 0; }
+}
+
+.react-flow__arrowhead polyline {
+  stroke: var(--tf-border-light) !important;
+  fill: var(--tf-border-light) !important;
+}
+
+.react-flow__controls {
+  background: var(--tf-bg-card) !important;
+  border: 1px solid var(--tf-border) !important;
+  border-radius: var(--tf-radius-md) !important;
+  box-shadow: none !important;
+}
+
+.react-flow__controls-button {
+  background: transparent !important;
+  border: none !important;
+  color: var(--tf-text-secondary) !important;
+  fill: var(--tf-text-secondary) !important;
+}
+
+.react-flow__controls-button:hover {
+  background: var(--tf-bg-hover) !important;
+  color: var(--tf-text-primary) !important;
+  fill: var(--tf-text-primary) !important;
+}
+
+.react-flow__minimap {
+  background: var(--tf-bg-card) !important;
+  border: 1px solid var(--tf-border) !important;
+  border-radius: var(--tf-radius-md) !important;
+}
+
+/* === Ant Design overrides === */
+.ant-btn-primary {
+  background: var(--tf-accent) !important;
+  border-color: var(--tf-accent) !important;
+  color: #0d0d10 !important;
+  font-weight: 500;
+}
+
+.ant-btn-primary:hover {
+  background: #7adfca !important;
+  border-color: #7adfca !important;
+}
+
+/* === Animations === */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(-8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes statusGlow {
+  0%, 100% { box-shadow: 0 0 4px currentColor; }
+  50% { box-shadow: 0 0 12px currentColor; }
+}
+
+.tf-animate-in {
+  animation: fadeIn 0.25s ease forwards;
+}
+
+.tf-slide-in {
+  animation: slideIn 0.2s ease forwards;
+}

@@ -39,7 +39,6 @@
 记忆是 ThinkFlow 的核心差异化能力，解决上下文复用难题。
 
 ### 记忆类型
-结构化知识库
 - 账号人设记忆（写作风格、口头禅、价值观）
 - 内容素材记忆（金句库、案例库、数据）
 - 用户偏好记忆（常用平台、发布习惯）
@@ -69,6 +68,8 @@
 - 选择使用的 Agent/Plugin 组合
 - 用指示灯和动态的箭头流动或者加载条，显示运行状态（待运行/运行中/完成/错误）
 - 点击可查看具体消息列表
+- 多个输入节点都可以连接在Agent节点上
+- Agent 节点可以连接到多个输出节点
 
 4. **输出节点**
 - 选择目标平台格式
@@ -107,14 +108,10 @@ Readme支持中英双语。
 用文件树说明产品设计结构。
 快速熟悉，快速上手。
 
-# 系统架构设计规范
-见SYSTEM.md
-
 # UI/UX 风格设计
-见DESIGN.md
-
-# UI/UX 布局/交互设计
-见UI_UX.md
+**禁止**使用表情包作为图标和组件，所有图标必须下载自互联网知名图标库（如Iconfinder、Flaticon、Ant design）
+详细的风格设计原则必须参照DESIGN.md
+产品的logo icon采用艺术字体设计，独特且具有美感，禁止AI味。
 
 # 设计原则
 <frontend_aesthetics>
@@ -136,9 +133,6 @@ Avoid generic AI-generated aesthetics:
  
 Interpret creatively and make unexpected choices that feel genuinely designed for the context. Vary between light and dark themes, different fonts, different aesthetics. You still tend to converge on common choices (Space Grotesk, for example) across generations. Avoid this: it is critical that you think outside the box!
 </frontend_aesthetics>
-
-# 接口文档
-见endpoints目录树，**所有接口设计必须严格参照和遵守**
 
 # 具体实现技术栈
 ## 桌面端
@@ -209,7 +203,7 @@ Interpret creatively and make unexpected choices that feel genuinely designed fo
 ## 包含在 MVP
 - 基础画布：输入 → Agent → 输出 单节点，但是可以多个输入和多个输出
 - 5 种输入类型：文本、文件(PDF/图片)、URL、记忆、信息流
-- 3 种输出平台：小红书、知乎、公众号、漫剧的剧本
+- 3 种输出平台类型：小红书、知乎、公众号、漫剧的剧本
 - 记忆库基础功能
 - 本地桌面版运行
 - 邮箱注册
@@ -218,7 +212,6 @@ Interpret creatively and make unexpected choices that feel genuinely designed fo
 - 管理员超级号
 - 内测码
 - dry-run模式
-- 调试模式
 
 ## 不包含在 MVP
 - 复杂画布（循环、条件分支）
@@ -227,9 +220,11 @@ Interpret creatively and make unexpected choices that feel genuinely designed fo
 - 插件市场
 - 语音输入
 
-# 安全设计
-见SECURITY.md
-
 # 要求
-**禁止**改动本文件，本文件仅允许人类修改
-
+1. **禁止**改动本文件，本文件仅允许人类修改.
+2. 在使用依赖库之前，**必须**使用context7搜索相关文档。
+3. 代码**必须**全部放置在packages下面的thinkflow下。
+4. 在编写代码前，必须了解packages的内容，了解opencode这个架构的编写方式和背景信息。
+5. 遇到报错问题，或者是用户的新需求，需要考虑从**全局系统**的层面来解决，而非在一个点上不停的打补丁，从而导致漏洞越来越多。
+6. 在交付代码之前，**必须**跑通测试，没有测试问题了再交付。
+7. 必须附带README，包含如何测试
