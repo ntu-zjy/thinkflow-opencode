@@ -1,0 +1,159 @@
+import { useState, useCallback } from "react"
+import { Handle, Position } from "@xyflow/react"
+import type { NodeProps } from "@xyflow/react"
+import type { InputNodeType, InputType, McpTool } from "../types"
+import { useCanvasStore } from "../store/canvasStore"
+import { useMemoryStore } from "../store/memoryStore"
+
+const INPUT_TABS: { key: InputType; label: string }[] = [
+  { key: "text", label: "文本" },
+  { key: "url", label: "链接" },
+  { key: "file", label: "文件" },
+  { key: "memory", label: "记忆" },
+  { key: "feed", label: "信息流" },
+]
+
+const MCP_TOOLS: { key: McpTool; label: string; desc: string }[] = [
+  { key: "fetch", label: "Fetch", desc: "抓取任意网页内容" },
+  { key: "github", label: "GitHub", desc: "热榜 / Trending 数据" },
+]
+
+export function InputNode({ id, data, selected }: NodeProps<InputNodeType>) {
+  const updateNodeData = useCanvasStore((s) => s.updateNodeData)
+  const entries = useMemoryStore((s) => s.entries)
+
+  const [isDragging, setIsDragging] = useState(false)
+
+  const setType = (t: InputType) => updateNodeData(id, { inputType: t })
+  const setValue = (v: string) => updateNodeData(id, { value: v })
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault()
+      setIsDragging(false)
+      const file = e.dataTransfer.files[0]
+      if (file) {
+        setValue(file.path ?? file.name)
+        setType("file")
+      }
+    },
+    [id],
+  )
+
+  return (
+    <div className={`tf-node${selected ? " selected" : ""}`}>
+      <div className="tf-node__header">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: "var(--accent)" }}>
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+          <polyline points="17 8 12 3 7 8" />
+          <line x1="12" y1="3" x2="12" y2="15" />
+        </svg>
+        <span className="tf-node__title">输入</span>
+      </div>
+
+      <div className="tf-node__body">
+        {/* 类型切换 */}
+        <div className="tf-tabs">
+          {INPUT_TABS.map((tab) => (
+            <button
+              key={tab.key}
+              className={`tf-tab${data.inputType === tab.key ? " active" : ""}`}
+              onClick={() => setType(tab.key)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* 文本输入 */}
+        {data.inputType === "text" && (
+          <textarea
+            className="tf-textarea"
+            placeholder="输入文本内容..."
+            value={data.value}
+            onChange={(e) => setValue(e.target.value)}
+            rows={4}
+          />
+        )}
+
+        {/* URL 输入 */}
+        {data.inputType === "url" && (
+          <input
+            className="tf-input"
+            type="url"
+            placeholder="https://..."
+            value={data.value}
+            onChange={(e) => setValue(e.target.value)}
+          />
+        )}
+
+        {/* 文件拖拽 */}
+        {data.inputType === "file" && (
+          <div
+            className={`tf-dropzone${isDragging ? " active" : ""}`}
+            onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
+            onDragLeave={() => setIsDragging(false)}
+            onDrop={handleDrop}
+            onClick={() => {
+              const input = document.createElement("input")
+              input.type = "file"
+              input.onchange = (e) => {
+                const file = (e.target as HTMLInputElement).files?.[0]
+                if (file) setValue(file.name)
+              }
+              input.click()
+            }}
+          >
+            {data.value ? (
+              <span style={{ color: "var(--text-secondary)" }}>{data.value}</span>
+            ) : (
+              <>
+                <div style={{ fontSize: 20, marginBottom: 4 }}>📂</div>
+                <div>拖拽文件或点击选择</div>
+                <div style={{ fontSize: 10, marginTop: 4, color: "var(--text-muted)" }}>支持 PDF、图片、文本文件</div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* 记忆选择 */}
+        {data.inputType === "memory" && (
+          <select
+            className="tf-select"
+            value={data.memoryEntryId ?? ""}
+            onChange={(e) => {
+              const entry = entries.find((en) => en.id === e.target.value)
+              updateNodeData(id, { memoryEntryId: e.target.value, value: entry?.content ?? "" })
+            }}
+          >
+            <option value="">— 选择记忆 —</option>
+            {entries.map((entry) => (
+              <option key={entry.id} value={entry.id}>
+                {entry.title}
+              </option>
+            ))}
+          </select>
+        )}
+
+        {/* 信息流（MCP 工具） */}
+        {data.inputType === "feed" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+            {MCP_TOOLS.map((tool) => (
+              <button
+                key={tool.key}
+                className={`tf-btn${data.mcpTool === tool.key ? " tf-btn-primary" : " tf-btn-ghost"}`}
+                style={{ justifyContent: "flex-start" }}
+                onClick={() => updateNodeData(id, { mcpTool: tool.key, value: tool.key })}
+              >
+                <span style={{ fontWeight: 600 }}>{tool.label}</span>
+                <span style={{ fontSize: 11, opacity: 0.7 }}>{tool.desc}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <Handle type="source" position={Position.Right} />
+    </div>
+  )
+}
