@@ -21,7 +21,11 @@
 - [x] `OPENCODE_WORKDIR` 改为 vite define 动态注入，不再硬编码开发机路径
 - [x] TypeScript 编译零错误（File.path、Canvas 右键事件、updateNodeData 类型均已修复）
 - [x] 文件输入改为 FileReader 读取文本内容（显示文件名 + 字数）
-- [x] 链接输入先 fetch 抓取页面内容，CORS 失败时回退为指令告知 AI 自行抓取
+- [x] 链接输入直接传 URL 给 OpenCode Agent，由 Agent 调用工具读取内容
+- [x] 节点删除：三类节点 header 加 × 按钮（hover 显示，运行中 AgentNode 隐藏）
+- [x] 输出卡片移除右上角 platform badge
+- [x] 运行时相关连接线变为流动虚线动画，完成/失败后恢复静止
+- [x] Abort 改为数组记录所有 sessionId，逐一终止
 
 ---
 
@@ -32,9 +36,6 @@
 - [ ] **多输出节点改为并行调用**
   当前三个输出节点串行，约 3× 单次耗时。改为 `Promise.all` 并行，各自独立 SSE 订阅。
 
-- [ ] **Abort 仅终止最后一个 session**
-  `abortWorkflow` 只记录了最后一次 sessionId。多 session 时需用数组逐一 abort。
-
 - [ ] **画布状态持久化**
   刷新后节点重置为初始示例。用 `zustand/middleware persist` 存 localStorage，
   或提供"导出 / 导入画布 JSON"功能。
@@ -42,9 +43,15 @@
 - [ ] **记忆类型输入节点接入 memoryStore**
   InputNode 记忆标签的下拉选项目前是静态 mock，应读取 `memoryStore.entries` 动态渲染。
 
-- [ ] **不同输出结构的提示词优化，目前我随便输入1111就有专门的内容，这是不合理的**
+
 
 ### 🟢 锦上添花
+
+- [ ] **不同输出结构的提示词优化，目前我随便输入1111就有专门的内容，这是不合理的**
+
+- [ ] **增加输出节点的批量输出模式，也就是一个节点可以重复输出多次**
+
+- [ ] **输出节点的渲染还是不够好**
 
 - [ ] **模型列表动态获取**
   AgentNode 模型下拉目前只有 `moonshotai/kimi-k2.6`。
