@@ -84,10 +84,12 @@ interface CanvasStore {
   setNodes: (nodes: FlowNode[]) => void
   setEdges: (edges: FlowEdge[]) => void
   addNode: (type: "input" | "agent" | "output", position?: { x: number; y: number }) => void
+  removeNode: (id: string) => void
   updateNodeData: <T extends Record<string, unknown>>(id: string, data: Partial<T>) => void
   runWorkflow: (agentNodeId: string) => Promise<void>
   abortWorkflow: (agentNodeId: string) => void
   _unsubscribe?: () => void
+  _sessionIds: string[]
 }
 
 // ─── Store 实现 ───────────────────────────────────────────────────────────────
@@ -95,6 +97,7 @@ interface CanvasStore {
 export const useCanvasStore = create<CanvasStore>((set, get) => ({
   nodes: [initialInput, initialAgent, initialOutput1, initialOutput2, initialOutput3] as FlowNode[],
   edges: initialEdges,
+  _sessionIds: [],
 
   onNodesChange: (changes: NodeChange<FlowNode>[]) =>
     set((s) => ({ nodes: applyNodeChanges(changes, s.nodes) })),
@@ -149,6 +152,12 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
     set((s) => ({ nodes: [...s.nodes, node] }))
   },
 
+  removeNode: (id) =>
+    set((s) => ({
+      nodes: s.nodes.filter((n) => n.id !== id),
+      edges: s.edges.filter((e) => e.source !== id && e.target !== id),
+    })),
+
   updateNodeData: (id, data) =>
     set((s): Partial<CanvasStore> => ({
       nodes: s.nodes.map((n) =>
@@ -189,6 +198,15 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
 
     updateNodeData<AgentNodeData>(agentNodeId, { status: "running", logs: [] })
     outputNodes.forEach((o) => updateNodeData<OutputNodeData>(o.id, { content: "" }))
+    // 运行时将相关 edges 设为 animated
+    set((s) => ({
+      edges: s.edges.map((e) =>
+        e.source === agentNodeId || e.target === agentNodeId
+          ? { ...e, animated: true }
+          : e
+      ),
+    }))
+    set({ _sessionIds: [] })
     appendLog("开始运行工作流...")
 
     const dryRun = agentNode.data.dryRun
@@ -278,6 +296,7 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
 
         appendLog(`[${i + 1}/${outputNodes.length}] 创建 ${outputNode.data.platform} 会话...`)
         const sessionId = await createSession()
+        set((s) => ({ _sessionIds: [...s._sessionIds, sessionId] }))
         updateNodeData<AgentNodeData>(agentNodeId, { sessionId })
 
         let outputBuffer = ""
@@ -334,16 +353,30 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
     } catch (err) {
       appendLog(`运行失败: ${(err as Error).message}`, "error")
       updateNodeData<AgentNodeData>(agentNodeId, { status: "error" })
+    } finally {
+      // 完成/失败后恢复 edges 静止
+      set((s) => ({
+        edges: s.edges.map((e) =>
+          e.source === agentNodeId || e.target === agentNodeId
+            ? { ...e, animated: false }
+            : e
+        ),
+      }))
     }
   },
 
   abortWorkflow: (agentNodeId) => {
-    const { nodes, _unsubscribe, updateNodeData } = get()
+    const { _unsubscribe, _sessionIds, updateNodeData } = get()
     _unsubscribe?.()
-    const agent = nodes.find((n) => n.id === agentNodeId) as AgentNodeType | undefined
-    if (agent?.data.sessionId) {
-      abortSession(agent.data.sessionId)
-    }
+    _sessionIds.forEach((sid) => abortSession(sid))
+    set({ _sessionIds: [] })
+    set((s) => ({
+      edges: s.edges.map((e) =>
+        e.source === agentNodeId || e.target === agentNodeId
+          ? { ...e, animated: false }
+          : e
+      ),
+    }))
     updateNodeData<AgentNodeData>(agentNodeId, { status: "idle" })
   },
 }))
