@@ -1,0 +1,803 @@
+/* ─── ThinkFlow 全局样式 ────────────────────────────────────────────────── */
+
+@import url("https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&display=swap");
+
+/* ─── 共享不变变量 ───────────────────────────────────────────────────────── */
+
+:root {
+  /* 圆角 */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  /* 间距 */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+
+  /* 字体 */
+  --font-display: "Syne", sans-serif;
+  --font-body: "Outfit", sans-serif;
+  --font-code: "DM Mono", monospace;
+
+  /* 状态色（两套主题共用） */
+  --status-idle: #9ca3af;
+  --status-running: #f59e0b;
+  --status-done: #10b981;
+  --status-error: #ef4444;
+}
+
+/* ─── 浅色主题（默认）— Lovable 羊皮纸风格 ──────────────────────────────── */
+
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+
+  /* 背景 */
+  --bg-base: #f7f4ed;
+  --bg-canvas: #f7f4ed;
+  --bg-node: #ffffff;
+  --bg-node-hover: #faf9f6;
+  --bg-surface: #f0ede5;
+  --bg-surface-2: #e8e5de;
+  --bg-input: #faf9f6;
+  --bg-overlay: rgba(247, 244, 237, 0.92);
+  --bg-toolbar: rgba(255, 255, 255, 0.95);
+
+  /* 强调色 — 炭黑（主操作色） */
+  --accent: #1c1c1c;
+  --accent-dim: #3a3a3a;
+  --accent-text: #fcfbf8;
+  --accent-glow: rgba(28, 28, 28, 0.12);
+  --accent-subtle: rgba(28, 28, 28, 0.06);
+
+  /* 文字 */
+  --text-primary: #1c1c1c;
+  --text-secondary: rgba(28, 28, 28, 0.72);
+  --text-muted: #8a8a87;
+  --text-code: #2d6a4f;
+
+  /* 边框 — 明显可见 */
+  --border: #d4d0c8;
+  --border-hover: rgba(28, 28, 28, 0.35);
+  --border-accent: rgba(28, 28, 28, 0.55);
+  --border-focus: rgba(59, 130, 246, 0.6);
+
+  /* 节点阴影 */
+  --shadow-node: 0 1px 4px rgba(28, 28, 28, 0.1), 0 0 0 1px rgba(28, 28, 28, 0.06);
+  --shadow-node-selected: 0 0 0 2px rgba(28, 28, 28, 0.6), 0 4px 16px rgba(28, 28, 28, 0.14);
+  --shadow-panel: 0 4px 24px rgba(28, 28, 28, 0.14);
+
+  /* 按钮（主要） */
+  --btn-primary-bg: #1c1c1c;
+  --btn-primary-text: #fcfbf8;
+  --btn-primary-shadow: rgba(255,255,255,0.2) 0px 0.5px 0px 0px inset, rgba(0,0,0,0.2) 0px 0px 0px 0.5px inset, rgba(0,0,0,0.05) 0px 1px 2px 0px;
+}
+
+/* ─── 深色主题 — 深夜工作室 ──────────────────────────────────────────────── */
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* 背景 */
+  --bg-base: #0b0f1a;
+  --bg-canvas: #0b0f1a;
+  --bg-node: #111827;
+  --bg-node-hover: #162032;
+  --bg-surface: #1a2235;
+  --bg-surface-2: #1e2a3a;
+  --bg-input: #0d1525;
+  --bg-overlay: rgba(7, 9, 18, 0.85);
+  --bg-toolbar: rgba(11, 15, 26, 0.92);
+
+  /* 强调色 — 琥珀暖光 */
+  --accent: #f59e0b;
+  --accent-dim: #d97706;
+  --accent-text: #0b0f1a;
+  --accent-glow: rgba(245, 158, 11, 0.25);
+  --accent-subtle: rgba(245, 158, 11, 0.08);
+
+  /* 文字 */
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #4b5563;
+  --text-code: #7dd3fc;
+
+  /* 边框 */
+  --border: #1e293b;
+  --border-hover: #2d3f55;
+  --border-accent: rgba(245, 158, 11, 0.4);
+  --border-focus: rgba(245, 158, 11, 0.7);
+
+  /* 节点阴影 */
+  --shadow-node: 0 4px 24px rgba(0, 0, 0, 0.5), 0 1px 0 rgba(255, 255, 255, 0.04) inset;
+  --shadow-node-selected: 0 0 0 2px var(--accent), 0 4px 32px rgba(245, 158, 11, 0.2);
+  --shadow-panel: 0 8px 40px rgba(0, 0, 0, 0.6);
+
+  /* 按钮（主要） */
+  --btn-primary-bg: #f59e0b;
+  --btn-primary-text: #0b0f1a;
+  --btn-primary-shadow: none;
+}
+
+/* ─── 重置 ────────────────────────────────────────────────────────────────── */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ─── ReactFlow 画布覆写 ─────────────────────────────────────────────────── */
+
+.react-flow__background {
+  background: var(--bg-base) !important;
+}
+
+/* 清除 ReactFlow 节点容器自带的白色背景和边框 */
+.react-flow__node {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  font-size: inherit !important;
+  color: inherit !important;
+}
+
+.react-flow__background pattern circle {
+  fill: var(--border);
+}
+
+.react-flow__edge-path {
+  stroke: var(--border-hover) !important;
+  stroke-width: 2 !important;
+}
+
+.react-flow__edge.animated .react-flow__edge-path {
+  stroke: var(--accent) !important;
+  stroke-dasharray: 6 3;
+  animation: dashdraw 0.5s linear infinite;
+}
+
+@keyframes dashdraw {
+  from { stroke-dashoffset: 18; }
+  to { stroke-dashoffset: 0; }
+}
+
+.react-flow__handle {
+  width: 12px !important;
+  height: 12px !important;
+  background: var(--bg-surface) !important;
+  border: 2px solid var(--border-hover) !important;
+  transition: all 0.15s;
+}
+
+.react-flow__handle:hover,
+.react-flow__handle-connecting {
+  background: var(--accent) !important;
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 3px var(--accent-glow) !important;
+}
+
+.react-flow__controls {
+  background: var(--bg-surface) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--shadow-panel) !important;
+  overflow: hidden;
+}
+
+.react-flow__controls button {
+  background: transparent !important;
+  border: none !important;
+  color: var(--text-secondary) !important;
+  border-bottom: 1px solid var(--border) !important;
+  width: 32px !important;
+  height: 32px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 0.15s;
+}
+
+.react-flow__controls button:hover {
+  background: var(--bg-surface-2) !important;
+  color: var(--text-primary) !important;
+}
+
+.react-flow__controls button:last-child {
+  border-bottom: none !important;
+}
+
+.react-flow__controls-button svg {
+  fill: currentColor !important;
+}
+
+.react-flow__minimap {
+  background: var(--bg-surface) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-md) !important;
+}
+
+/* ─── 节点通用样式 ───────────────────────────────────────────────────────── */
+
+.tf-node {
+  background: var(--bg-node);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-node);
+  min-width: 280px;
+  max-width: 360px;
+  transition: box-shadow 0.2s, border-color 0.2s;
+  font-family: var(--font-body);
+  position: relative;
+}
+
+.tf-node:hover {
+  border-color: var(--border-hover);
+}
+
+.tf-node.selected {
+  box-shadow: var(--shadow-node-selected);
+  border-color: var(--border-accent);
+}
+
+.tf-node__header {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.tf-node__title {
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.tf-node__body {
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* ─── 输入控件 ──────────────────────────────────────────────────────────── */
+
+.tf-input,
+.tf-textarea,
+.tf-select {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 13px;
+  padding: var(--space-2) var(--space-3);
+  width: 100%;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.tf-input:focus,
+.tf-textarea:focus,
+.tf-select:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 2px var(--accent-glow);
+}
+
+.tf-textarea {
+  resize: vertical;
+  min-height: 72px;
+  line-height: 1.6;
+}
+
+.tf-select {
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2364748b' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px;
+}
+
+/* ─── 标签页切换 ─────────────────────────────────────────────────────────── */
+
+.tf-tabs {
+  display: flex;
+  gap: 2px;
+  background: var(--bg-input);
+  padding: 3px;
+  border-radius: var(--radius-sm);
+}
+
+.tf-tab {
+  flex: 1;
+  padding: 4px 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  font-size: 11px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.tf-tab.active {
+  background: var(--bg-surface-2);
+  color: var(--accent);
+}
+
+.tf-tab:hover:not(.active) {
+  color: var(--text-secondary);
+}
+
+/* ─── 按钮 ───────────────────────────────────────────────────────────────── */
+
+.tf-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: 6px 14px;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.tf-btn-primary {
+  background: var(--btn-primary-bg, var(--accent));
+  color: var(--btn-primary-text, #0b0f1a);
+  box-shadow: var(--btn-primary-shadow, none);
+}
+
+.tf-btn-primary:hover {
+  background: var(--accent-dim);
+  opacity: 0.9;
+}
+
+.tf-btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+.tf-btn-ghost:hover {
+  background: var(--bg-surface-2);
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+}
+
+.tf-btn-danger {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--status-error);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.tf-btn-danger:hover {
+  background: rgba(239, 68, 68, 0.25);
+}
+
+.tf-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ─── 状态指示灯 ─────────────────────────────────────────────────────────── */
+
+.tf-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.tf-status-dot.idle { background: var(--status-idle); }
+.tf-status-dot.running {
+  background: var(--status-running);
+  animation: pulse-amber 1.2s ease-in-out infinite;
+}
+.tf-status-dot.done { background: var(--status-done); }
+.tf-status-dot.error { background: var(--status-error); }
+
+@keyframes pulse-amber {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 var(--accent-glow); }
+  50% { opacity: 0.7; box-shadow: 0 0 0 4px transparent; }
+}
+
+/* ─── 日志区域 ───────────────────────────────────────────────────────────── */
+
+.tf-logs {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  max-height: 160px;
+  overflow-y: auto;
+  font-family: var(--font-code);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.tf-log-line { color: var(--text-secondary); }
+.tf-log-line.tool { color: var(--text-code); }
+.tf-log-line.output { color: var(--status-done); }
+.tf-log-line.error { color: var(--status-error); }
+
+/* ─── 内容预览 ───────────────────────────────────────────────────────────── */
+
+.tf-preview {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3) var(--space-4);
+  max-height: 200px;
+  overflow-y: auto;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--text-secondary);
+  min-height: 60px;
+}
+
+.tf-preview h1, .tf-preview h2, .tf-preview h3 {
+  font-family: var(--font-display);
+  color: var(--text-primary);
+  margin-bottom: var(--space-2);
+}
+
+.tf-preview p { margin-bottom: var(--space-2); }
+.tf-preview strong { color: var(--text-primary); }
+.tf-preview code {
+  font-family: var(--font-code);
+  background: var(--bg-surface-2);
+  padding: 1px 4px;
+  border-radius: 3px;
+  color: var(--text-code);
+}
+
+.tf-preview-empty {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* ─── 平台徽章 ───────────────────────────────────────────────────────────── */
+
+.tf-platform-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px 8px;
+  border-radius: 99px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.tf-platform-badge.zhihu { background: rgba(0, 112, 210, 0.1); color: #0070d2; border: 1px solid rgba(0, 112, 210, 0.25); }
+.tf-platform-badge.wechat { background: rgba(7, 193, 96, 0.1); color: #07c160; border: 1px solid rgba(7, 193, 96, 0.25); }
+.tf-platform-badge.diary { background: rgba(180, 120, 40, 0.1); color: #b47828; border: 1px solid rgba(180, 120, 40, 0.25); }
+
+[data-theme="dark"] .tf-platform-badge.zhihu { background: rgba(0, 150, 255, 0.15); color: #60a5fa; border: 1px solid rgba(96, 165, 250, 0.3); }
+[data-theme="dark"] .tf-platform-badge.wechat { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.3); }
+[data-theme="dark"] .tf-platform-badge.diary { background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); }
+
+/* ─── 工具栏 ─────────────────────────────────────────────────────────────── */
+
+.tf-toolbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 52px;
+  background: var(--bg-toolbar, var(--bg-base));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 var(--space-5);
+  gap: var(--space-4);
+  z-index: 100;
+}
+
+.tf-toolbar__logo {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 18px;
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+}
+
+.tf-toolbar__logo-cn {
+  font-weight: 400;
+  color: #b47828;
+}
+
+[data-theme="dark"] .tf-toolbar__logo-cn {
+  color: rgba(245, 158, 11, 0.6);
+}
+
+.tf-toolbar__spacer { flex: 1; }
+
+.tf-toolbar__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* ─── 侧边栏 ─────────────────────────────────────────────────────────────── */
+
+.tf-sidebar {
+  position: absolute;
+  top: 52px;
+  right: 0;
+  bottom: 0;
+  width: 320px;
+  background: var(--bg-surface);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  z-index: 50;
+  transform: translateX(100%);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.tf-sidebar.open {
+  transform: translateX(0);
+  box-shadow: var(--shadow-panel);
+}
+
+.tf-sidebar__header {
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.tf-sidebar__title {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.tf-sidebar__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-4);
+}
+
+/* ─── 右键菜单 ───────────────────────────────────────────────────────────── */
+
+.tf-context-menu {
+  position: fixed;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-panel);
+  padding: var(--space-1);
+  min-width: 160px;
+  z-index: 200;
+}
+
+.tf-context-menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.12s;
+}
+
+.tf-context-menu-item:hover {
+  background: var(--bg-surface-2);
+  color: var(--text-primary);
+}
+
+.tf-context-menu-item.danger:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--status-error);
+}
+
+/* ─── 滚动条 ─────────────────────────────────────────────────────────────── */
+
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-hover); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* ─── 拖拽上传区域 ───────────────────────────────────────────────────────── */
+
+.tf-dropzone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-4) var(--space-3);
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.tf-dropzone:hover,
+.tf-dropzone.active {
+  border-color: var(--border-accent);
+  color: var(--accent);
+  background: var(--accent-subtle);
+}
+
+/* ─── 淡入动画 ───────────────────────────────────────────────────────────── */
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.tf-node {
+  animation: fade-in 0.2s ease-out;
+}
+
+/* ─── 记忆条目 ───────────────────────────────────────────────────────────── */
+
+.tf-memory-entry {
+  background: var(--bg-node);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-2);
+  transition: border-color 0.15s;
+}
+
+.tf-memory-entry:hover {
+  border-color: var(--border-hover);
+}
+
+.tf-memory-entry__title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: var(--space-1);
+}
+
+.tf-memory-entry__preview {
+  font-size: 11px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.tf-memory-entry__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: var(--space-2);
+}
+
+.tf-tag {
+  background: var(--bg-surface-2);
+  color: var(--text-muted);
+  padding: 1px 6px;
+  border-radius: 99px;
+  font-size: 10px;
+}
+
+/* ─── 快捷提示气泡 ───────────────────────────────────────────────────────── */
+
+.tf-shortcut-hint {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.tf-shortcut-hint__icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--bg-surface);
+  border: 1.5px solid var(--border);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.tf-shortcut-hint:hover .tf-shortcut-hint__icon {
+  border-color: var(--border-hover);
+  color: var(--text-secondary);
+}
+
+.tf-shortcut-hint__tooltip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  white-space: nowrap;
+  font-size: 11px;
+  color: var(--text-secondary);
+  background: var(--bg-surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 5px 10px;
+  box-shadow: var(--shadow-panel);
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.15s, transform 0.15s;
+}
+
+.tf-shortcut-hint:hover .tf-shortcut-hint__tooltip {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ─── 主题切换过渡 ────────────────────────────────────────────────────────── */
+
+html {
+  transition:
+    background-color 0.25s ease,
+    color 0.25s ease;
+}
+
+/* 主题切换按钮悬停时有轻微旋转效果 */
+.tf-theme-toggle svg {
+  transition: transform 0.3s ease;
+}
+.tf-theme-toggle:hover svg {
+  transform: rotate(20deg) scale(1.15);
+}
+
+/* 浅色模式下 select 下拉箭头改为深色 */
+[data-theme="light"] .tf-select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%235f5f5d' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+/* 浅色模式 tab active 状态改为炭黑 */
+[data-theme="light"] .tf-tab.active {
+  background: #eceae4;
+  color: #1c1c1c;
+  font-weight: 500;
+}
+

@@ -150,7 +150,8 @@ Interpret creatively and make unexpected choices that feel genuinely designed fo
 - **框架**：Tauri (Rust + WebView)
 - **前端**：React + TypeScript + Zustand (状态管理)
 - **画布引擎**：@xyflow/react v12
-- **UI 组件**：Chakra UI v3（仅此一个，不同时使用 Ant Design）
+- **图标**：Chakra UI v3（仅此一个，不同时使用 Ant Design）
+- **节点Node**：节点组件直接基于 @xyflow/react 的原生能力，不再额外套壳
 
 ## 后端
 - **Agent 内核**：OpenCode（作为独立后端进程运行，ThinkFlow 通过 HTTP API 调用，默认 localhost:4096）
