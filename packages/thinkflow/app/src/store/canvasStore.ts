@@ -27,7 +27,6 @@ import {
   subscribeEvents,
   isServerAvailable,
   runMockWorkflow,
-  fetchUrlContent,
 } from "../services/opencodeClient"
 
 // ─── 初始示例节点（扇形布局） ───────────────────────────────────────────────
@@ -239,15 +238,8 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
       if (!val) continue
 
       if (node.data.inputType === "url") {
-        appendLog(`抓取链接内容: ${val}`)
-        const pageContent = await fetchUrlContent(val)
-        if (pageContent) {
-          baseParts.push({ type: "text" as const, text: `【参考链接内容】\n来源: ${val}\n\n${pageContent}` })
-          appendLog(`链接内容已读取（${pageContent.length} 字）`)
-        } else {
-          baseParts.push({ type: "text" as const, text: `【参考链接】\n${val}\n\n请使用 fetch 工具读取该链接的内容作为参考资料。` })
-          appendLog(`链接抓取失败（可能有 CORS 限制），已告知 AI 自行抓取`, "info")
-        }
+        baseParts.push({ type: "text" as const, text: `【参考链接】\n${val}\n\n请访问上述链接，读取其内容后作为参考资料。` })
+        appendLog(`链接已加入上下文: ${val}`)
       } else {
         const prefix = {
           text: "输入内容",
