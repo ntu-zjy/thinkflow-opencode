@@ -1,4 +1,5 @@
 import { create } from "zustand"
+import { persist } from "zustand/middleware"
 import { addEdge, applyNodeChanges, applyEdgeChanges } from "@xyflow/react"
 import type {
   NodeChange,
@@ -94,7 +95,9 @@ interface CanvasStore {
 
 // ─── Store 实现 ───────────────────────────────────────────────────────────────
 
-export const useCanvasStore = create<CanvasStore>((set, get) => ({
+export const useCanvasStore = create<CanvasStore>()(
+  persist(
+    (set, get) => ({
   nodes: [initialInput, initialAgent, initialOutput1, initialOutput2, initialOutput3] as FlowNode[],
   edges: initialEdges,
   _sessionIds: [],
@@ -250,7 +253,7 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
     }
 
     // ─ 构建基础提示词（输入 + 想法，各输出节点共用） ────────────────────────
-    const baseParts = []
+    const baseParts: { type: "text"; text: string }[] = []
     for (const node of inputNodes) {
       const val = node.data.value.trim()
       if (!val) continue
@@ -284,70 +287,61 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
       diary: "请以个人口吻生成日记或笔记风格的内容，流水记录，自然真实，不必拘谨。",
     }
 
-    // ─ 每个输出节点独立发起 AI 会话 ─────────────────────────────────────────
-    try {
-      for (let i = 0; i < outputNodes.length; i++) {
-        const outputNode = outputNodes[i]
-        const platformInstr = PLATFORM_INSTRUCTION[outputNode.data.platform] ?? PLATFORM_INSTRUCTION.diary
-        const parts = [
-          ...baseParts,
-          { type: "text" as const, text: platformInstr },
-        ]
+    // ─ 每个输出节点并行发起独立 AI 会话 ─────────────────────────────────────
+    const runOneOutput = async (outputNode: OutputNodeType, idx: number) => {
+      const platformInstr = PLATFORM_INSTRUCTION[outputNode.data.platform] ?? PLATFORM_INSTRUCTION.diary
+      const parts = [...baseParts, { type: "text" as const, text: platformInstr }]
 
-        appendLog(`[${i + 1}/${outputNodes.length}] 创建 ${outputNode.data.platform} 会话...`)
-        const sessionId = await createSession()
-        set((s) => ({ _sessionIds: [...s._sessionIds, sessionId] }))
-        updateNodeData<AgentNodeData>(agentNodeId, { sessionId })
+      appendLog(`[${idx + 1}/${outputNodes.length}] 创建 ${outputNode.data.platform} 会话...`)
+      const sessionId = await createSession()
+      set((s) => ({ _sessionIds: [...s._sessionIds, sessionId] }))
 
-        let outputBuffer = ""
-
-        await new Promise<void>((resolve, reject) => {
-          const unsubscribe = subscribeEvents(
-            (event) => {
-              const { payload } = event
-              if (payload.type === "message.part.updated") {
-                const props = payload.properties as {
-                  part?: { type?: string; sessionID?: string; state?: { status?: string; title?: string } }
-                  delta?: string
-                }
-                const part = props.part
-                if (part?.sessionID && part.sessionID !== sessionId) return
-
-                if (part?.type === "text" && props.delta) {
-                  outputBuffer += props.delta
-                  updateNodeData<OutputNodeData>(outputNode.id, { content: outputBuffer })
-                }
-                if (part?.type === "tool") {
-                  const state = part.state as { status?: string; title?: string } | undefined
-                  if (state?.title) appendLog(`工具: ${state.title}`, "tool")
-                }
-              } else if (payload.type === "session.idle") {
-                const props = payload.properties as { sessionID?: string }
-                if (props.sessionID && props.sessionID !== sessionId) return
-                appendLog(`${outputNode.data.platform} 生成完成`, "info")
-                unsubscribe()
-                resolve()
-              } else if (payload.type === "session.error" || payload.type === "session.failed") {
-                const props = payload.properties as { sessionID?: string; error?: string; message?: string }
-                if (props.sessionID && props.sessionID !== sessionId) return
-                appendLog(`错误: ${props.error ?? props.message ?? "未知错误"}`, "error")
-                unsubscribe()
-                reject(new Error(props.error ?? props.message ?? "session error"))
+      let outputBuffer = ""
+      await new Promise<void>((resolve, reject) => {
+        const unsubscribe = subscribeEvents(
+          (event) => {
+            const { payload } = event
+            if (payload.type === "message.part.updated") {
+              const props = payload.properties as {
+                part?: { type?: string; sessionID?: string; state?: { status?: string; title?: string } }
+                delta?: string
               }
-            },
-            () => {
-              appendLog("事件流断开", "error")
-              reject(new Error("SSE disconnected"))
-            },
-          )
+              const part = props.part
+              if (part?.sessionID && part.sessionID !== sessionId) return
+              if (part?.type === "text" && props.delta) {
+                outputBuffer += props.delta
+                updateNodeData<OutputNodeData>(outputNode.id, { content: outputBuffer })
+              }
+              if (part?.type === "tool") {
+                const state = part.state as { status?: string; title?: string } | undefined
+                if (state?.title) appendLog(`[${outputNode.data.platform}] 工具: ${state.title}`, "tool")
+              }
+            } else if (payload.type === "session.idle") {
+              const props = payload.properties as { sessionID?: string }
+              if (props.sessionID && props.sessionID !== sessionId) return
+              appendLog(`${outputNode.data.platform} 生成完成`, "info")
+              unsubscribe()
+              resolve()
+            } else if (payload.type === "session.error" || payload.type === "session.failed") {
+              const props = payload.properties as { sessionID?: string; error?: string; message?: string }
+              if (props.sessionID && props.sessionID !== sessionId) return
+              appendLog(`[${outputNode.data.platform}] 错误: ${props.error ?? props.message ?? "未知错误"}`, "error")
+              unsubscribe()
+              reject(new Error(props.error ?? props.message ?? "session error"))
+            }
+          },
+          () => {
+            appendLog("事件流断开", "error")
+            reject(new Error("SSE disconnected"))
+          },
+        )
+        sendPrompt(sessionId, parts, agentNode.data.model).catch(reject)
+      })
+    }
 
-          set({ _unsubscribe: unsubscribe })
-
-          appendLog(`发送提示词（${parts.length} 段）...`)
-          sendPrompt(sessionId, parts, agentNode.data.model).catch(reject)
-        })
-      }
-
+    try {
+      appendLog(`并行启动 ${outputNodes.length} 个输出节点...`)
+      await Promise.all(outputNodes.map((o, i) => runOneOutput(o, i)))
       updateNodeData<AgentNodeData>(agentNodeId, { status: "done" })
       appendLog(`全部 ${outputNodes.length} 个输出节点生成完成`)
     } catch (err) {
@@ -379,4 +373,20 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
     }))
     updateNodeData<AgentNodeData>(agentNodeId, { status: "idle" })
   },
-}))
+    }),
+    {
+      name: "thinkflow-canvas",
+      // 只持久化 nodes/edges，跳过运行时状态和回调
+      partialize: (s) => ({
+        nodes: s.nodes.map((n) => {
+          if (n.type === "agent") {
+            const d = n.data as AgentNodeData
+            return { ...n, data: { ...d, status: "idle" as const, logs: [], sessionId: undefined } }
+          }
+          return n
+        }),
+        edges: s.edges.map((e) => ({ ...e, animated: false })),
+      }),
+    }
+  )
+)

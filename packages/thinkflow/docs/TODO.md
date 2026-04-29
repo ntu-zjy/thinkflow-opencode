@@ -26,22 +26,16 @@
 - [x] 输出卡片移除右上角 platform badge
 - [x] 运行时相关连接线变为流动虚线动画，完成/失败后恢复静止
 - [x] Abort 改为数组记录所有 sessionId，逐一终止
+- [x] 多输出节点改为 Promise.all 并行调用，各自独立 SSE 订阅
+- [x] 画布状态持久化（zustand persist，存 localStorage，跳过运行时状态）
+- [x] 记忆类型输入节点已接入 memoryStore（entries 动态渲染）
 
 ---
 
 ## 待完成
 
-### 🟡 影响体验
+### 🟡 影响体验（已全部完成 ✅）
 
-- [ ] **多输出节点改为并行调用**
-  当前三个输出节点串行，约 3× 单次耗时。改为 `Promise.all` 并行，各自独立 SSE 订阅。
-
-- [ ] **画布状态持久化**
-  刷新后节点重置为初始示例。用 `zustand/middleware persist` 存 localStorage，
-  或提供"导出 / 导入画布 JSON"功能。
-
-- [ ] **记忆类型输入节点接入 memoryStore**
-  InputNode 记忆标签的下拉选项目前是静态 mock，应读取 `memoryStore.entries` 动态渲染。
 
 
 
