@@ -12,9 +12,8 @@ export function getBaseUrl(): string {
 
 // ─── Session API ─────────────────────────────────────────────────────────────
 
-// OpenCode 的 session/message 请求必须带 directory 查询参数，且要与服务启动时的 cwd 一致
-// Vite 插件以 packages/opencode 为 cwd 启动服务，因此固定使用该路径
-const OPENCODE_WORKDIR = "/Users/zhangjingyuan/Downloads/thinkflow-opencode/packages/opencode"
+// vite.config.ts 通过 define 注入构建时路径，避免硬编码开发机绝对路径
+const OPENCODE_WORKDIR = (import.meta.env.VITE_OPENCODE_WORKDIR as string | undefined) ?? ""
 
 export async function createSession(): Promise<string> {
   const url = new URL(`${getBaseUrl()}/session`)
@@ -116,4 +115,13 @@ export async function runMockWorkflow(
     await new Promise<void>((r) => setTimeout(r, 0))
   }
   onDone()
+}
+
+// ─── URL 内容抓取 ──────────────────────────────────────────────────────────────
+
+export async function fetchUrlContent(url: string): Promise<string> {
+  const resp = await fetch(url, { signal: AbortSignal.timeout(5000) }).catch(() => null)
+  if (!resp?.ok) return ""
+  const text = await resp.text()
+  return text.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 4000)
 }

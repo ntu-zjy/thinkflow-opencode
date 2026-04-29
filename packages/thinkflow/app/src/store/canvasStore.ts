@@ -27,6 +27,7 @@ import {
   subscribeEvents,
   isServerAvailable,
   runMockWorkflow,
+  fetchUrlContent,
 } from "../services/opencodeClient"
 
 // ─── 初始示例节点（扇形布局） ───────────────────────────────────────────────
@@ -150,10 +151,10 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
   },
 
   updateNodeData: (id, data) =>
-    set((s) => ({
+    set((s): Partial<CanvasStore> => ({
       nodes: s.nodes.map((n) =>
         n.id === id ? { ...n, data: { ...n.data, ...(data as Record<string, unknown>) } } : n,
-      ),
+      ) as FlowNode[],
     })),
 
   runWorkflow: async (agentNodeId) => {
@@ -235,14 +236,25 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
     const baseParts = []
     for (const node of inputNodes) {
       const val = node.data.value.trim()
-      if (val) {
+      if (!val) continue
+
+      if (node.data.inputType === "url") {
+        appendLog(`抓取链接内容: ${val}`)
+        const pageContent = await fetchUrlContent(val)
+        if (pageContent) {
+          baseParts.push({ type: "text" as const, text: `【参考链接内容】\n来源: ${val}\n\n${pageContent}` })
+          appendLog(`链接内容已读取（${pageContent.length} 字）`)
+        } else {
+          baseParts.push({ type: "text" as const, text: `【参考链接】\n${val}\n\n请使用 fetch 工具读取该链接的内容作为参考资料。` })
+          appendLog(`链接抓取失败（可能有 CORS 限制），已告知 AI 自行抓取`, "info")
+        }
+      } else {
         const prefix = {
           text: "输入内容",
-          url: "参考链接",
-          file: "文件路径",
+          file: "文件内容",
           memory: "记忆内容",
           feed: "信息流",
-        }[node.data.inputType]
+        }[node.data.inputType] ?? "输入内容"
         baseParts.push({ type: "text" as const, text: `【${prefix}】\n${val}` })
       }
     }
