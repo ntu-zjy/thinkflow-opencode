@@ -36,12 +36,21 @@ export interface AgentNodeData extends Record<string, unknown> {
 
 // ─── 输出节点 ────────────────────────────────────────────────────────────────
 
-export type OutputPlatform = "zhihu" | "wechat" | "diary"
+export type OutputPlatform = "zhihu" | "wechat" | "diary" | "xiaohongshu"
+
+export interface ImageAsset {
+  id: string
+  url: string
+  title?: string
+  generatedAt?: number
+}
 
 export interface OutputNodeData extends Record<string, unknown> {
   platform: OutputPlatform
   content: string
   label: string
+  images?: ImageAsset[]
+  contentType?: "text" | "image"
 }
 
 // ─── 节点联合类型 ─────────────────────────────────────────────────────────────
