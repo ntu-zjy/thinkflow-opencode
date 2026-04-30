@@ -162,7 +162,12 @@ Interpret creatively and make unexpected choices that feel genuinely designed fo
 ## AI 能力
 - **默认模型**：MoonshotAI Kimi K2.6，model ID: `moonshotai/kimi-k2.6`，通过 OpenRouter 接入（参考 https://openrouter.ai/moonshotai/kimi-k2.6 及 OpenRouter 官方文档）
 - **图像理解**：kimi-k2 支持多模态
-- **生图模型**: nano-banana-2, gpt-image-2
+- **生图模型（优先级链）**：
+  1. `openai/gpt-5.4-image-2`（via OpenRouter，需 VPN，画质最佳）
+  2. `bytedance-seed/seedream-4.5`（via OpenRouter，字节跳动，**国内可直连**，当前默认生效）
+  3. 硅基流动 `Tongyi-MAI/Z-Image-Turbo`（需在 `~/.local/share/opencode/auth.json` 配置 `siliconflow.key`，国内直连，兜底）
+  4. SVG 占位图（以上全部失败时的最终降级）
+- **图片生成调用方式**：OpenRouter 走 `/v1/chat/completions`（不是 `/v1/images/generations`），图片返回在 `choices[0].message.images[0].image_url.url`（base64）；硅基流动走 `/v1/images/generations`，图片在 `data[0].url`
 
 ## 构建与发布
 - **CI/CD**：GitHub Actions

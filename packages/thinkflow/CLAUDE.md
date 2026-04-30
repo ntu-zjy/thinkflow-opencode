@@ -76,6 +76,37 @@ packages/thinkflow/
 - **模型默认值**：`moonshotai/kimi-k2.6`（via OpenRouter），provider 固定为 `openrouter`
 - **主题**：双主题（`light` / `dark`）通过 `data-theme` 属性 + CSS 变量切换，存 localStorage
 
+## 交付前必须完成的测试
+
+**每次代码交付前，必须通过以下验证，不能只跑单元测试就认为完成：**
+
+### 1. 自动化测试（必须全部通过）
+```bash
+cd packages/thinkflow/app
+bun run typecheck          # 零 TS 错误
+bunx vitest run            # 全部用例通过
+```
+
+### 2. 真实场景冒烟测试（必须手动验证）
+启动开发服务（`bun dev`，http://localhost:1421），OpenCode 服务需在线（localhost:4096），逐项确认：
+
+| 场景 | 验证要点 |
+|------|---------|
+| **文本生成** | 选择知乎/公众号/日记平台，填写输入，点击运行，OutputNode 卡片实时流式显示文本内容 |
+| **图片生成（小红书）** | 选择小红书平台，点击运行，OutputNode 卡片应显示真实生成的图片（非 Mock SVG 占位图）；Modal 弹窗内图片正常渲染，"下载图片"按钮可用 |
+| **Modal 弹窗** | 有内容时点放大按钮，弹窗正常打开；ESC/点背景关闭；文本模式下预览/原文切换正常 |
+| **快捷键** | ⌘Z 撤销 / ⌘⇧Z 重做可用；⌘A 全选节点；Space 归位；⌘↵ 运行 Agent |
+| **Abort** | 运行中点击停止，Agent 状态恢复 idle，连接线动画停止 |
+
+### 3. 图片生成专项说明
+
+小红书平台图片生成使用独立的图片生成模型，**不能用文本模型（如 Kimi K2）代替**：
+- **Dry-run / 离线降级**：返回 SVG 占位图（Mock），用于本地调试
+- **真实生成**：AgentNode 需选择图片生成模型（如 `openai/gpt-image-1` via OpenRouter），由 OpenCode 返回 `part.type === "file"` 的 SSE 事件，canvasStore 捕获后更新 `OutputNodeData.images`
+- 如果当前模型无法生成图片（返回文字说明），视为**功能未完成**，需切换模型或调整提示词
+
+> ⚠️ 单元测试（vitest）只验证逻辑正确性，不能替代真实 OpenCode + 真实模型的端到端验证。
+
 ## 桌面版（Tauri）
 
 `lib.rs` 启动流程：

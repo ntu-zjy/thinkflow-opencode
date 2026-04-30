@@ -265,4 +265,131 @@ cd packages/thinkflow/app && bunx vitest run
 
 # 类型检查
 bunx tsc --noEmit
+
+# 端到端测试（需 bun dev 在运行）
+cd packages/thinkflow/app && ./node_modules/.bin/playwright test
 ```
+
+---
+
+## Phase 11：🟡 体验优化迭代（MVP1）
+
+### 11.1 常用快捷键
+
+在 `Canvas.tsx` 用 `document.addEventListener("keydown")` 统一处理，不依赖 `useKeyPress`：
+
+| 快捷键 | 功能 | 注意 |
+|--------|------|------|
+| `⌘Z` / `Ctrl+Z` | 撤销 | canvasStore 手动维护 `_history` 快照数组（最多 50 条） |
+| `⌘⇧Z` / `Ctrl+Y` | 重做 | 同上 |
+| `⌘A` | 全选节点 | 在输入框内不触发 |
+| `⌘Enter` | 运行选中 Agent | 无选中则运行全部 Agent |
+| `Space` / `H` | fitView 归位 | `panActivationKeyCode={null}` 防止 ReactFlow 拦截 Space |
+
+**History 实现要点**：
+- `_pushHistory()` 只在 `addNode`、`removeNode`、`onConnect`、`setEdges` 调用
+- **禁止**在 `onNodesChange` 里调用（拖拽高频触发会爆内存）
+- `partialize` 不持久化 `_history`、`_historyIndex`
+
+---
+
+### 11.2 小红书图文生成（两步法）
+
+#### 架构
+
+文本 Agent 负责理解需求 + 生成图片描述，图片模型负责生图，两步解耦：
+
+```
+用户输入 → 文本 Agent（Kimi K2）
+    → 输出带标记的文本：
+      [IMG_PROMPT: Fresh pink flower, soft bokeh background...]
+      
+      清晨遇见这朵花🌸 #治愈 #鲜花
+    ↓ ThinkFlow 前端解析 [IMG_PROMPT:...] 标记
+图片生成模型 → base64 图片 URL
+    ↓
+OutputNode 展示图片 + 文案
+```
+
+#### 平台指令格式
+
+小红书平台的 `PLATFORM_INSTRUCTION` 要求 Agent **严格按格式输出**：
+```
+第一行：[IMG_PROMPT: <详细英文图片描述，约20个单词>]
+空一行
+然后是中文文案（活泼种草风，含 #话题标签）
+```
+
+#### 图片生成优先级链
+
+前端 `generateImage()` 按顺序尝试，失败自动切下一级：
+
+1. **OpenRouter `gpt-5.4-image-2`**（需 VPN）— 画质最佳
+2. **OpenRouter `bytedance-seed/seedream-4.5`**（国内直连，当前默认生效）— 字节跳动，无地区限制
+3. **硅基流动 `Tongyi-MAI/Z-Image-Turbo`**（需配置 `siliconflow.key`）— 国内直连保底
+4. **SVG 占位图**（最终兜底，保证 Agent 状态为 `done` 不 throw）
+
+#### OpenRouter 图片生成 API 格式（坑）
+
+- 端点：`/api/v1/chat/completions`（**不是** `/v1/images/generations`，后者在 OpenRouter 上不存在）
+- 图片返回位置：`choices[0].message.images[0].image_url.url`（base64 data URI）
+- `choices[0].message.content` 为 `null`（不要从 content 里找图片）
+
+#### Vite proxy 配置
+
+图片生成走 Vite 服务端 proxy，key 不暴露给前端：
+- `/api/openrouter` → `https://openrouter.ai/api`（注入 `Authorization: Bearer <key>`）
+- `/api/siliconflow` → `https://api.siliconflow.cn`（注入 `Authorization: Bearer <key>`）
+- key 从 `~/.local/share/opencode/auth.json` 读取（`openrouter.key` / `siliconflow.key`）
+- 需要 VPN 时：重启 `bun dev` 前设置 `https_proxy=http://127.0.0.1:7890`，`HttpsProxyAgent` 注入到 proxy agent
+
+#### auth.json 格式
+
+```json
+{
+  "openrouter": { "type": "api", "key": "sk-or-v1-..." },
+  "siliconflow": { "type": "api", "key": "sk-..." }
+}
+```
+
+---
+
+### 11.3 OutputNode 放大弹窗
+
+- 卡片预览区域（max-height 200px），有内容时右上角出现放大按钮
+- 点击弹出 `OutputModal`（`ReactDOM.createPortal` 挂到 `document.body`，z-index 1000）
+- Modal 支持：预览/原文切换、图片展示（`<img>`）、复制、存为记忆、下载图片、ESC/点背景关闭
+- 图片与文案按 `contentType` 字段区分：`"text"` | `"image"`，图片存在 `OutputNodeData.images[]`
+- `images` 字段在 `partialize` 中排除（不持久化大图到 localStorage）
+
+---
+
+### 11.4 端到端测试（Playwright）
+
+**规范**：每次交付前除 vitest 单测外，**必须**跑 Playwright 端到端验证真实场景：
+
+```bash
+cd packages/thinkflow/app
+./node_modules/.bin/playwright test
+```
+
+测试文件放在 `e2e/` 目录，vitest 的 `exclude` 配置已排除该目录，两套测试互不干扰。
+
+**关键经验**：
+- 等待 Agent 完成用 `waitForFunction` 检测 `.tf-status-dot.done`，先等 `running` 出现再等 `done/error`，避免"已是 done 状态"时立即通过
+- 单元测试（vitest）只验证逻辑，**不能**替代真实 OpenCode + 真实模型的端到端验证
+- `bun dev` 必须重启才能加载新的 vite.config.ts proxy 配置（热更新不重载 proxy）
+
+---
+
+## Phase 12：关键约束更新
+
+| 约束 | 说明 |
+|------|------|
+| 图片生成端点 | OpenRouter 用 `/v1/chat/completions`，不是 `/v1/images/generations` |
+| seedream-4.5 | OpenRouter `bytedance-seed/seedream-4.5` 国内可直连，无地区限制，是当前默认生图模型 |
+| OpenRouter 地区限制 | `gpt-5.4-image-2` / Gemini image 系列在中国区域返回 403，需 VPN 或切换模型 |
+| Vite proxy 重启 | 修改 `vite.config.ts` 的 proxy 配置后必须重启 `bun dev`，热更新无效 |
+| History 禁区 | `_pushHistory` 禁止在 `onNodesChange` 中调用，否则拖拽时爆栈 |
+| Playwright 排除 | vitest 的 `exclude` 需加 `"e2e/**"` 防止误扫描 Playwright 测试文件 |
+| `panActivationKeyCode` | `<ReactFlow panActivationKeyCode={null}>` 防止 Space 键被 ReactFlow 拦截做平移 |

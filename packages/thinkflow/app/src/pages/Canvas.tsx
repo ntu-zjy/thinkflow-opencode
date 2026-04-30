@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import {
   ReactFlow,
   Background,
@@ -11,6 +11,7 @@ import {
 import "@xyflow/react/dist/style.css"
 import { useCanvasStore } from "../store/canvasStore"
 import { nodeTypes } from "../nodes"
+import type { AgentNodeData } from "../types"
 
 interface ContextMenu {
   x: number
@@ -26,8 +27,12 @@ export function Canvas() {
   const onEdgesChange = useCanvasStore((s) => s.onEdgesChange)
   const onConnect = useCanvasStore((s) => s.onConnect)
   const addNode = useCanvasStore((s) => s.addNode)
+  const undo = useCanvasStore((s) => s.undo)
+  const redo = useCanvasStore((s) => s.redo)
+  const runWorkflow = useCanvasStore((s) => s.runWorkflow)
+  const setStoreNodes = useCanvasStore((s) => s.setNodes)
 
-  const { screenToFlowPosition } = useReactFlow()
+  const { screenToFlowPosition, fitView } = useReactFlow()
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null)
   const paneRef = useRef<HTMLDivElement>(null)
 
@@ -51,6 +56,53 @@ export function Canvas() {
     setContextMenu(null)
   }
 
+  // 全局快捷键
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement).tagName
+      const inInput = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT"
+      const meta = e.metaKey || e.ctrlKey
+
+      // Cmd/Ctrl+Z → undo
+      if (meta && e.key === "z" && !e.shiftKey) {
+        e.preventDefault()
+        undo()
+        return
+      }
+      // Cmd/Ctrl+Shift+Z 或 Cmd/Ctrl+Y → redo
+      if ((meta && e.key === "z" && e.shiftKey) || (meta && e.key === "y")) {
+        e.preventDefault()
+        redo()
+        return
+      }
+      // 以下快捷键在输入框内不触发
+      if (inInput) return
+      // Cmd/Ctrl+A → 全选节点
+      if (meta && e.key === "a") {
+        e.preventDefault()
+        setStoreNodes(nodes.map((n) => ({ ...n, selected: true })))
+        return
+      }
+      // Cmd/Ctrl+Enter → 运行选中 Agent（无选中则运行全部）
+      if (meta && e.key === "Enter") {
+        e.preventDefault()
+        const selectedAgents = nodes.filter((n) => n.type === "agent" && n.selected)
+        const targets = selectedAgents.length > 0 ? selectedAgents : nodes.filter((n) => n.type === "agent")
+        targets.forEach((n) => {
+          if ((n.data as AgentNodeData).status !== "running") runWorkflow(n.id)
+        })
+        return
+      }
+      // Space 或 H → fitView 归位
+      if (e.code === "Space" || e.key === "h" || e.key === "H") {
+        e.preventDefault()
+        fitView({ padding: 0.2 })
+      }
+    }
+    document.addEventListener("keydown", handler)
+    return () => document.removeEventListener("keydown", handler)
+  }, [undo, redo, fitView, nodes, runWorkflow, setStoreNodes])
+
   return (
     <div style={{ width: "100%", height: "100%", position: "relative" }} ref={paneRef}>
       <ReactFlow
@@ -70,6 +122,7 @@ export function Canvas() {
         deleteKeyCode="Delete"
         multiSelectionKeyCode="Shift"
         selectionKeyCode="Shift"
+        panActivationKeyCode={null}
         proOptions={{ hideAttribution: true }}
       >
         <Background variant={BackgroundVariant.Dots} gap={24} size={1} />
@@ -89,7 +142,9 @@ export function Canvas() {
           <div className="tf-shortcut-hint" style={{ marginBottom: 8, marginRight: 8 }}>
             <div className="tf-shortcut-hint__icon">?</div>
             <div className="tf-shortcut-hint__tooltip" style={{ left: "auto", right: 0 }}>
-              右键添加节点 · Del 删除 · Shift 多选 · 滚轮缩放
+              右键添加 · Del 删除 · Shift 多选 · 滚轮缩放
+              <br />
+              ⌘Z 撤销 · ⌘⇧Z 重做 · ⌘A 全选 · ⌘↵ 运行 · Space 归位
             </div>
           </div>
         </Panel>

@@ -28,6 +28,7 @@ import {
   subscribeEvents,
   isServerAvailable,
   runMockWorkflow,
+  generateImage,
 } from "../services/opencodeClient"
 
 // ─── 初始示例节点（扇形布局） ───────────────────────────────────────────────
@@ -91,6 +92,11 @@ interface CanvasStore {
   abortWorkflow: (agentNodeId: string) => void
   _unsubscribe?: () => void
   _sessionIds: string[]
+  _history: Array<{ nodes: FlowNode[]; edges: FlowEdge[] }>
+  _historyIndex: number
+  _pushHistory: () => void
+  undo: () => void
+  redo: () => void
 }
 
 // ─── Store 实现 ───────────────────────────────────────────────────────────────
@@ -101,6 +107,30 @@ export const useCanvasStore = create<CanvasStore>()(
   nodes: [initialInput, initialAgent, initialOutput1, initialOutput2, initialOutput3] as FlowNode[],
   edges: initialEdges,
   _sessionIds: [],
+  _history: [],
+  _historyIndex: -1,
+
+  _pushHistory: () => {
+    const { nodes, edges, _history, _historyIndex } = get()
+    const newHistory = _history.slice(0, _historyIndex + 1)
+    newHistory.push({ nodes: [...nodes], edges: [...edges] })
+    if (newHistory.length > 50) newHistory.shift()
+    set({ _history: newHistory, _historyIndex: newHistory.length - 1 })
+  },
+
+  undo: () => {
+    const { _history, _historyIndex } = get()
+    if (_historyIndex <= 0) return
+    const prev = _history[_historyIndex - 1]
+    set({ nodes: prev.nodes, edges: prev.edges, _historyIndex: _historyIndex - 1 })
+  },
+
+  redo: () => {
+    const { _history, _historyIndex } = get()
+    if (_historyIndex >= _history.length - 1) return
+    const next = _history[_historyIndex + 1]
+    set({ nodes: next.nodes, edges: next.edges, _historyIndex: _historyIndex + 1 })
+  },
 
   onNodesChange: (changes: NodeChange<FlowNode>[]) =>
     set((s) => ({ nodes: applyNodeChanges(changes, s.nodes) })),
@@ -108,13 +138,19 @@ export const useCanvasStore = create<CanvasStore>()(
   onEdgesChange: (changes: EdgeChange[]) =>
     set((s) => ({ edges: applyEdgeChanges(changes, s.edges) })),
 
-  onConnect: (connection: Connection) =>
-    set((s) => ({ edges: addEdge(connection, s.edges) })),
+  onConnect: (connection: Connection) => {
+    get()._pushHistory()
+    set((s) => ({ edges: addEdge(connection, s.edges) }))
+  },
 
   setNodes: (nodes) => set({ nodes }),
-  setEdges: (edges) => set({ edges }),
+  setEdges: (edges) => {
+    get()._pushHistory()
+    set({ edges })
+  },
 
   addNode: (type, position) => {
+    get()._pushHistory()
     const id = `${type}-${nanoid(6)}`
     const pos = position ?? {
       x: 100 + Math.random() * 300,
@@ -155,11 +191,13 @@ export const useCanvasStore = create<CanvasStore>()(
     set((s) => ({ nodes: [...s.nodes, node] }))
   },
 
-  removeNode: (id) =>
+  removeNode: (id) => {
+    get()._pushHistory()
     set((s) => ({
       nodes: s.nodes.filter((n) => n.id !== id),
       edges: s.edges.filter((e) => e.source !== id && e.target !== id),
-    })),
+    }))
+  },
 
   updateNodeData: (id, data) =>
     set((s): Partial<CanvasStore> => ({
@@ -214,19 +252,28 @@ export const useCanvasStore = create<CanvasStore>()(
 
     const dryRun = agentNode.data.dryRun
 
+    const runMock = async (o: OutputNodeType) => {
+      await runMockWorkflow(
+        o.data.platform,
+        agentNode.data.idea,
+        (chunk) => {
+          const cur = (get().nodes.find((n) => n.id === o.id) as OutputNodeType | undefined)?.data.content ?? ""
+          updateNodeData<OutputNodeData>(o.id, { content: cur + chunk })
+        },
+        () => {},
+        (imageUrl) => {
+          const existing = (get().nodes.find((n) => n.id === o.id) as OutputNodeType | undefined)?.data.images ?? []
+          updateNodeData<OutputNodeData>(o.id, {
+            images: [...existing, { id: nanoid(), url: imageUrl, generatedAt: Date.now() }],
+            contentType: "image",
+          })
+        },
+      )
+    }
+
     if (dryRun) {
       appendLog("[dry-run] 模拟运行，不调用模型")
-      for (const o of outputNodes) {
-        await runMockWorkflow(
-          o.data.platform,
-          agentNode.data.idea,
-          (chunk) => {
-            const cur = (get().nodes.find((n) => n.id === o.id) as OutputNodeType | undefined)?.data.content ?? ""
-            updateNodeData<OutputNodeData>(o.id, { content: cur + chunk })
-          },
-          () => {},
-        )
-      }
+      for (const o of outputNodes) await runMock(o)
       updateNodeData<AgentNodeData>(agentNodeId, { status: "done" })
       appendLog("dry-run 完成")
       return
@@ -236,17 +283,7 @@ export const useCanvasStore = create<CanvasStore>()(
 
     if (!available) {
       appendLog("OpenCode 服务未启动，切换到演示模式", "info")
-      for (const o of outputNodes) {
-        await runMockWorkflow(
-          o.data.platform,
-          agentNode.data.idea,
-          (chunk) => {
-            const cur = (get().nodes.find((n) => n.id === o.id) as OutputNodeType | undefined)?.data.content ?? ""
-            updateNodeData<OutputNodeData>(o.id, { content: cur + chunk })
-          },
-          () => {},
-        )
-      }
+      for (const o of outputNodes) await runMock(o)
       updateNodeData<AgentNodeData>(agentNodeId, { status: "done" })
       appendLog("演示完成（真实运行需启动 OpenCode）")
       return
@@ -285,6 +322,7 @@ export const useCanvasStore = create<CanvasStore>()(
       zhihu: "请生成适合知乎平台的长文章，包含标题、引言和正文结构，内容深度且有洞察力。",
       wechat: "请生成适合微信公众号的图文推送，标题吸引人，排版适合移动端阅读，语言亲切。",
       diary: "请以个人口吻生成日记或笔记风格的内容，流水记录，自然真实，不必拘谨。",
+      xiaohongshu: `请为小红书平台生成内容，必须严格按以下格式输出：\n\n第一行：[IMG_PROMPT: <详细的英文图片描述，包含风格、色调、主体、构图，约 20 个单词>]\n空一行\n然后是中文正文文案（活泼种草风格，含话题标签 #xxx）\n\n示例：\n[IMG_PROMPT: Fresh pink cherry blossoms, soft bokeh background, morning light, aesthetic minimalist style, vertical composition]\n\n清晨遇见这朵花，治愈了整个春天 🌸\n\n#花卉 #春日 #小确幸`,
     }
 
     // ─ 每个输出节点并行发起独立 AI 会话 ─────────────────────────────────────
@@ -312,6 +350,17 @@ export const useCanvasStore = create<CanvasStore>()(
                 outputBuffer += props.delta
                 updateNodeData<OutputNodeData>(outputNode.id, { content: outputBuffer })
               }
+              if (part?.type === "file") {
+                const fp = part as { mime?: string; url?: string; id?: string }
+                if (fp.mime?.startsWith("image/") && fp.url) {
+                  const existing = (get().nodes.find((n) => n.id === outputNode.id) as OutputNodeType | undefined)?.data.images ?? []
+                  updateNodeData<OutputNodeData>(outputNode.id, {
+                    images: [...existing, { id: fp.id ?? nanoid(), url: fp.url, generatedAt: Date.now() }],
+                    contentType: "image",
+                  })
+                  appendLog(`[${outputNode.data.platform}] 图片已生成`, "info")
+                }
+              }
               if (part?.type === "tool") {
                 const state = part.state as { status?: string; title?: string } | undefined
                 if (state?.title) appendLog(`[${outputNode.data.platform}] 工具: ${state.title}`, "tool")
@@ -337,6 +386,27 @@ export const useCanvasStore = create<CanvasStore>()(
         )
         sendPrompt(sessionId, parts, agentNode.data.model).catch(reject)
       })
+
+      // 小红书两步法：文本 session 完成后，解析 [IMG_PROMPT:...] 标记触发生图
+      if (outputNode.data.platform === "xiaohongshu" && outputBuffer) {
+        const match = outputBuffer.match(/\[IMG_PROMPT:\s*([\s\S]+?)\]/)
+        if (match) {
+          const imagePrompt = match[1].trim()
+          const caption = outputBuffer.replace(/\[IMG_PROMPT:[\s\S]+?\]\n?/, "").trim()
+          updateNodeData<OutputNodeData>(outputNode.id, { content: caption })
+          appendLog(`[小红书] 解析到图片描述，开始生图...`, "info")
+          const imageUrl = await generateImage(imagePrompt).catch((err: Error) => {
+            appendLog(`[小红书] 所有图片生成通道失败: ${(err.message ?? "").slice(0, 60)}，使用占位图`, "info")
+            const label = encodeURIComponent(imagePrompt.slice(0, 40))
+            return `data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300"><rect width="400" height="300" fill="%23ff2b54" opacity="0.1" rx="12"/><text x="50%" y="40%" font-family="sans-serif" font-size="16" fill="%23ff2b54" text-anchor="middle">图片生成失败，使用占位图</text><text x="50%" y="56%" font-family="sans-serif" font-size="12" fill="%23888" text-anchor="middle">${label}</text></svg>`
+          })
+          updateNodeData<OutputNodeData>(outputNode.id, {
+            images: [{ id: nanoid(), url: imageUrl, generatedAt: Date.now() }],
+            contentType: "image",
+          })
+          appendLog(`[小红书] 图片生成完成`, "info")
+        }
+      }
     }
 
     try {
@@ -382,6 +452,10 @@ export const useCanvasStore = create<CanvasStore>()(
           if (n.type === "agent") {
             const d = n.data as AgentNodeData
             return { ...n, data: { ...d, status: "idle" as const, logs: [], sessionId: undefined } }
+          }
+          if (n.type === "output") {
+            const d = n.data as OutputNodeData
+            return { ...n, data: { ...d, images: undefined, contentType: undefined } }
           }
           return n
         }),

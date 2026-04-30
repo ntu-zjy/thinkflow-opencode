@@ -807,6 +807,122 @@ html {
     color 0.25s ease;
 }
 
+/* ─── 平台徽章 — 小红书 ──────────────────────────────────────────────────── */
+
+.tf-platform-badge.xiaohongshu {
+  background: rgba(255, 43, 84, 0.1);
+  color: #ff2b54;
+  border: 1px solid rgba(255, 43, 84, 0.25);
+}
+
+[data-theme="dark"] .tf-platform-badge.xiaohongshu {
+  background: rgba(255, 43, 84, 0.15);
+  color: #ff6b8a;
+  border: 1px solid rgba(255, 107, 138, 0.3);
+}
+
+/* ─── 输出详情弹窗 ───────────────────────────────────────────────────────── */
+
+.tf-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--bg-overlay);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-5);
+  animation: tf-fade-in 0.15s ease-out;
+}
+
+@keyframes tf-fade-in {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.tf-modal {
+  background: var(--bg-node);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-panel);
+  width: 100%;
+  max-width: 720px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.tf-modal__header {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  gap: var(--space-3);
+}
+
+.tf-modal__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-5) var(--space-6);
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--text-secondary);
+}
+
+.tf-modal__body h1,
+.tf-modal__body h2,
+.tf-modal__body h3 {
+  font-family: var(--font-display);
+  color: var(--text-primary);
+  margin: var(--space-4) 0 var(--space-3);
+}
+
+.tf-modal__body p { margin-bottom: var(--space-3); }
+.tf-modal__body strong { color: var(--text-primary); }
+
+.tf-modal__body img {
+  max-width: 100%;
+  border-radius: var(--radius-sm);
+  display: block;
+  margin: var(--space-3) 0;
+}
+
+.tf-modal__body code {
+  font-family: var(--font-code);
+  background: var(--bg-surface-2);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--text-code);
+  font-size: 13px;
+}
+
+.tf-modal__body pre {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-4);
+  overflow-x: auto;
+  font-family: var(--font-code);
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  color: var(--text-secondary);
+}
+
+.tf-modal__footer {
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+}
+
 /* 主题切换按钮悬停时有轻微旋转效果 */
 .tf-theme-toggle svg {
   transition: transform 0.3s ease;
