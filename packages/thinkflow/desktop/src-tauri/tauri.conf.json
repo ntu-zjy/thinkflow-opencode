@@ -5,10 +5,10 @@
   "identifier": "ai.thinkflow.desktop",
   "mainBinaryName": "thinkflow",
   "build": {
-    "beforeDevCommand": "bun run --cwd .. dev",
+    "beforeDevCommand": "cd ../app && bunx vite --port 1420",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "bun run --cwd .. build",
-    "frontendDist": "../dist"
+    "beforeBuildCommand": "bun run --cwd ../app build",
+    "frontendDist": "../app/dist"
   },
   "app": {
     "withGlobalTauri": true,
@@ -31,7 +31,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "externalBin": ["sidecars/opencode-cli"],
+    "externalBin": [],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -45,20 +45,5 @@
       "signingIdentity": null
     }
   },
-  "plugins": {
-    "shell": {
-      "all": false,
-      "execute": false,
-      "sidecar": true,
-      "scope": [
-        {
-          "name": "sidecars/opencode-cli",
-          "sidecar": true
-        }
-      ]
-    },
-    "store": {
-      "autoSave": 100
-    }
-  }
+  "plugins": {}
 }
