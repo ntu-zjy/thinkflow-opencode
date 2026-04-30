@@ -18,7 +18,9 @@
       "packages/*",
       "packages/console/*",
       "packages/sdk/js",
-      "packages/slack"
+      "packages/slack",
+      "packages/thinkflow/app",
+      "packages/thinkflow/desktop"
     ],
     "catalog": {
       "@types/bun": "1.3.4",

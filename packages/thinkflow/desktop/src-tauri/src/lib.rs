@@ -96,11 +96,7 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_window_state::Builder::default().build())
-        .plugin(
-            tauri_plugin_store::Builder::default()
-                .auto_save(std::time::Duration::from_millis(100))
-                .build(),
-        )
+        .plugin(tauri_plugin_store::Builder::default().build())
         .manage(ServerState::new())
         .setup(|app| {
             let app_handle = app.handle().clone();
@@ -157,7 +153,7 @@ pub fn run() {
                     if let Some(c) = child.take() {
                         let _ = c.kill();
                     }
-                }
+                };
             }
         })
         .run(tauri::generate_context!())
