@@ -44,35 +44,55 @@
 - **素材**：参考资料、链接摘录、关键信息
 - **作品**：历次生成的内容输出
 - **其他**：不属于以上分类的杂项记忆
-- **自定义分类**：用户可在记忆面板自行新增分类
+- **自定义分类**：用户可在记忆面板自行新增分类（可重命名；非默认分类可删除）
 
-### 记忆界面
+### 记忆界面（当前实现：Notion 风格两栏）
 - 记忆库作为与画布同级的全屏面板，从左侧边栏的"记忆"按钮切换进入
-- 进入记忆后画布隐藏，点击画布条目可切回
-- 卡片网格展示，不同分类有不同颜色左边框
-- 每张卡片支持展开全文（弹窗查看，带背景虚化）
+- **左栏（240px）**：分类树 + 条目列表
+  - 分类行固定显示条目数和 `+`（新建条目）；重命名/删除按钮 hover 显示
+  - 分类支持新增、重命名（inline input）、删除（非默认分类）
+  - 条目 hover 右侧出现 × 删除按钮
+  - 底部「＋ 新建分类」按钮
+  - 搜索框（无旁边 + 按钮，新建入口统一到分类行）
+- **右栏**：TipTap 富文本编辑器（见下方"记忆编辑器"章节）
+
+### 记忆编辑器（TipTap 富文本）
+- **固定 Toolbar**：H1/H2/H3、粗体/斜体/删除线/高亮/内联代码、无序列表/有序列表/引用/代码块、表格/分割线
+- **Bubble Menu**：选中文字时浮出，快速格式化（B/I/S/高亮/代码/H1/H2/引用）
+- **Slash Menu**：在行内输入 `/` 触发命令列表（标题/列表/引用/代码块/表格/分割线），选择后自动删除 `/`
+- **表格**：插入 3×3 表格，进入表格后顶部出现操作栏（插入行列、删除行列/整表）
+- **内容存储**：HTML 格式（TipTap 导出），传给 AI 时自动 `stripHtml()` 转为纯文本
+- **样式**：全部使用 CSS 变量，深色/浅色主题自动适配
 
 ### 记忆调用方式
-- **显式调用**：用户在输入节点指定具体记忆（InputNode "记忆" Tab）
-- **隐式调用**：开启记忆模式，Agent 根据输入内容自动检索相关记忆
+- **显式调用**：用户在输入节点指定具体记忆（InputNode "记忆" Tab，value 存纯文本）
+- **矩阵模式**：AgentNode 矩阵 slot 绑定记忆条目，传给 AI 前 `stripHtml()` 剥离标签
 
 ### 记忆存储
-记忆库使用 localStorage 持久化（Zustand persist），与 OpenCode 的 session 数据分开管理。
+记忆库使用 localStorage 持久化（Zustand persist），`MemoryEntry.content` 存储 TipTap HTML 字符串。
 
-## Agent+plugin
+## Agent
 ### 核心能力
 - **基础 Agent**：基于 OpenCode 的 Agent 运行内核，统一使用 build 模式
-- **OpenCode 集成方式**：ThinkFlow 将 OpenCode 作为独立后端进程调用，前端、前后端交互、桌面端均独立实现。ThinkFlow 通过 OpenCode HTTP API（默认 localhost:4096）与其通信。
-- **Plugin 扩展**：ThinkFlow UI 提供常用插件列表，用户可一键安装（实际是写入 opencode.json 配置），支持管理已安装的 MCP 工具和 Plugin。MVP 里展示内置 Agent 列表，不暴露自定义 Plugin 开发能力。
+- **OpenCode 集成方式**：ThinkFlow 将 OpenCode 作为独立后端进程调用，通过 HTTP API（默认 localhost:4096）通信
+
+### 定时任务（当前实现）
+- AgentNode 内新增"定时运行"开关 + 时间选择器（每天固定 HH:MM 执行）
+- 实现方式：分钟轮询，对齐到下一整分钟；`lastRunDateRef` 防同天重复；`_scheduleTimers` 管理 interval
+
+### 矩阵模式（当前实现）
+- AgentNode 内新增"矩阵模式"开关 + slot 列表（2~6 个）
+- 每个 slot 独立绑定人设：选择记忆分类 → 选条目，或"自定义"直接填文本
+- 运行时串行执行各 slot（避免并发覆盖输出节点）
+- 日志格式：`[矩阵 i/n] 开始（人设: xxx）` / `[矩阵 i/n] 完成`
 
 ### MCP 工具集成
-信息流输入通过 MCP 插件实现，MVP 预设以下入口：
-- `fetch`（网页抓取，官方 mcp-server-fetch）
-- `GitHub`（mcp-server-github，热榜/Trending 等）
-- OpenCode 本身可直接读取本地文件，不需要额外 MCP
+信息流输入通过 MCP 插件实现，MVP 预设：
+- `fetch`（网页抓取）
+- `GitHub`（mcp-server-github）
 
 ## 画布
-类似coze那种画布，但是现阶段现不做复杂画布，只做输入，Agent，想法，输出单节点
+类似coze那种画布，但是现阶段不做复杂画布，只做输入、Agent、想法、输出单节点
 
 ### 多画布
 - 左侧边栏支持多个画布（工作流），可新建/切换/关闭/双击重命名
@@ -83,7 +103,7 @@
 - 文本输入：直接输入文字
 - 链接输入：粘贴 URL，Agent 自动读取内容
 - 文件输入：拖拽/点击上传，通过 markitdown 自动转换为 Markdown（支持 PDF、Word、PPT、HTML、图片等格式）；markitdown 不可用时降级为纯文本读取；节点显示「已转为 MD」或「原始文本」徽章
-- 记忆输入：从记忆库选择条目
+- 记忆输入：从记忆库选择条目（`value` 存 `stripHtml(entry.content)` 的纯文本）
 - 信息流输入：通过 MCP 工具（fetch / GitHub）获取实时数据
 
 2. **想法**
@@ -93,15 +113,16 @@
 - 统一使用 build 模式 Agent
 - 用指示灯和动态连接线动画，显示运行状态（待运行/运行中/完成/错误）
 - 运行状态通过 OpenCode SSE 实时获取
-- 点击可查看具体消息列表
 - 多个输入节点都可以连接在 Agent 节点上
 - Agent 节点可以连接到多个输出节点（并行执行）
 - Agent 节点包含"想法"输入框（即本次运行的额外指令/灵感）
+- **定时任务**：每天固定时间自动执行
+- **矩阵模式**：多 slot 绑定不同人设，串行执行
 
 4. **输出节点**（右键菜单直接添加，节点内选平台和创作形式）
 - 支持 4 个平台：知乎 / 公众号 / 日记·笔记 / 小红书
-- 支持 3 种创作形式（独立于平台）：**纯文本**（只输出文字）/ **图文**（强制触发图片生成，适用所有平台）/ **自主**（Agent 自行决定，小红书默认图文）
-- 图文生成：Agent 输出 `[IMG_PROMPT:...]` 标记，前端解析后调用图片生成模型（优先级链见 AI 能力）
+- 支持 3 种创作形式（独立于平台）：**纯文本** / **图文**（强制触发图片生成）/ **自主**（Agent 自行决定）
+- 图文生成：Agent 输出 `[IMG_PROMPT:...]` 标记，前端解析后调用图片生成模型
 - 卡片预览（最大高度 200px），点放大按钮弹出全屏详情（带背景虚化）
 - 一键复制 + 存为记忆 + 下载图片
 
@@ -109,13 +130,14 @@
 - 输入 → Agent（必须）
 - 想法：Agent 节点的属性，不参与连线
 - Agent → 输出（必须，可多连）
-- 输出 → 输入（不支持循环设置，另外开启一个画布）
+- 输出 → 输入（不支持循环，另外开启一个画布）
 
 ### 画布操作
 - 滚轮缩放
 - 拖拽画布
 - 框选多节点
 - 右键菜单（复制/删除/运行至此）
+- 快捷键：⌘Z 撤销 / ⌘⇧Z 重做 / ⌘A 全选 / ⌘Enter 运行 / Space 归位
 
 # 适配生态
 做成电脑桌面端软件，适配macos，windows, linux
@@ -171,6 +193,7 @@ Interpret creatively and make unexpected choices that feel genuinely designed fo
 - **图标**：Chakra UI v3（仅此一个，不同时使用 Ant Design）
 - **节点Node**：节点组件直接基于 @xyflow/react 的原生能力，不再额外套壳
 - **节点宽度声明**：每个节点对象必须在 `style.width` 中声明与 CSS `minWidth` 一致的宽度（input: 280, agent: 300, output: 320），否则 `fitView` 无法正确感知节点真实尺寸，导致节点超出视口
+- **富文本编辑器**：TipTap v3（@tiptap/react + starter-kit + extension-table + extension-bubble-menu 等），用于记忆笔记区，支持 Toolbar / Bubble Menu / Slash Menu（输入 `/` 触发）/ 表格
 
 ## 后端
 - **Agent 内核**：OpenCode（作为独立后端进程运行，ThinkFlow 通过 HTTP API 调用，默认 localhost:4096）
@@ -179,14 +202,14 @@ Interpret creatively and make unexpected choices that feel genuinely designed fo
 - **文件存储**：本地文件系统 + 可选云存储
 
 ## AI 能力
-- **默认模型**：MoonshotAI Kimi K2.6，model ID: `moonshotai/kimi-k2.6`，通过 OpenRouter 接入（参考 https://openrouter.ai/moonshotai/kimi-k2.6 及 OpenRouter 官方文档）
+- **默认模型**：MoonshotAI Kimi K2.6，model ID: `moonshotai/kimi-k2.6`，通过 OpenRouter 接入
 - **图像理解**：kimi-k2 支持多模态
 - **生图模型（优先级链）**：
   1. `openai/gpt-5.4-image-2`（via OpenRouter，需 VPN，画质最佳）
   2. `bytedance-seed/seedream-4.5`（via OpenRouter，字节跳动，**国内可直连**，当前默认生效）
-  3. 硅基流动 `Tongyi-MAI/Z-Image-Turbo`（需在 `~/.local/share/opencode/auth.json` 配置 `siliconflow.key`，国内直连，兜底）
+  3. 硅基流动 `Tongyi-MAI/Z-Image-Turbo`（需配置 `siliconflow.key`，国内直连，兜底）
   4. SVG 占位图（以上全部失败时的最终降级）
-- **图片生成调用方式**：OpenRouter 走 `/v1/chat/completions`（不是 `/v1/images/generations`），图片返回在 `choices[0].message.images[0].image_url.url`（base64）；硅基流动走 `/v1/images/generations`，图片在 `data[0].url`
+- **图片生成调用方式**：OpenRouter 走 `/v1/chat/completions`，图片返回在 `choices[0].message.images[0].image_url.url`（base64）；硅基流动走 `/v1/images/generations`，图片在 `data[0].url`
 
 ## 构建与发布
 - **CI/CD**：GitHub Actions
@@ -213,12 +236,12 @@ Interpret creatively and make unexpected choices that feel genuinely designed fo
 6. **保存记忆**：一键将本次输出存为记忆
 
 ## 记忆管理流程
-1. 点击左侧边栏「记忆」按钮进入全屏记忆面板
-2. 顶部 Tab 按分类筛选（人设 / 灵感 / 素材 / 作品 / 其他 / 自定义）
-3. 点击卡片放大按钮查看完整内容（弹窗，带背景虚化）
-4. 新建/编辑记忆条目，选择所属分类
-5. 导入：支持 JSON 批量导入
-6. 导出：支持备份到本地 JSON 文件
+1. 点击左侧边栏「记忆」按钮进入全屏记忆面板（Notion 风格两栏布局）
+2. 左栏：分类树展开/折叠，点击分类行 `+` 新建该分类下的条目；底部「＋ 新建分类」可添加自定义分类
+3. 点击条目进入右栏编辑区（TipTap 富文本编辑器）
+4. 编辑器支持：输入 `/` 调出命令菜单 / 选中文字调出 Bubble Menu / 固定 Toolbar 点击格式化 / 插入表格
+5. 内容自动保存（500ms debounce）
+6. 导入：支持 JSON 批量导入；导出：备份到本地 JSON
 7. 点击左侧边栏任意画布条目可切回画布
 
 ## 高级：模板发布流程
@@ -247,9 +270,12 @@ Interpret creatively and make unexpected choices that feel genuinely designed fo
 ## 包含在 MVP
 - 基础画布：输入 → Agent → 输出 单节点，多个输入和多个输出（并行执行）
 - 多画布支持：创建/切换/关闭/重命名工作流，localStorage 持久化
-- 5 种输入类型：文本、文件（markitdown 自动转 Markdown，支持 PDF/Word/PPT/HTML/图片）、URL、记忆、信息流（MCP）；右键菜单直接按类型添加
-- 4 种输出平台：知乎、公众号、日记/笔记、小红书（含图文生成）；右键菜单直接按平台添加
-- 记忆库：全屏面板，5 类默认分类 + 用户自定义分类，卡片弹窗查看
+- 5 种输入类型：文本、文件（markitdown 自动转 Markdown，支持 PDF/Word/PPT/HTML/图片）、URL、记忆、信息流（MCP）
+- 4 种输出平台：知乎、公众号、日记/笔记、小红书（含图文生成）
+- 3 种创作形式：纯文本 / 图文 / 自主
+- 记忆库：全屏 Notion 风格两栏面板，5 类默认分类 + 用户自定义分类，TipTap 富文本编辑（Toolbar / Bubble Menu / Slash Menu / 表格）
+- 定时任务：AgentNode 每天固定时间自动执行
+- 矩阵模式：AgentNode 多 slot 绑定不同人设，串行执行
 - 撤销/重做、全选、快捷键运行、fitView 归位
 - 本地桌面版运行
 - MCP 插件列表 UI（预设 GitHub、fetch 快捷入口）
