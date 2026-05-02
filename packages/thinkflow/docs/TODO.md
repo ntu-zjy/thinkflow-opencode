@@ -76,9 +76,11 @@
 - [x] **对于不同的类型输入进行细致测试，看看是否真的能将不同类型的输入有效的加入上下文，你需要做一个小型benchmark（包含多个场景，多种输入）来配合playwright实机测试，做这个benchmark的时候最好能放到一个文件夹里面，配套README说明，我可以重复利用Agent来自动跑测试**
   `e2e/benchmark/` 目录：`context-injection.spec.ts`（7 场景，注入 localStorage 直接运行，dry-run 模式无需 OpenCode）；`input-types.spec.ts`（UI 交互测试）；`fixtures/sample.txt|md`；`README.md` 说明运行方式和提示词格式。
 
+- [ ] **做一下新手教程，方便用户使用**
+
 ### 🟢 锦上添花
 
-- [ ] **做一下教程，方便用户使用**
+
 - [ ] **内测版上线网页版和桌面版**
 - [ ] **参考之前写好的thinkflow插件，对不同的输出进行精心调整，**
 
