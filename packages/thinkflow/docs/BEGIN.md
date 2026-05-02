@@ -226,9 +226,12 @@ Interpret creatively and make unexpected choices that feel genuinely designed fo
 备注：精准到用户每次点击的反馈
 ## 首次使用流程
 1. 下载安装 → 打开应用 → 欢迎页展示产品理念
-2. 引导创建第一个「人设记忆」（可选跳过）
-3. 进入画布 → 自动展示示例工作流
-4. 新手引导：高亮提示"点击这里添加输入"
+2. **新手引导教程**（Spotlight 步骤引导，8步）：
+   - 首次打开自动弹出（`thinkflow-tour-done` 标记控制），可随时跳过
+   - 步骤依次高亮：输入节点 → Agent 节点 → 输出节点 → 运行 → 定时任务 → 矩阵模式 → 记忆库 → 完成
+   - Toolbar「?」按钮可随时重启教程
+3. 引导创建第一个「人设记忆」（可选跳过）
+4. 进入画布 → 自动展示示例工作流
 
 ## 日常创作流程
 1. **新建画布**：点击 "+" → 空白画布/从模板选择
@@ -279,10 +282,15 @@ Interpret creatively and make unexpected choices that feel genuinely designed fo
 - 记忆库：全屏 Notion 风格两栏面板，5 类默认分类 + 用户自定义分类，TipTap 富文本编辑（Toolbar / Bubble Menu / Slash Menu / 表格）
 - 定时任务：AgentNode 每天固定时间自动执行
 - 矩阵模式：AgentNode 多 slot 绑定不同人设，串行执行
+- 矩阵结果多人设查看：输出节点顶部人设选择器（下拉 + ‹/› 箭头 + n/total 计数）
 - 撤销/重做、全选、快捷键运行、fitView 归位
 - 本地桌面版运行
 - MCP 插件列表 UI（预设 GitHub、fetch 快捷入口）
 - dry-run 模式（模拟运行，不调用模型，用于调试工作流）
+- **输出内容一键下载**：OutputNode / OutputModal 下载按钮（文本 .txt，图文 ZIP）；矩阵模式「下载全部人设（ZIP）」；MemoryPanel「下载作品（ZIP）」批量导出
+- **运行后自动存档**：每次 Agent 运行完成后，输出内容自动写入记忆库「作品」分类（含平台标签和人设标识）
+- **新手引导教程**：首次使用自动弹出 8 步 Spotlight 引导，Toolbar「?」可随时重启
+- **E2E Benchmark 测试**：`e2e/benchmark/` 目录，7 场景 dry-run 验证 5 种输入类型全链路通畅
 
 ## 不包含在 MVP（预留接口，后续快速接入）
 - 邮箱注册 / 支付系统 / 邀请码系统 / 管理员超级号 / 内测码
