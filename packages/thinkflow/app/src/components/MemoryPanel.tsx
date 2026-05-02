@@ -9,6 +9,7 @@ import { TextStyle } from "@tiptap/extension-text-style"
 import { useMemoryStore } from "../store/memoryStore"
 import type { MemoryEntry, MemoryFolderType } from "../types"
 import { MemoryEditor } from "./MemoryEditor"
+import { downloadAsZip } from "../utils/download"
 
 interface MemoryPanelProps {
   onClose: () => void
@@ -256,6 +257,20 @@ export function MemoryPanel({ onClose }: MemoryPanelProps) {
     URL.revokeObjectURL(url)
   }
 
+  const handleDownloadWorks = () => {
+    const workEntries = entries.filter((e) => e.folderId === "folder-output")
+    if (workEntries.length === 0) {
+      alert("「作品」分类暂无内容，运行工作流后内容会自动保存。")
+      return
+    }
+    const items = workEntries.map((e) => ({
+      filename: `${e.title || "无标题"}.txt`,
+      content: stripHtml(e.content),
+    }))
+    const date = new Date().toLocaleDateString("zh-CN").replace(/\//g, "-")
+    downloadAsZip(items, `thinkflow-works-${date}.zip`)
+  }
+
   const handleImport = () => {
     const input = document.createElement("input")
     input.type = "file"
@@ -282,6 +297,13 @@ export function MemoryPanel({ onClose }: MemoryPanelProps) {
         <span className="tf-memory-panel__title">记忆</span>
         <div style={{ flex: 1 }} />
         <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
+          <button className="tf-btn tf-btn-ghost" style={{ padding: "5px 10px" }} onClick={handleDownloadWorks} title="下载全部作品（ZIP）">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+          </button>
           <button className="tf-btn tf-btn-ghost" style={{ padding: "5px 10px" }} onClick={handleImport} title="导入">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <polyline points="17 8 12 3 7 8" />
