@@ -639,3 +639,85 @@ const initialInput: InputNodeType = {
 ```typescript
 fitView({ padding: 0.2 })
 ```
+
+---
+
+## Phase 16：输出节点创作形式配置
+
+### 16.1 背景
+
+输出节点原先只有"平台"维度（知乎/公众号/日记/小红书），图文生成逻辑硬编码在小红书平台，其他平台无法生成图文。新增独立的"创作形式"维度，用户可自行选择纯文本 / 图文 / Agent 自主决定。
+
+### 16.2 类型扩展
+
+**`src/types/index.ts`** 新增 `ContentFormat` 类型，`OutputNodeData` 加 `contentFormat?` 字段：
+
+```typescript
+export type ContentFormat = "text" | "image_text" | "auto"
+
+export interface OutputNodeData extends Record<string, unknown> {
+  platform: OutputPlatform
+  content: string
+  label: string
+  images?: ImageAsset[]
+  contentType?: "text" | "image"
+  contentFormat?: ContentFormat   // 默认 "auto"
+}
+```
+
+### 16.3 OutputNode UI
+
+在平台 2×2 网格下方新增创作形式 1×3 网格（`gridTemplateColumns: "1fr 1fr 1fr"`）：
+
+| 选项 | 说明 |
+|------|------|
+| 纯文本 | 只输出文字，Agent 不生成图片 |
+| 图文 | 强制触发 `[IMG_PROMPT:...]` 解析 + 生图，适用于所有平台 |
+| 自主 | 不额外约束，Agent 按平台特性决定（小红书默认图文） |
+
+### 16.4 canvasStore — getPlatformInstruction 函数
+
+将原 `PLATFORM_INSTRUCTION` 常量替换为函数，根据平台 + 创作形式动态生成指令：
+
+```typescript
+function getPlatformInstruction(platform: string, contentFormat: string): string {
+  const isText = contentFormat === "text"
+  const isImageText = contentFormat === "image_text"
+
+  if (platform === "xiaohongshu") {
+    if (isText) return "请为小红书平台生成活泼种草风格的文案，含话题标签 #xxx，不需要图片。"
+    return `请为小红书平台生成内容，第一行 [IMG_PROMPT: ...]，空行后中文文案...`
+  }
+
+  const imgFormatNote = isText
+    ? "\n\n请只输出文字内容，不需要配图或图片描述。"
+    : isImageText
+    ? "\n\n请在文案开头输出 [IMG_PROMPT: <详细英文图片描述，约 20 个单词>]，换行后输出正文。"
+    : ""
+
+  const base = { zhihu: "...", wechat: "...", diary: "..." }
+  return (base[platform] ?? base.diary) + imgFormatNote
+}
+```
+
+**图文触发条件改动**（`runOneOutput` 末尾）：
+
+```typescript
+// 之前：硬编码 platform === "xiaohongshu"
+// 现在：由 contentFormat 驱动
+const cf = outputNode.data.contentFormat ?? "auto"
+const shouldGenerateImage =
+  cf === "image_text" ||
+  (cf === "auto" && outputNode.data.platform === "xiaohongshu")
+if (shouldGenerateImage && outputBuffer) { /* 生图两步法 */ }
+```
+
+### 16.5 右键菜单简化
+
+用户反馈多级子菜单操作繁琐，`Canvas.tsx` 右键菜单恢复为三项直接点击：
+
+- 输入节点（添加默认文本类型）
+- Agent 节点
+- 输出节点（添加默认知乎平台）
+
+节点添加后用户在节点卡片内自行切换输入类型 / 平台 / 创作形式，无需在菜单里预先选择。

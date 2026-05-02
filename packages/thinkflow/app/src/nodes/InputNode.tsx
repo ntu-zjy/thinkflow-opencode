@@ -6,6 +6,7 @@ import { useCanvasStore } from "../store/canvasStore"
 import { useMemoryStore } from "../store/memoryStore"
 import { convertFileToMarkdown } from "../services/opencodeClient"
 
+
 const INPUT_TABS: { key: InputType; label: string }[] = [
   { key: "text", label: "文本" },
   { key: "url", label: "链接" },
@@ -23,8 +24,21 @@ export function InputNode({ id, data, selected }: NodeProps<InputNodeType>) {
   const updateNodeData = useCanvasStore((s) => s.updateNodeData)
   const removeNode = useCanvasStore((s) => s.removeNode)
   const entries = useMemoryStore((s) => s.entries)
+  const addMemoryEntry = useMemoryStore((s) => s.addEntry)
 
   const [isDragging, setIsDragging] = useState(false)
+  const [savedFlash, setSavedFlash] = useState(false)
+
+  const handleSaveToMemory = () => {
+    const content = data.value
+    if (!content?.trim()) return
+    const title = data.label && data.label !== "输入"
+      ? data.label
+      : content.slice(0, 30) + (content.length > 30 ? "…" : "")
+    addMemoryEntry({ folderId: "folder-material", title, content })
+    setSavedFlash(true)
+    setTimeout(() => setSavedFlash(false), 1500)
+  }
 
   const setType = (t: InputType) => updateNodeData(id, { inputType: t })
   const setValue = (v: string) => updateNodeData(id, { value: v })
@@ -70,6 +84,24 @@ export function InputNode({ id, data, selected }: NodeProps<InputNodeType>) {
           </svg>
           <span className="tf-node__title">输入</span>
         </div>
+        {data.value?.trim() && (
+          <button
+            className="tf-node__delete"
+            style={{ color: savedFlash ? "var(--status-done)" : undefined, opacity: savedFlash ? 1 : undefined }}
+            onClick={handleSaveToMemory}
+            title="存为灵感记忆"
+          >
+            {savedFlash ? (
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            ) : (
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z" />
+              </svg>
+            )}
+          </button>
+        )}
         <button className="tf-node__delete" onClick={() => removeNode(id)} title="删除节点">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />

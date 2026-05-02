@@ -3,7 +3,7 @@ import { Handle, Position } from "@xyflow/react"
 import type { NodeProps } from "@xyflow/react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
-import type { OutputNodeType, OutputPlatform, OutputNodeData } from "../types"
+import type { OutputNodeType, OutputPlatform, OutputNodeData, ContentFormat } from "../types"
 import { useCanvasStore } from "../store/canvasStore"
 import { useMemoryStore } from "../store/memoryStore"
 import { OutputModal } from "../components/OutputModal"
@@ -13,6 +13,12 @@ const PLATFORMS: { key: OutputPlatform; label: string; desc: string }[] = [
   { key: "wechat", label: "公众号", desc: "图文推送格式" },
   { key: "diary", label: "日记/笔记", desc: "个人记录格式" },
   { key: "xiaohongshu", label: "小红书", desc: "图文/图片格式" },
+]
+
+const FORMAT_OPTIONS: { key: ContentFormat; label: string; title: string }[] = [
+  { key: "text",       label: "纯文本", title: "只输出文字内容" },
+  { key: "image_text", label: "图文",   title: "生成图片 + 文案" },
+  { key: "auto",       label: "自主",   title: "由 Agent 根据平台特性自主决定" },
 ]
 
 export function OutputNode({ id, data, selected }: NodeProps<OutputNodeType>) {
@@ -88,6 +94,21 @@ export function OutputNode({ id, data, selected }: NodeProps<OutputNodeType>) {
               title={p.desc}
             >
               {p.label}
+            </button>
+          ))}
+        </div>
+
+        {/* 创作形式选择 — 1×3 网格 */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "var(--space-1)" }}>
+          {FORMAT_OPTIONS.map((f) => (
+            <button
+              key={f.key}
+              className={`tf-btn${(data.contentFormat ?? "auto") === f.key ? " tf-btn-primary" : " tf-btn-ghost"}`}
+              style={{ padding: "4px 6px", fontSize: 10 }}
+              onClick={() => updateNodeData<OutputNodeData>(id, { contentFormat: f.key })}
+              title={f.title}
+            >
+              {f.label}
             </button>
           ))}
         </div>

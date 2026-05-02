@@ -34,7 +34,7 @@ interface MemoryStore {
   renameFolder: (id: string, name: string) => void
 
   addEntry: (params: { folderId: string; title: string; content: string; tags?: string[] }) => string
-  updateEntry: (id: string, params: Partial<Pick<MemoryEntry, "title" | "content" | "tags">>) => void
+  updateEntry: (id: string, params: Partial<Pick<MemoryEntry, "title" | "content" | "tags" | "folderId">>) => void
   removeEntry: (id: string) => void
 
   searchEntries: (query: string) => MemoryEntry[]

@@ -166,76 +166,30 @@ export function Canvas() {
           style={{ left: contextMenu.x, top: contextMenu.y }}
           onMouseLeave={() => setContextMenu(null)}
         >
-          {/* 输入节点子菜单 */}
-          <div className="tf-context-menu-item tf-context-menu-item--has-sub">
-            <span style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-                <polyline points="17 8 12 3 7 8" />
-                <line x1="12" y1="3" x2="12" y2="15" />
-              </svg>
-              输入节点
-            </span>
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polyline points="9 18 15 12 9 6" />
+          <div className="tf-context-menu-item" onClick={() => addNodeAtPos("input")}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
             </svg>
-            <div className="tf-context-submenu">
-              {[
-                { key: "text", label: "文本输入" },
-                { key: "url", label: "链接输入" },
-                { key: "file", label: "文件输入" },
-                { key: "memory", label: "记忆输入" },
-                { key: "feed", label: "信息流输入" },
-              ].map((item) => (
-                <div
-                  key={item.key}
-                  className="tf-context-menu-item"
-                  onClick={() => addNodeAtPos("input", { inputType: item.key })}
-                >
-                  {item.label}
-                </div>
-              ))}
-            </div>
+            输入节点
           </div>
 
-          {/* Agent 节点 */}
           <div className="tf-context-menu-item" onClick={() => addNodeAtPos("agent")}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="12" cy="12" r="3" />
               <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83" />
             </svg>
-            添加 Agent 节点
+            Agent 节点
           </div>
 
-          {/* 输出节点子菜单 */}
-          <div className="tf-context-menu-item tf-context-menu-item--has-sub">
-            <span style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-                <polyline points="7 10 12 15 17 10" />
-                <line x1="12" y1="15" x2="12" y2="3" />
-              </svg>
-              输出节点
-            </span>
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polyline points="9 18 15 12 9 6" />
+          <div className="tf-context-menu-item" onClick={() => addNodeAtPos("output")}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
             </svg>
-            <div className="tf-context-submenu">
-              {[
-                { key: "zhihu", label: "知乎输出" },
-                { key: "wechat", label: "公众号输出" },
-                { key: "diary", label: "日记输出" },
-                { key: "xiaohongshu", label: "小红书输出" },
-              ].map((item) => (
-                <div
-                  key={item.key}
-                  className="tf-context-menu-item"
-                  onClick={() => addNodeAtPos("output", { platform: item.key })}
-                >
-                  {item.label}
-                </div>
-              ))}
-            </div>
+            输出节点
           </div>
         </div>
       )}
