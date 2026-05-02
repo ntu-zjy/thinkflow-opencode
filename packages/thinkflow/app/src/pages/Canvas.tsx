@@ -37,6 +37,7 @@ export function Canvas() {
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null)
   const paneRef = useRef<HTMLDivElement>(null)
 
+
   // 切换工作流后重新 fitView（200ms 等 DOM 稳定）
   useEffect(() => {
     const timer = setTimeout(() => fitView({ padding: 0.2 }), 200)

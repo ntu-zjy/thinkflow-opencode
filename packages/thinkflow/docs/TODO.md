@@ -76,7 +76,8 @@
 - [x] **对于不同的类型输入进行细致测试，看看是否真的能将不同类型的输入有效的加入上下文，你需要做一个小型benchmark（包含多个场景，多种输入）来配合playwright实机测试，做这个benchmark的时候最好能放到一个文件夹里面，配套README说明，我可以重复利用Agent来自动跑测试**
   `e2e/benchmark/` 目录：`context-injection.spec.ts`（7 场景，注入 localStorage 直接运行，dry-run 模式无需 OpenCode）；`input-types.spec.ts`（UI 交互测试）；`fixtures/sample.txt|md`；`README.md` 说明运行方式和提示词格式。
 
-- [ ] **做一下新手教程，方便用户使用**
+- [x] **做一下新手教程，方便用户使用**
+  首次打开自动弹出 Spotlight 步骤引导（5 步，高亮目标区域 + 说明卡片）；跳过/完成后存 `thinkflow-tour-done` 不再重复弹出；Toolbar「?」按钮可随时重启教程。
 
 ### 🟢 锦上添花
 
