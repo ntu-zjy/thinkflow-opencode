@@ -8,61 +8,79 @@ interface TourGuideProps {
 interface TourStep {
   title: string
   content: string
-  // null = 全屏遮罩无镂空，卡片 placement 用 "fixed" 坐标
   targetSelector: string | null
-  // "fixed" 时使用 fixedPos；否则相对目标元素定位
+  // "fixed" 时用 fixedPos，其余为相对目标元素定位
   placement: "top" | "bottom" | "left" | "right" | "fixed"
-  // placement="fixed" 时卡片的固定位置（相对视口）
-  fixedPos?: { top?: number; bottom?: number; left?: number; right?: number }
+  fixedPos?: CSSProperties
   tip?: string
 }
 
+// 画布左上角（侧边栏右侧）固定位置
+const CANVAS_TOP_LEFT: CSSProperties = { top: 72, left: 176 }
+
 const TOUR_STEPS: TourStep[] = [
   {
-    title: "第 1 步：添加输入节点",
-    content: "在画布空白处右键，选择「输入节点」，然后选择内容类型（文本/链接/文件等），创建第一个节点。",
-    targetSelector: null,
-    placement: "fixed",
-    fixedPos: { top: 72, left: 176 },
-    tip: "输入节点支持文本、链接、文件、记忆、信息流五种类型",
+    title: "输入节点",
+    content: "右键画布空白处，选择「输入节点」即可创建。\n\n支持 5 种输入类型：\n• 文本 — 直接填写内容\n• 链接 — 传 URL，Agent 自动读取\n• 文件 — 上传文档，自动转文本\n• 记忆 — 调用记忆库中已有内容\n• 信息流 — 接入 MCP 工具",
+    targetSelector: ".react-flow__node-input",
+    placement: "right",
+    tip: "每个工作流可以连接多个输入节点",
   },
   {
-    title: "第 2 步：添加 Agent 节点",
-    content: "再次右键画布，选择「Agent 节点」。\n\n然后从输入节点右侧的圆点拖线到 Agent 节点，建立连接。",
-    targetSelector: null,
-    placement: "fixed",
-    fixedPos: { top: 72, left: 176 },
-    tip: "Agent 的「想法」输入框里写下你想创作的主题或指令",
-  },
-  {
-    title: "第 3 步：添加输出平台",
-    content: "右键画布，选择「输出节点」，选择平台（知乎/公众号/日记/小红书）。\n\n同样从 Agent 拖线连到输出节点，工作流就搭建好了。",
-    targetSelector: null,
-    placement: "fixed",
-    fixedPos: { top: 72, left: 176 },
-    tip: "可同时添加多个输出节点，并行生成不同平台的内容",
-  },
-  {
-    title: "第 4 步：运行工作流",
-    content: "点击 Agent 节点上的「运行」按钮，或使用快捷键 ⌘↵（Ctrl+Enter）。\n\n输出节点会实时展示 AI 生成的内容！",
-    // 高亮 Agent 节点，找不到则无高亮
+    title: "Agent 节点",
+    content: "右键画布选择「Agent 节点」，从输入节点的右侧圆点拖线到 Agent 完成连接。\n\n• 在「想法」框写下创作指令\n• 选择调用的 AI 模型\n• 可开启 dry-run 模式本地测试",
     targetSelector: ".react-flow__node-agent",
-    placement: "left",
-    tip: "开启「dry-run」模式可在不调用真实 AI 的情况下测试流程",
+    placement: "right",
+    tip: "Agent 会把所有连入的输入内容整合为上下文",
   },
   {
-    title: "✓ 你已上手 ThinkFlow！",
-    content: "恭喜完成新手教程！继续探索更多功能：\n• 记忆面板 — 保存灵感和账号人设\n• 矩阵模式 — 批量生成多账号内容\n• 定时任务 — 自动运行工作流",
+    title: "输出节点",
+    content: "右键画布选择「输出节点」，再从 Agent 拖线到输出节点。\n\n支持 4 个内容平台：\n• 知乎 — 长文专栏\n• 公众号 — 图文推送\n• 日记/笔记 — 个人记录\n• 小红书 — 图文笔记",
+    targetSelector: ".react-flow__node-output",
+    placement: "left",
+    tip: "可同时连多个输出节点，并行生成不同平台的内容",
+  },
+  {
+    title: "运行工作流",
+    content: "节点连好后，点击 Agent 节点上的「运行」按钮，或使用快捷键 ⌘↵（Ctrl+Enter）。\n\n输出节点会实时流式展示 AI 生成的内容。",
+    targetSelector: ".react-flow__node-agent",
+    placement: "right",
+    tip: "Toolbar 的「运行全部」会同时触发画布上所有 Agent",
+  },
+  {
+    title: "定时任务",
+    content: "在 Agent 节点中开启「定时运行」开关，可设定自动执行周期（1h / 6h / 12h / 24h）。\n\n适合：定时抓取信息流 → 自动生成日报/周报。",
+    targetSelector: ".react-flow__node-agent",
+    placement: "right",
+    tip: "开启后 Agent header 会显示「⏰ 下次 HH:MM」倒计时",
+  },
+  {
+    title: "矩阵模式",
+    content: "在 Agent 节点中开启「矩阵模式」，可同时以多个账号人设批量生成内容。\n\n需先在记忆库「人设」分类下保存账号人设，矩阵运行时会自动读取。",
+    targetSelector: ".react-flow__node-agent",
+    placement: "right",
+    tip: "矩阵运行完成后可一键下载所有人设的输出内容（ZIP）",
+  },
+  {
+    title: "记忆库",
+    content: "点击左下角「记忆」按钮打开记忆库。\n\n分为 5 个分类：\n• 人设 — 账号定位和写作风格\n• 灵感 — 随手记录的想法\n• 素材 — 参考资料和数据\n• 作品 — 自动保存每次创作结果\n• 其他",
+    targetSelector: ".tf-wf-sidebar__memory-btn",
+    placement: "right",
+    tip: "每次 Agent 运行完成后，输出内容会自动存入「作品」分类",
+  },
+  {
+    title: "✓ 开始创作！",
+    content: "你已了解 ThinkFlow 的全部核心功能。\n\n常用快捷键：\n• ⌘Z / ⌘⇧Z — 撤销 / 重做\n• ⌘↵ — 运行选中 Agent\n• ⌘A — 全选节点\n• 空格/H — 归位视图",
     targetSelector: null,
     placement: "fixed",
-    fixedPos: { top: 72, left: 176 },
-    tip: "⌘Z 撤销 · 空格/H 归位 · ⌘A 全选 · 点 Toolbar「?」按钮重启教程",
+    fixedPos: CANVAS_TOP_LEFT,
+    tip: "点 Toolbar「?」按钮可随时重启本教程",
   },
 ]
 
 const PAD = 8
 const CARD_W = 320
-const CARD_H_EST = 280
+const CARD_H_EST = 300
 const GAP = 14
 
 export function TourGuide({ onClose }: TourGuideProps) {
@@ -70,47 +88,64 @@ export function TourGuide({ onClose }: TourGuideProps) {
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null)
 
   useEffect(() => {
+    let cancelled = false
+
     const update = () => {
       const sel = TOUR_STEPS[step].targetSelector
-      if (!sel) {
-        setTargetRect(null)
-        return
-      }
+      if (!sel) { setTargetRect(null); return }
       const el = document.querySelector(sel)
-      setTargetRect(el ? el.getBoundingClientRect() : null)
+      if (el) {
+        setTargetRect(el.getBoundingClientRect())
+      } else {
+        setTargetRect(null)
+      }
     }
-    update()
+
+    // ReactFlow 节点需要几帧才能渲染完毕，轮询最多 600ms
+    let attempts = 0
+    const tryUpdate = () => {
+      if (cancelled) return
+      const sel = TOUR_STEPS[step].targetSelector
+      if (!sel) { update(); return }
+      const el = document.querySelector(sel)
+      if (el) {
+        setTargetRect(el.getBoundingClientRect())
+      } else if (attempts < 6) {
+        attempts++
+        setTimeout(tryUpdate, 100)
+      }
+    }
+    tryUpdate()
+
     window.addEventListener("resize", update)
-    return () => window.removeEventListener("resize", update)
+    return () => {
+      cancelled = true
+      window.removeEventListener("resize", update)
+    }
   }, [step])
 
   function cardStyle(s: TourStep, r: DOMRect | null): CSSProperties {
-    if (s.placement === "fixed") {
-      return s.fixedPos ?? { top: 80, left: 180 }
-    }
+    if (s.placement === "fixed") return s.fixedPos ?? CANVAS_TOP_LEFT
 
     const vw = window.innerWidth
     const vh = window.innerHeight
-    const clampLeft = (v: number) => Math.max(16, Math.min(v, vw - CARD_W - 16))
-    const clampTop = (v: number) => Math.max(16, Math.min(v, vh - CARD_H_EST - 16))
+    const clampL = (v: number) => Math.max(16, Math.min(v, vw - CARD_W - 16))
+    const clampT = (v: number) => Math.max(16, Math.min(v, vh - CARD_H_EST - 16))
 
-    // 没找到目标元素：降级到固定位置
-    if (!r) return { top: 80, left: 180 }
+    if (!r) return CANVAS_TOP_LEFT
 
     switch (s.placement) {
       case "bottom":
-        return { top: clampTop(r.bottom + GAP), left: clampLeft(r.left + r.width / 2 - CARD_W / 2) }
+        return { top: clampT(r.bottom + GAP), left: clampL(r.left + r.width / 2 - CARD_W / 2) }
       case "top":
-        return { top: clampTop(r.top - GAP - CARD_H_EST), left: clampLeft(r.left + r.width / 2 - CARD_W / 2) }
+        return { top: clampT(r.top - GAP - CARD_H_EST), left: clampL(r.left + r.width / 2 - CARD_W / 2) }
       case "right":
-        return { top: clampTop(r.top + r.height / 2 - CARD_H_EST / 2), left: clampLeft(r.right + GAP) }
+        return { top: clampT(r.top + r.height / 2 - CARD_H_EST / 2), left: clampL(r.right + GAP) }
       case "left": {
-        const leftCandidate = r.left - GAP - CARD_W
-        const left = leftCandidate >= 16 ? leftCandidate : clampLeft(r.right + GAP)
-        return { top: clampTop(r.top + r.height / 2 - CARD_H_EST / 2), left }
+        const leftPref = r.left - GAP - CARD_W
+        const left = leftPref >= 16 ? leftPref : clampL(r.right + GAP)
+        return { top: clampT(r.top + r.height / 2 - CARD_H_EST / 2), left }
       }
-      default:
-        return { top: 80, left: 180 }
     }
   }
 
@@ -119,10 +154,8 @@ export function TourGuide({ onClose }: TourGuideProps) {
 
   return createPortal(
     <>
-      {/* 半透明遮罩，pointer-events:none 不阻断画布操作 */}
       <div className="tf-tour-overlay" />
 
-      {/* 镂空聚光灯：只有 targetSelector 匹配到元素时才渲染 */}
       {targetRect && (
         <div
           className="tf-tour-spotlight"
@@ -135,9 +168,7 @@ export function TourGuide({ onClose }: TourGuideProps) {
         />
       )}
 
-      {/* 步骤卡片 */}
       <div className="tf-tour-card" style={cardStyle(current, targetRect)}>
-        {/* 进度点 */}
         <div className="tf-tour-dots">
           {TOUR_STEPS.map((_, i) => (
             <span key={i} className={`tf-tour-dot${i === step ? " tf-tour-dot--active" : ""}`} />
@@ -147,13 +178,12 @@ export function TourGuide({ onClose }: TourGuideProps) {
         <div className="tf-tour-card__step">第 {step + 1} 步 / {TOUR_STEPS.length}</div>
         <div className="tf-tour-card__title">{current.title}</div>
         <div className="tf-tour-card__content">{current.content}</div>
-
         {current.tip && <div className="tf-tour-card__tip">{current.tip}</div>}
 
         <div className="tf-tour-card__actions">
           <button className="tf-btn tf-btn-ghost" onClick={onClose}>跳过</button>
           {isLast ? (
-            <button className="tf-btn tf-btn-primary" onClick={onClose}>开始探索</button>
+            <button className="tf-btn tf-btn-primary" onClick={onClose}>开始创作</button>
           ) : (
             <button className="tf-btn tf-btn-primary" onClick={() => setStep((s) => s + 1)}>下一步 →</button>
           )}
