@@ -81,7 +81,7 @@
 
 - [x] **内测版上线网页版和桌面版**
   桌面版：opencode-cli sidecar 打包进 Tauri，本地构建 `ThinkFlow_0.1.0_aarch64.dmg`（38MB）；`desktop/src/main.tsx` boot 函数加入轮询重试（最多 30s）；修复 `frontendDist` 路径。网页版：Vercel API Routes（`api/openrouter/`、`api/siliconflow/`）代理注入 API Key；`vercel.json` SPA 路由重写；GitHub Actions `thinkflow-release.yml` 自动化测试 + Vercel 部署 + macOS dmg 构建。
-  **上线前需配置 GitHub Secrets**：`VERCEL_TOKEN`、`VERCEL_ORG_ID`、`VERCEL_PROJECT_ID`、`OPENROUTER_API_KEY`、`SILICONFLOW_API_KEY`
+  **上线前需配置 GitHub Secrets**：`VERCEL_TOKEN`、`VERCEL_ORG_ID`、`VERCEL_PROJECT_ID`、`OPENROUTER_API_KEY`
 
 - [ ] **Desktop（Tauri）验证**（已在本地验证 arm64，CI 构建待跑）
   本地已成功构建 ThinkFlow.app + dmg；CI 构建需在 GitHub Actions 上运行一次验证。

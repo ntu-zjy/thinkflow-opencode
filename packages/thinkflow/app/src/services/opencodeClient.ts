@@ -86,8 +86,8 @@ export function subscribeEvents(
 }
 
 // ─── 图片生成 ─────────────────────────────────────────────────────────────────
-// 主路径：OpenRouter（chat/completions，图片在 choices[0].message.images[0].image_url.url）
-// Fallback：硅基流动 FLUX（/v1/images/generations，OpenAI 兼容，国内直连）
+// OpenRouter（chat/completions，图片在 choices[0].message.images[0].image_url.url）
+// 优先级：指定模型 → seedream-4.5（字节跳动，国内可直连）→ SVG 占位图
 
 async function generateImageViaOpenRouter(prompt: string, model: string): Promise<string> {
   const resp = await fetch("/api/openrouter/v1/chat/completions", {
@@ -107,31 +107,11 @@ async function generateImageViaOpenRouter(prompt: string, model: string): Promis
   throw new Error("OpenRouter: no image in response")
 }
 
-async function generateImageViaSiliconflow(prompt: string): Promise<string> {
-  const resp = await fetch("/api/siliconflow/v1/images/generations", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "Tongyi-MAI/Z-Image-Turbo",
-      prompt,
-      image_size: "1024x1024",
-      n: 1,
-    }),
-  })
-  const text = await resp.text()
-  let data: { data?: Array<{ url?: string }>; error?: { message: string } }
-  try { data = JSON.parse(text) } catch { throw new Error(`Siliconflow response not JSON: ${text.slice(0, 100)}`) }
-  if (data.error) throw new Error(`Siliconflow error: ${data.error.message}`)
-  const url = data.data?.[0]?.url
-  if (url) return url
-  throw new Error("Siliconflow: no image url in response")
-}
-
 export async function generateImage(
   prompt: string,
   model: string = "openai/gpt-5.4-image-2",
 ): Promise<string> {
-  // 第一优先：OpenRouter 指定模型（VPN 环境下可用）
+  // 第一优先：OpenRouter 指定模型
   const r1 = await generateImageViaOpenRouter(prompt, model).catch((e: Error) => e)
   if (typeof r1 === "string") return r1
 
@@ -139,9 +119,7 @@ export async function generateImage(
   const r2 = await generateImageViaOpenRouter(prompt, "bytedance-seed/seedream-4.5").catch((e: Error) => e)
   if (typeof r2 === "string") return r2
 
-  // 第三保底：硅基流动（需配置 siliconflow key）
-  console.warn(`[ThinkFlow] OpenRouter 图片生成失败，尝试硅基流动...`)
-  return generateImageViaSiliconflow(prompt)
+  throw new Error("Image generation failed: all OpenRouter models unavailable")
 }
 
 // ─── Mock 模式（OpenCode 不可用时） ───────────────────────────────────────────

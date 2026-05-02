@@ -185,7 +185,6 @@ function markitdownPlugin() {
 }
 
 const OPENROUTER_KEY = readAuthKey("openrouter", "OPENROUTER_API_KEY")
-const SILICONFLOW_KEY = readAuthKey("siliconflow", "SILICONFLOW_API_KEY")
 const LOCAL_PROXY = readLocalProxy()
 
 export default defineConfig({
@@ -197,7 +196,6 @@ export default defineConfig({
     port: 1421,
     strictPort: true,
     proxy: {
-      // OpenRouter proxy（走 VPN 时有效，国内备用 siliconflow）
       "/api/openrouter": {
         target: "https://openrouter.ai",
         changeOrigin: true,
@@ -209,19 +207,6 @@ export default defineConfig({
               proxyReq.setHeader("Authorization", `Bearer ${OPENROUTER_KEY}`)
               proxyReq.setHeader("HTTP-Referer", "http://localhost:1421")
               proxyReq.setHeader("X-Title", "ThinkFlow")
-            }
-          })
-        },
-      },
-      // 硅基流动 proxy（国内直连，fallback 图片生成）
-      "/api/siliconflow": {
-        target: "https://api.siliconflow.cn",
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/siliconflow/, ""),
-        configure: (proxy) => {
-          proxy.on("proxyReq", (proxyReq) => {
-            if (SILICONFLOW_KEY) {
-              proxyReq.setHeader("Authorization", `Bearer ${SILICONFLOW_KEY}`)
             }
           })
         },
