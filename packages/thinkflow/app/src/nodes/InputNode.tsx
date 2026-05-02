@@ -1,4 +1,7 @@
 import { useState, useCallback } from "react"
+
+const stripHtml = (s: string) =>
+  s.replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").trim()
 import { Handle, Position } from "@xyflow/react"
 import type { NodeProps } from "@xyflow/react"
 import type { InputNodeType, InputType, McpTool } from "../types"
@@ -191,7 +194,7 @@ export function InputNode({ id, data, selected }: NodeProps<InputNodeType>) {
             value={data.memoryEntryId ?? ""}
             onChange={(e) => {
               const entry = entries.find((en) => en.id === e.target.value)
-              updateNodeData(id, { memoryEntryId: e.target.value, value: entry?.content ?? "" })
+              updateNodeData(id, { memoryEntryId: e.target.value, value: stripHtml(entry?.content ?? "") })
             }}
           >
             <option value="">— 选择记忆 —</option>

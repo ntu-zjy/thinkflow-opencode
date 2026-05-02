@@ -606,10 +606,15 @@ export const useCanvasStore = create<CanvasStore>()(
     const matrixMode = agentNode.data.matrixMode ?? false
     const matrixSlots: MatrixSlot[] = agentNode.data.matrixSlots ?? []
 
+    // content 字段可能是 HTML（TipTap 存储格式），传给 AI 前剥离标签
+    const stripHtml = (s: string) =>
+      s.replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").trim()
+
     const buildPersonaText = (slot: MatrixSlot): string => {
       if (slot.folderId === "custom") return slot.customPersona ?? ""
       if (slot.memoryEntryId) {
-        return useMemoryStore.getState().entries.find((e) => e.id === slot.memoryEntryId)?.content ?? ""
+        const raw = useMemoryStore.getState().entries.find((e) => e.id === slot.memoryEntryId)?.content ?? ""
+        return stripHtml(raw)
       }
       return ""
     }

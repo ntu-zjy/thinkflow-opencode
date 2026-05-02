@@ -1,6 +1,8 @@
-import { useState, useRef, useCallback, useEffect, type KeyboardEvent } from "react"
-import ReactMarkdown from "react-markdown"
-import remarkGfm from "remark-gfm"
+import { useState, useRef, useCallback, useEffect } from "react"
+import { useEditor, EditorContent } from "@tiptap/react"
+import StarterKit from "@tiptap/starter-kit"
+import Placeholder from "@tiptap/extension-placeholder"
+import Typography from "@tiptap/extension-typography"
 import { useMemoryStore } from "../store/memoryStore"
 import type { MemoryEntry, MemoryFolderType } from "../types"
 
@@ -18,6 +20,11 @@ const FOLDER_COLOR_MAP: Record<string, string> = {
 
 function getFolderColor(type: string): string {
   return FOLDER_COLOR_MAP[type] ?? "#6b7280"
+}
+
+// 从 HTML 提取纯文本预览（用于侧边栏条目预览）
+function stripHtml(html: string): string {
+  return html.replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").trim()
 }
 
 function FolderChevron({ open }: { open: boolean }) {
@@ -58,7 +65,6 @@ export function MemoryPanel({ onClose }: MemoryPanelProps) {
   const [editFolderId, setEditFolderId] = useState("")
   const [query, setQuery] = useState("")
   const [copied, setCopied] = useState(false)
-  const [contentEditing, setContentEditing] = useState(false)
 
   // 分类重命名状态
   const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null)
@@ -68,7 +74,6 @@ export function MemoryPanel({ onClose }: MemoryPanelProps) {
   const [newFolderName, setNewFolderName] = useState("")
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const contentRef = useRef<HTMLTextAreaElement>(null)
   const renamingInputRef = useRef<HTMLInputElement>(null)
 
   // 当前选中的条目对象
@@ -76,6 +81,40 @@ export function MemoryPanel({ onClose }: MemoryPanelProps) {
 
   // 搜索时展示的列表
   const displayEntries: MemoryEntry[] = query ? searchEntries(query) : entries
+
+  // ─── TipTap 编辑器 ─────────────────────────────────────────────────────────
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      Placeholder.configure({
+        placeholder: "开始写作...（# 标题、**粗体**、- 列表、> 引用）",
+      }),
+      Typography,
+    ],
+    content: "",
+    editorProps: {
+      attributes: { class: "tf-memory-tiptap-content" },
+    },
+    onUpdate: ({ editor: e }) => {
+      const html = e.getHTML()
+      // 空内容时存空字符串，避免存 "<p></p>"
+      handleContentChange(html === "<p></p>" ? "" : html)
+    },
+  })
+
+  // 切换条目时同步编辑器内容
+  useEffect(() => {
+    if (!editor) return
+    const target = selectedEntry?.content ?? ""
+    // 避免循环更新：只在 HTML 内容真正不同时才设置
+    if (editor.getHTML() !== target) {
+      editor.commands.setContent(target ? target : "")
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor, selectedId])
+
+  // ─── 条目操作 ──────────────────────────────────────────────────────────────
 
   // 切换到新条目时同步编辑状态
   const selectEntry = useCallback(
@@ -88,8 +127,6 @@ export function MemoryPanel({ onClose }: MemoryPanelProps) {
       setEditTitle(entry.title)
       setEditContent(entry.content)
       setEditFolderId(entry.folderId)
-      // 新条目（内容为空）直接进入编辑模式
-      setContentEditing(!entry.content)
     },
     [],
   )
@@ -139,7 +176,7 @@ export function MemoryPanel({ onClose }: MemoryPanelProps) {
     const created = { id, folderId, title: "新记忆", content: "", tags: [], createdAt: Date.now(), updatedAt: Date.now() }
     selectEntry(created)
     setExpandedFolders((prev) => new Set([...prev, folderId]))
-    // 聚焦并全选标题，方便用户直接覆盖输入
+    // 聚焦标题
     setTimeout(() => {
       const el = document.getElementById("tf-memory-title-input") as HTMLTextAreaElement | null
       if (el) { el.focus(); el.select() }
@@ -182,17 +219,17 @@ export function MemoryPanel({ onClose }: MemoryPanelProps) {
     if (!selectedId) return
     const idx = displayEntries.findIndex((e) => e.id === selectedId)
     removeEntry(selectedId)
-    // 选中相邻条目
     const remaining = entries.filter((e) => e.id !== selectedId)
     const next = remaining[idx] ?? remaining[idx - 1] ?? remaining[0] ?? null
     if (next) selectEntry(next)
     else setSelectedId(null)
   }
 
-  // 复制
+  // 复制正文（纯文本）
   const handleCopy = () => {
     if (!editContent) return
-    navigator.clipboard.writeText(editContent)
+    const plain = editor ? editor.getText({ blockSeparator: "\n" }) : stripHtml(editContent)
+    navigator.clipboard.writeText(plain)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
@@ -225,14 +262,6 @@ export function MemoryPanel({ onClose }: MemoryPanelProps) {
     }
     input.click()
   }
-
-  // 自动调整 textarea 高度
-  useEffect(() => {
-    if (contentRef.current) {
-      contentRef.current.style.height = "auto"
-      contentRef.current.style.height = `${contentRef.current.scrollHeight}px`
-    }
-  }, [editContent])
 
   const getFolder = (folderId: string) => folders.find((f) => f.id === folderId)
 
@@ -270,7 +299,7 @@ export function MemoryPanel({ onClose }: MemoryPanelProps) {
       <div className="tf-memory-notion">
         {/* 左栏：导航列表 */}
         <div className="tf-memory-notion__sidebar">
-          {/* 左栏顶部：搜索 */}
+          {/* 搜索框 */}
           <div className="tf-memory-notion__sidebar-header">
             <input
               className="tf-input"
@@ -301,7 +330,7 @@ export function MemoryPanel({ onClose }: MemoryPanelProps) {
                       onClick={() => selectEntry(entry)}
                     >
                       <div className="tf-memory-notion__item-title">{entry.title || "无标题"}</div>
-                      <div className="tf-memory-notion__item-preview">{entry.content || "空内容"}</div>
+                      <div className="tf-memory-notion__item-preview">{stripHtml(entry.content) || "空内容"}</div>
                       <button
                         className="tf-memory-item-del"
                         title="删除"
@@ -348,7 +377,7 @@ export function MemoryPanel({ onClose }: MemoryPanelProps) {
                         ) : (
                           <span style={{ flex: 1 }}>{folder.name}</span>
                         )}
-                        {/* 固定显示：条目数 + 新建 + 重命名；删除仅 hover 显示 */}
+                        {/* 固定显示：条目数 + 新建；重命名/删除 hover 显示 */}
                         <div className="tf-memory-folder-actions" onClick={(e) => e.stopPropagation()}>
                           <span className="tf-memory-folder-count">{folderEntries.length}</span>
                           <button title="新建记忆" onClick={() => handleNew(folder.id)}>
@@ -379,7 +408,7 @@ export function MemoryPanel({ onClose }: MemoryPanelProps) {
                           onClick={() => selectEntry(entry)}
                         >
                           <div className="tf-memory-notion__item-title">{entry.title || "无标题"}</div>
-                          <div className="tf-memory-notion__item-preview">{entry.content || "空内容"}</div>
+                          <div className="tf-memory-notion__item-preview">{stripHtml(entry.content) || "空内容"}</div>
                           <button
                             className="tf-memory-item-del"
                             title="删除"
@@ -499,7 +528,7 @@ export function MemoryPanel({ onClose }: MemoryPanelProps) {
                 </div>
               </div>
 
-              {/* 元信息：分类 */}
+              {/* 元信息：分类 + 字数 */}
               <div className="tf-memory-notion__meta">
                 <span style={{ fontSize: 12, color: "var(--text-muted)", flexShrink: 0 }}>分类</span>
                 <select
@@ -521,39 +550,15 @@ export function MemoryPanel({ onClose }: MemoryPanelProps) {
                 )}
                 {editContent.length > 0 && (
                   <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--text-muted)", flexShrink: 0 }}>
-                    {editContent.length} 字
+                    {stripHtml(editContent).length} 字
                   </span>
                 )}
               </div>
 
-              {/* 正文：编辑 / 预览双模式 */}
-              {contentEditing ? (
-                <textarea
-                  ref={contentRef}
-                  className="tf-memory-notion__content-input"
-                  value={editContent}
-                  onChange={(e) => handleContentChange(e.target.value)}
-                  placeholder="开始写作...（支持 Markdown）"
-                  autoFocus
-                  onBlur={() => { if (editContent.trim()) setContentEditing(false) }}
-                  onKeyDown={(e: KeyboardEvent<HTMLTextAreaElement>) => {
-                    // Escape 退出编辑
-                    if (e.key === "Escape" && editContent.trim()) setContentEditing(false)
-                  }}
-                />
-              ) : (
-                <div
-                  className="tf-memory-notion__content-preview"
-                  onClick={() => setContentEditing(true)}
-                  title="点击编辑"
-                >
-                  {editContent ? (
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{editContent}</ReactMarkdown>
-                  ) : (
-                    <span className="tf-memory-notion__content-placeholder">开始写作...（支持 Markdown）</span>
-                  )}
-                </div>
-              )}
+              {/* 正文：TipTap 富文本编辑器 */}
+              <div className="tf-memory-tiptap-wrapper">
+                <EditorContent editor={editor} />
+              </div>
             </>
           )}
         </div>
