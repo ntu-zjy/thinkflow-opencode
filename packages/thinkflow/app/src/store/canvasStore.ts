@@ -137,7 +137,7 @@ function cleanNodeForPersist(n: FlowNode): FlowNode {
   }
   if (n.type === "output") {
     const d = n.data as OutputNodeData
-    return { ...n, data: { ...d, images: undefined, contentType: undefined } }
+    return { ...n, data: { ...d, images: undefined, contentType: undefined, matrixResults: undefined } }
   }
   return n
 }
@@ -464,9 +464,114 @@ export const useCanvasStore = create<CanvasStore>()(
 
     if (dryRun) {
       appendLog("[dry-run] 模拟运行，不调用模型")
+
+      // dry-run 矩阵模式：按各 slot 人设串行生成差异内容
+      const dryMatrixMode = agentNode.data.matrixMode ?? false
+      const dryMatrixSlots: MatrixSlot[] = agentNode.data.matrixSlots ?? []
+
+      const dryStripHtml = (s: string) =>
+        s.replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").trim()
+
+      const dryBuildPersona = (slot: MatrixSlot): string => {
+        if (slot.folderId === "custom") return slot.customPersona ?? ""
+        if (slot.memoryEntryId) {
+          const raw = useMemoryStore.getState().entries.find((e) => e.id === slot.memoryEntryId)?.content ?? ""
+          return dryStripHtml(raw)
+        }
+        return ""
+      }
+
+      const dryGetLabel = (slot: MatrixSlot): string => {
+        if (slot.folderId === "custom") {
+          return slot.customPersona ? slot.customPersona.slice(0, 12) + (slot.customPersona.length > 12 ? "…" : "") : "自定义（空）"
+        }
+        if (slot.memoryEntryId) {
+          return useMemoryStore.getState().entries.find((e) => e.id === slot.memoryEntryId)?.title ?? "未选条目"
+        }
+        return "未选条目"
+      }
+
+      if (dryMatrixMode && dryMatrixSlots.length > 0) {
+        // 运行前清空旧矩阵结果
+        outputNodes.forEach((o) => updateNodeData<OutputNodeData>(o.id, { matrixResults: [], content: "", images: undefined, contentType: undefined }))
+        for (let i = 0; i < dryMatrixSlots.length; i++) {
+          const slot = dryMatrixSlots[i]
+          const persona = dryBuildPersona(slot)
+          const label = dryGetLabel(slot)
+          appendLog(`[矩阵 ${i + 1}/${dryMatrixSlots.length}] 开始（人设: ${label}）`)
+          outputNodes.forEach((o) => updateNodeData<OutputNodeData>(o.id, { content: "", images: undefined, contentType: undefined }))
+          for (const o of outputNodes) {
+            await runMockWorkflow(
+              o.data.platform,
+              agentNode.data.idea,
+              (chunk) => {
+                const cur = (get().nodes.find((n) => n.id === o.id) as OutputNodeType | undefined)?.data.content ?? ""
+                updateNodeData<OutputNodeData>(o.id, { content: cur + chunk })
+              },
+              () => {},
+              (imageUrl) => {
+                const existing = (get().nodes.find((n) => n.id === o.id) as OutputNodeType | undefined)?.data.images ?? []
+                updateNodeData<OutputNodeData>(o.id, {
+                  images: [...existing, { id: nanoid(), url: imageUrl, generatedAt: Date.now() }],
+                  contentType: "image",
+                })
+              },
+              persona,
+            )
+          }
+          // 本 slot 完成：追加到 matrixResults
+          outputNodes.forEach((o) => {
+            const cur = get().nodes.find((n) => n.id === o.id) as OutputNodeType | undefined
+            if (!cur) return
+            const existing = (cur.data.matrixResults ?? []) as import("../types").MatrixResult[]
+            updateNodeData<OutputNodeData>(o.id, {
+              matrixResults: [
+                ...existing,
+                {
+                  slotIndex: i,
+                  personaLabel: label,
+                  content: cur.data.content,
+                  images: cur.data.images,
+                  contentType: cur.data.contentType,
+                },
+              ],
+            })
+          })
+          appendLog(`[矩阵 ${i + 1}/${dryMatrixSlots.length}] 完成`)
+        }
+        // 全部完成：显示第一个 slot 结果
+        outputNodes.forEach((o) => {
+          const cur = get().nodes.find((n) => n.id === o.id) as OutputNodeType | undefined
+          const first = cur?.data.matrixResults?.[0]
+          if (!first) return
+          updateNodeData<OutputNodeData>(o.id, {
+            content: first.content,
+            images: first.images,
+            contentType: first.contentType,
+          })
+        })
+        updateNodeData<AgentNodeData>(agentNodeId, { status: "done" })
+        appendLog(`dry-run 矩阵完成，共 ${dryMatrixSlots.length} 个人设`)
+        set((s) => ({
+          edges: s.edges.map((e) =>
+            e.source === agentNodeId || e.target === agentNodeId
+              ? { ...e, animated: false }
+              : e
+          ),
+        }))
+        return
+      }
+
       for (const o of outputNodes) await runMock(o)
       updateNodeData<AgentNodeData>(agentNodeId, { status: "done" })
       appendLog("dry-run 完成")
+      set((s) => ({
+        edges: s.edges.map((e) =>
+          e.source === agentNodeId || e.target === agentNodeId
+            ? { ...e, animated: false }
+            : e
+        ),
+      }))
       return
     }
 
@@ -630,6 +735,8 @@ export const useCanvasStore = create<CanvasStore>()(
     }
 
     if (matrixMode && matrixSlots.length > 0) {
+      // 运行前清空各输出节点的旧矩阵结果
+      outputNodes.forEach((o) => updateNodeData<OutputNodeData>(o.id, { matrixResults: [], content: "", images: undefined, contentType: undefined }))
       try {
         for (let i = 0; i < matrixSlots.length; i++) {
           const slot = matrixSlots[i]
@@ -639,10 +746,40 @@ export const useCanvasStore = create<CanvasStore>()(
           const matrixParts = personaText
             ? [...baseParts, { type: "text" as const, text: `【账号人设】\n${personaText}` }]
             : baseParts
-          outputNodes.forEach((o) => updateNodeData<OutputNodeData>(o.id, { content: "" }))
+          // 清空本轮 content，流式写入当前 slot
+          outputNodes.forEach((o) => updateNodeData<OutputNodeData>(o.id, { content: "", images: undefined, contentType: undefined }))
           await Promise.all(outputNodes.map((o, idx) => runOneOutput(o, idx, matrixParts)))
+          // 本 slot 完成：把结果追加进 matrixResults
+          outputNodes.forEach((o) => {
+            const cur = get().nodes.find((n) => n.id === o.id) as OutputNodeType | undefined
+            if (!cur) return
+            const existing = (cur.data.matrixResults ?? []) as import("../types").MatrixResult[]
+            updateNodeData<OutputNodeData>(o.id, {
+              matrixResults: [
+                ...existing,
+                {
+                  slotIndex: i,
+                  personaLabel: label,
+                  content: cur.data.content,
+                  images: cur.data.images,
+                  contentType: cur.data.contentType,
+                },
+              ],
+            })
+          })
           appendLog(`[矩阵 ${i + 1}/${matrixSlots.length}] 完成`)
         }
+        // 全部完成：把第一个 slot 结果写入 content（默认展示）
+        outputNodes.forEach((o) => {
+          const cur = get().nodes.find((n) => n.id === o.id) as OutputNodeType | undefined
+          const first = cur?.data.matrixResults?.[0]
+          if (!first) return
+          updateNodeData<OutputNodeData>(o.id, {
+            content: first.content,
+            images: first.images,
+            contentType: first.contentType,
+          })
+        })
         updateNodeData<AgentNodeData>(agentNodeId, { status: "done" })
         appendLog(`矩阵运行完成，共 ${matrixSlots.length} 个人设`)
       } catch (err) {

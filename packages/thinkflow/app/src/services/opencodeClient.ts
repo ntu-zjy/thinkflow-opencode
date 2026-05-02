@@ -159,6 +159,13 @@ const MOCK_RESPONSES: Record<string, string> = {
   xiaohongshu: `__IMAGE_MOCK__`,
 }
 
+function buildMockContent(platform: string, idea: string, persona: string): string {
+  const personaBlock = persona ? `\n\n（以「${persona.slice(0, 20)}」人设创作）` : ""
+  const base = MOCK_RESPONSES[platform] ?? MOCK_RESPONSES.diary
+  const withIdea = idea ? `**主题**：${idea}\n\n${base}` : base
+  return withIdea + personaBlock
+}
+
 // ─── markitdown 文件转 Markdown ───────────────────────────────────────────────
 
 export async function convertFileToMarkdown(file: File): Promise<string> {
@@ -177,14 +184,18 @@ export async function runMockWorkflow(
   onChunk: (text: string) => void,
   onDone: () => void,
   onImage?: (url: string) => void,
+  persona?: string,
 ): Promise<void> {
+  const personaText = persona ?? ""
   if (platform === "xiaohongshu" && onImage) {
     const label = encodeURIComponent(idea || "生成中...")
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300"><rect width="400" height="300" fill="%23ff2b54" opacity="0.12" rx="12"/><text x="50%" y="42%" font-family="sans-serif" font-size="20" font-weight="bold" fill="%23ff2b54" text-anchor="middle">小红书图片（Mock）</text><text x="50%" y="58%" font-family="sans-serif" font-size="13" fill="%23888" text-anchor="middle">${label}</text></svg>`
+    const personaLabel = personaText ? encodeURIComponent(`人设: ${personaText.slice(0, 15)}`) : ""
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300"><rect width="400" height="300" fill="%23ff2b54" opacity="0.12" rx="12"/><text x="50%" y="36%" font-family="sans-serif" font-size="20" font-weight="bold" fill="%23ff2b54" text-anchor="middle">小红书图片（Mock）</text><text x="50%" y="52%" font-family="sans-serif" font-size="13" fill="%23888" text-anchor="middle">${label}</text>${personaLabel ? `<text x="50%" y="68%" font-family="sans-serif" font-size="11" fill="%23f59e0b" text-anchor="middle">${personaLabel}</text>` : ""}</svg>`
     const dataUri = `data:image/svg+xml;charset=utf-8,${svg}`
     await new Promise<void>((r) => setTimeout(r, 800))
     onImage(dataUri)
-    const caption = idea ? `**${idea}**\n\n#好物推荐 #AI工具 #效率神器` : `#好物推荐 #AI工具 #效率神器`
+    const personaSuffix = personaText ? `\n\n（${personaText.slice(0, 15)} 风格）` : ""
+    const caption = (idea ? `**${idea}**\n\n` : "") + `#好物推荐 #AI工具 #效率神器${personaSuffix}`
     const chunks = caption.match(/.{1,8}/gs) ?? [caption]
     for (const chunk of chunks) {
       onChunk(chunk)
@@ -194,8 +205,7 @@ export async function runMockWorkflow(
     return
   }
 
-  const base = MOCK_RESPONSES[platform] ?? MOCK_RESPONSES.diary
-  const full = idea ? `**主题**：${idea}\n\n${base}` : base
+  const full = buildMockContent(platform, idea, personaText)
 
   // 分块发送，每块 8 字符（适合真实 UI 效果；在测试中也能同步完成）
   const chunks = full.match(/.{1,8}/gs) ?? [full]
