@@ -450,6 +450,112 @@ matrixResults?: MatrixResult[]
 
 ---
 
+---
+
+## Phase 20：输出内容便捷导出 & 自动存入作品记忆
+
+### 20.1 自动存入「作品」记忆
+
+- 每次运行完成后（普通 / 矩阵 / dry-run），自动调用 `useMemoryStore.getState().addEntry()` 将输出内容写入 `folder-output`（作品分类）
+- 标题格式：`{平台名}[ · {人设名}] · {日期}`（矩阵模式附加人设标识）
+- `canvasStore.ts` 顶部新增 `PLATFORM_LABELS` 常量和 `autoSaveToMemory` 辅助函数
+
+### 20.2 下载功能
+
+- **ZIP 库**：`fflate`（纯 TS，无 wasm，5KB gzip）
+- **`src/utils/download.ts`**（新文件）：`downloadAsZip(items, zipName)` / `downloadSingleText(content, filename)`
+- **OutputNode**：操作区新增「下载」按钮；矩阵模式额外显示「下载全部人设（ZIP）」
+- **OutputModal**：头部新增「下载」按钮（接收 `doDownload` prop）
+- **MemoryPanel**：顶部工具栏新增「下载作品（ZIP）」按钮，打包全部作品分类条目
+
+---
+
+## Phase 21：E2E Benchmark 测试套件
+
+### 21.1 目录结构
+
+```
+e2e/benchmark/
+├── README.md                  # 运行说明、提示词注入格式表
+├── context-injection.spec.ts  # 核心验证（localStorage 注入，dry-run，无需 OpenCode）
+├── input-types.spec.ts        # UI 交互测试（通过右键菜单添加节点）
+└── fixtures/
+    ├── sample.txt             # 含 BENCHMARK_FILE_CONTENT_MARKER_2025 标记
+    └── sample.md              # 含 BENCHMARK_MARKDOWN_FILE_MARKER_2025 标记
+```
+
+### 21.2 7 个测试场景（context-injection.spec.ts）
+
+| 场景 | 输入类型 | 验证要点 |
+|------|---------|---------|
+| SC1 | 文本 | dry-run 产生内容，字数 > 10 |
+| SC2 | 链接 (URL) | URL 传入节点，产生内容 |
+| SC3 | 文件 (TXT) | 文件内容加入上下文，产生内容 |
+| SC4 | 记忆 | 注入 memoryStore，下拉含测试条目 |
+| SC5 | 信息流 (MCP) | Fetch 按钮激活态，产生内容 |
+| SC6 | 多输入 (文本+链接) | 两个输入节点可见，产生内容 |
+| SC7 | 提示词格式 | 5 种输入类型前缀映射验证 |
+
+### 21.3 关键技术
+
+- `makeCanvasState()` 工厂生成符合 `thinkflow-canvas-v2` 格式的状态
+- `injectAndReload()` 通过 `page.evaluate` 注入 localStorage 后 reload
+- `waitForOutput()` 检查 `.tf-preview` 不含占位文本
+- **ES 模块 `__dirname`**：`path.dirname(fileURLToPath(import.meta.url))`
+
+### 21.4 提示词注入格式
+
+| 输入类型 | 注入格式 |
+|---------|---------|
+| `text` | `【输入内容】\n{值}` |
+| `url` | `【参考链接】\n{URL}\n\n请访问上述链接...` |
+| `file` | `【文件内容】\n{文件文本}` |
+| `memory` | `【记忆内容】\n{记忆文本}` |
+| `feed` | `【信息流】\n{工具名}` |
+
+---
+
+## Phase 22：新手引导教程（Spotlight 步骤引导）
+
+### 22.1 触发逻辑
+
+- `App.tsx` 初始化时检测 `localStorage.getItem("thinkflow-tour-done")`：无则自动显示
+- 完成/跳过后写入 `thinkflow-tour-done: "1"`，不再重复弹出
+- Toolbar 新增「?」圆形按钮，点击清除标记并重启教程（`handleRestartTour`）
+
+### 22.2 组件结构（`src/components/TourGuide.tsx`）
+
+- `createPortal` 渲染到 `document.body`（z-index 9997–9999）
+- **遮罩层**：`.tf-tour-overlay`（`pointer-events: none`，不阻断画布操作）
+- **聚光灯**：`.tf-tour-spotlight`（`box-shadow: 0 0 0 9999px rgba(0,0,0,0.55)`，镂空目标区域）
+- **步骤卡片**：`.tf-tour-card`（`max-height: calc(100vh - 32px)` + `overflow-y: auto` 防溢出）
+- **定位算法**：`placement: "fixed"` 使用 `fixedPos` 绝对坐标；`right/left/top/bottom` 相对目标元素计算，`clampL/clampT` 防止超出视口
+- **元素定位重试**：`useEffect` 轮询最多 600ms，等待 ReactFlow 节点渲染完毕后再读取 `getBoundingClientRect`
+
+### 22.3 8 步教程内容
+
+| 步骤 | 高亮目标 | placement | 说明 |
+|------|---------|-----------|------|
+| 1 | `.react-flow__node-input` | right | 输入节点：5 种输入类型介绍 |
+| 2 | `.react-flow__node-agent` | right | Agent 节点：连接、想法、模型选择 |
+| 3 | `.react-flow__node-output` | left（右侧超出自动切换） | 输出节点：4 个平台介绍 |
+| 4 | `.react-flow__node-agent` | right | 运行工作流：按钮或 ⌘↵ |
+| 5 | `.react-flow__node-agent` | right | 定时任务：每天自动执行 |
+| 6 | `.react-flow__node-agent` | right | 矩阵模式：多人设批量生成 |
+| 7 | `.tf-wf-sidebar__memory-btn` | top（按钮在底部，卡片向上） | 记忆库：5 个分类介绍 |
+| 8 | null | fixed (176, 72) | 完成：快捷键汇总 |
+
+### 22.4 涉及文件
+
+| 文件 | 改动 |
+|------|------|
+| `src/components/TourGuide.tsx` | 新建，Spotlight 组件主体 |
+| `src/App.tsx` | tour 状态管理，渲染 TourGuide，传 `onRestartTour` |
+| `src/components/Toolbar.tsx` | 新增 `onRestartTour?: () => void` prop + 「?」按钮 |
+| `src/styles/global.css` | 新增 TourGuide 全部样式（overlay/spotlight/card/dots） |
+
+---
+
 ## 验证方式
 
 ```bash
@@ -463,6 +569,6 @@ bunx vitest run        # 38 个用例全部通过
 # 类型检查
 bun run typecheck      # 零 TS 错误
 
-# 端到端测试（需 bun dev 在运行）
-./node_modules/.bin/playwright test
+# E2E benchmark（干跑，无需 OpenCode）
+bunx playwright test e2e/benchmark/context-injection.spec.ts   # 7 个场景全部通过
 ```
