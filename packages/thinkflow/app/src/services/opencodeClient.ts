@@ -159,6 +159,18 @@ const MOCK_RESPONSES: Record<string, string> = {
   xiaohongshu: `__IMAGE_MOCK__`,
 }
 
+// ─── markitdown 文件转 Markdown ───────────────────────────────────────────────
+
+export async function convertFileToMarkdown(file: File): Promise<string> {
+  const formData = new FormData()
+  formData.append("file", file)
+  const res = await fetch("/api/convert-to-markdown", { method: "POST", body: formData })
+  if (!res.ok) throw new Error(`markitdown failed: ${res.status}`)
+  const data = await res.json() as { markdown?: string; error?: string }
+  if (!data.markdown) throw new Error(data.error ?? "empty response")
+  return data.markdown
+}
+
 export async function runMockWorkflow(
   platform: string,
   idea: string,

@@ -62,7 +62,7 @@ export function OutputNode({ id, data, selected }: NodeProps<OutputNodeType>) {
 
       <div className="tf-node__header" style={{ justifyContent: "space-between" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: "var(--accent)" }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: "var(--text-muted)" }}>
             <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
             <polyline points="7 10 12 15 17 10" />
             <line x1="12" y1="15" x2="12" y2="3" />
@@ -77,17 +77,17 @@ export function OutputNode({ id, data, selected }: NodeProps<OutputNodeType>) {
       </div>
 
       <div className="tf-node__body">
-        {/* 平台选择 */}
-        <div style={{ display: "flex", gap: "var(--space-1)", flexWrap: "wrap" }}>
+        {/* 平台选择 — 2×2 网格 */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-1)" }}>
           {PLATFORMS.map((p) => (
             <button
               key={p.key}
               className={`tf-btn${data.platform === p.key ? " tf-btn-primary" : " tf-btn-ghost"}`}
-              style={{ flex: "1 1 calc(33% - 4px)", flexDirection: "column", gap: 2, padding: "4px 3px", minWidth: 54 }}
+              style={{ padding: "5px 8px", fontSize: 11 }}
               onClick={() => updateNodeData<OutputNodeData>(id, { platform: p.key })}
               title={p.desc}
             >
-              <span style={{ fontSize: 10 }}>{p.label}</span>
+              {p.label}
             </button>
           ))}
         </div>

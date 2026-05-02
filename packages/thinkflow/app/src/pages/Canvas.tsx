@@ -32,9 +32,16 @@ export function Canvas() {
   const runWorkflow = useCanvasStore((s) => s.runWorkflow)
   const setStoreNodes = useCanvasStore((s) => s.setNodes)
 
+  const activeWorkflowId = useCanvasStore((s) => s.activeWorkflowId)
   const { screenToFlowPosition, fitView } = useReactFlow()
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null)
   const paneRef = useRef<HTMLDivElement>(null)
+
+  // 切换工作流后重新 fitView（200ms 等 DOM 稳定）
+  useEffect(() => {
+    const timer = setTimeout(() => fitView({ padding: 0.2 }), 200)
+    return () => clearTimeout(timer)
+  }, [activeWorkflowId, fitView])
 
   const handlePaneContextMenu = useCallback(
     (e: MouseEvent | React.MouseEvent) => {
@@ -49,9 +56,12 @@ export function Canvas() {
     setContextMenu(null)
   }, [])
 
-  const addNodeAtPos = (type: "input" | "agent" | "output") => {
+  const addNodeAtPos = (
+    type: "input" | "agent" | "output",
+    initialData?: Record<string, unknown>,
+  ) => {
     if (contextMenu) {
-      addNode(type, { x: contextMenu.flowX, y: contextMenu.flowY })
+      addNode(type, { x: contextMenu.flowX, y: contextMenu.flowY }, initialData)
     }
     setContextMenu(null)
   }
@@ -114,8 +124,7 @@ export function Canvas() {
         nodeTypes={nodeTypes}
         onPaneContextMenu={handlePaneContextMenu}
         onPaneClick={handlePaneClick}
-        fitView
-        fitViewOptions={{ padding: 0.2 }}
+        onInit={(instance) => setTimeout(() => instance.fitView({ padding: 0.2 }), 150)}
         minZoom={0.2}
         maxZoom={2}
         defaultEdgeOptions={{ animated: false }}
@@ -157,14 +166,39 @@ export function Canvas() {
           style={{ left: contextMenu.x, top: contextMenu.y }}
           onMouseLeave={() => setContextMenu(null)}
         >
-          <div className="tf-context-menu-item" onClick={() => addNodeAtPos("input")}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-              <polyline points="17 8 12 3 7 8" />
-              <line x1="12" y1="3" x2="12" y2="15" />
+          {/* 输入节点子菜单 */}
+          <div className="tf-context-menu-item tf-context-menu-item--has-sub">
+            <span style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" y1="3" x2="12" y2="15" />
+              </svg>
+              输入节点
+            </span>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="9 18 15 12 9 6" />
             </svg>
-            添加输入节点
+            <div className="tf-context-submenu">
+              {[
+                { key: "text", label: "文本输入" },
+                { key: "url", label: "链接输入" },
+                { key: "file", label: "文件输入" },
+                { key: "memory", label: "记忆输入" },
+                { key: "feed", label: "信息流输入" },
+              ].map((item) => (
+                <div
+                  key={item.key}
+                  className="tf-context-menu-item"
+                  onClick={() => addNodeAtPos("input", { inputType: item.key })}
+                >
+                  {item.label}
+                </div>
+              ))}
+            </div>
           </div>
+
+          {/* Agent 节点 */}
           <div className="tf-context-menu-item" onClick={() => addNodeAtPos("agent")}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="12" cy="12" r="3" />
@@ -172,13 +206,36 @@ export function Canvas() {
             </svg>
             添加 Agent 节点
           </div>
-          <div className="tf-context-menu-item" onClick={() => addNodeAtPos("output")}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-              <polyline points="7 10 12 15 17 10" />
-              <line x1="12" y1="15" x2="12" y2="3" />
+
+          {/* 输出节点子菜单 */}
+          <div className="tf-context-menu-item tf-context-menu-item--has-sub">
+            <span style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              输出节点
+            </span>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="9 18 15 12 9 6" />
             </svg>
-            添加输出节点
+            <div className="tf-context-submenu">
+              {[
+                { key: "zhihu", label: "知乎输出" },
+                { key: "wechat", label: "公众号输出" },
+                { key: "diary", label: "日记输出" },
+                { key: "xiaohongshu", label: "小红书输出" },
+              ].map((item) => (
+                <div
+                  key={item.key}
+                  className="tf-context-menu-item"
+                  onClick={() => addNodeAtPos("output", { platform: item.key })}
+                >
+                  {item.label}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}

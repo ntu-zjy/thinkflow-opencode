@@ -3,17 +3,36 @@ import "./setup"
 import { useCanvasStore } from "../store/canvasStore"
 
 // 重置为初始状态
+const RESET_NODES = [
+  { id: "input-1", type: "input", position: { x: 100, y: 200 }, data: { inputType: "text", value: "", label: "输入" } },
+  { id: "agent-1", type: "agent", position: { x: 450, y: 200 }, data: { idea: "", model: "moonshotai/kimi-k2.6", status: "idle", logs: [], dryRun: false } },
+  { id: "output-1", type: "output", position: { x: 800, y: 200 }, data: { platform: "zhihu", content: "", label: "输出" } },
+] as ReturnType<typeof useCanvasStore.getState>["nodes"]
+
+const RESET_EDGES = [
+  { id: "e-input1-agent1", source: "input-1", target: "agent-1", animated: false },
+  { id: "e-agent1-output1", source: "agent-1", target: "output-1", animated: false },
+]
+
 const resetStore = () => {
+  const wfId = "test-wf-1"
   useCanvasStore.setState({
-    nodes: [
-      { id: "input-1", type: "input", position: { x: 100, y: 200 }, data: { inputType: "text", value: "", label: "输入" } },
-      { id: "agent-1", type: "agent", position: { x: 450, y: 200 }, data: { idea: "", model: "moonshotai/kimi-k2.6", status: "idle", logs: [], dryRun: false } },
-      { id: "output-1", type: "output", position: { x: 800, y: 200 }, data: { platform: "zhihu", content: "", label: "输出" } },
-    ] as ReturnType<typeof useCanvasStore.getState>["nodes"],
-    edges: [
-      { id: "e-input1-agent1", source: "input-1", target: "agent-1", animated: false },
-      { id: "e-agent1-output1", source: "agent-1", target: "output-1", animated: false },
-    ],
+    nodes: RESET_NODES,
+    edges: RESET_EDGES,
+    activeWorkflowId: wfId,
+    workflows: {
+      [wfId]: {
+        id: wfId,
+        name: "画布 1",
+        nodes: RESET_NODES,
+        edges: RESET_EDGES,
+        history: [],
+        historyIndex: -1,
+      },
+    },
+    _history: [],
+    _historyIndex: -1,
+    _sessionIds: [],
   })
 }
 

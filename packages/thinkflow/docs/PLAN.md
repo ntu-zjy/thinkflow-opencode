@@ -39,7 +39,10 @@ packages/thinkflow/
 │       │   └── OutputNode.tsx
 │       ├── components/
 │       │   ├── Toolbar.tsx
-│       │   └── MemorySidebar.tsx
+│       │   ├── WorkflowSidebar.tsx   ← 多画布侧边栏 + 记忆入口
+│       │   ├── MemoryPanel.tsx       ← 全屏记忆面板（替代 MemorySidebar）
+│       │   ├── MemorySidebar.tsx     ← 保留备用，不再主动使用
+│       │   └── OutputModal.tsx
 │       ├── pages/
 │       │   └── Canvas.tsx
 │       └── __tests__/
@@ -73,8 +76,11 @@ packages/thinkflow/
 - `InputType`: `"text" | "url" | "file" | "memory" | "feed"`
 - `InputNodeData`: `inputType, value, label, mcpTool`
 - `AgentNodeData`: `idea, model, status: "idle"|"running"|"done"|"error", logs[], sessionId, dryRun`
-- `OutputNodeData`: `platform: "zhihu"|"wechat"|"diary", content, label`
-- `MemoryEntry`, `MemoryFolder` — 记忆库数据结构
+- `OutputNodeData`: `platform: "zhihu"|"wechat"|"diary"|"xiaohongshu", content, label, images?, contentType?`
+- `ImageAsset`: `id, url, title?, generatedAt?`
+- `MemoryFolderType`: `"persona"|"material"|"preference"|"output"|"other"|string`（支持用户自定义分类类型）
+- `MemoryFolder`: `id, type, name, createdAt, isDefault?`
+- `MemoryEntry`, — 记忆库条目结构
 - `OpenCodeEvent`, `MessagePartUpdatedEvent`, `SessionIdleEvent` — SSE 事件类型
 
 ---
@@ -89,6 +95,7 @@ packages/thinkflow/
 - `abortSession(sessionId)` → `POST /session/:id/abort`
 - `subscribeEvents(cb)` → `GET /global/event`（SSE）
 - `isServerAvailable()` → `GET /global/health`（注意：不是 `/health`）
+- `convertFileToMarkdown(file)` → `POST /api/convert-to-markdown`（Vite 内嵌端点，见 Phase 14）
 - Mock 模式：OpenCode 不可用时模拟流式输出
 
 **关键约束 — OpenCode API**：
@@ -109,24 +116,34 @@ packages/thinkflow/
 **`src/store/canvasStore.ts`**（Zustand）：
 
 - `nodes`, `edges`, ReactFlow callbacks
-- `addNode(type, position?)` — 添加节点到画布
+- `addNode(type, position?, initialData?)` — 添加节点，支持预设 `inputType` / `platform`
 - `updateNodeData(id, data)` — 更新节点数据
 - `runWorkflow(agentNodeId)` — 核心工作流执行：
   1. 找到 agentNodeId 上游所有 InputNode，构建 `parts[]`
-  2. 找到下游所有 OutputNode
+  2. 找到下游所有 OutputNode，`Promise.all` 并行执行各自独立 session
   3. `dryRun` 为 true → `runMockWorkflow`
   4. `isServerAvailable()` 为 false → `runMockWorkflow`（演示模式）
   5. 先 `subscribeEvents()` 订阅 SSE，再 `createSession()` → `sendPrompt()`
   6. `message.part.updated` → `delta` 追加到 OutputNode.content
   7. `session.idle` → status = "done"
 - `abortWorkflow(agentNodeId)` — 关闭 SSE、调用 `abortSession`
+- **多工作流支持**：
+  - `WorkflowRecord { id, name, nodes, edges, history, historyIndex }`
+  - `workflows: Record<string, WorkflowRecord>`，`activeWorkflowId`
+  - `createWorkflow()` / `switchWorkflow(id)` / `closeWorkflow(id)` / `renameWorkflow(id, name)`
+  - `_saveCurrentWorkflow()` — 切换前保存当前画布状态到 `workflows[activeWorkflowId]`
+  - `partialize` 持久化 `activeWorkflowId` + `workflows`（不持久化 history），persist key: `thinkflow-canvas-v2`
+  - `onRehydrateStorage` 从 `workflows[activeWorkflowId]` 恢复 `nodes/edges`
 
 **`src/store/memoryStore.ts`**（Zustand + persist to localStorage）：
 
 - `folders[]`, `entries[]`
+- `addFolder(type, name)` / `removeFolder(id)` / `renameFolder(id, name)`
 - `addEntry({ folderId, title, content, tags? })`
 - `searchEntries(query)`
 - `importFromJson(json)`, `exportToJson()`
+- **默认分类**（`isDefault: true`，不可删除）：人设 / 灵感 / 素材 / 作品 / 其他
+- `onRehydrateStorage` 自动迁移旧分类名称（账号人设→人设，想法记忆→灵感，关键信息→素材，作品记忆→作品），并补全缺失的默认分类
 
 ---
 
@@ -148,29 +165,70 @@ packages/thinkflow/
 - Handle target（左）+ source（右）
 
 **`OutputNode.tsx`**：
-- 平台选择（知乎 / 公众号 / 日记）
-- react-markdown 内容预览
-- 一键复制 + 保存到记忆库
+- 平台选择：知乎 / 公众号 / 日记 / 小红书，2×2 Grid 布局
+- react-markdown 内容预览（max-height 200px），右上角放大按钮弹出 `OutputModal`
+- 一键复制 + 保存到记忆库（存入 `folder-output`，tag 为平台名）
+- 图片支持：`images[]` + `contentType: "image"`，小红书两步法（文本 session 解析 `[IMG_PROMPT:...]` 再生图）
 - Handle `type="target"` 位于左侧
+
+**`OutputModal.tsx`**：
+- `createPortal` 挂到 `document.body`，z-index 1000
+- 背景虚化 `backdrop-filter: blur(4px)`
+- 支持预览/原文切换、图片展示、复制、存为记忆、下载图片、ESC/点背景关闭
 
 ---
 
 ## Phase 6：页面与布局
 
 **`Canvas.tsx`**：
-- `onPaneContextMenu` 右键菜单（添加三种节点）
+- `onPaneContextMenu` 右键菜单，多级子菜单：
+  - 输入节点 → 5 种类型（文本/链接/文件/记忆/信息流），hover 展开子菜单
+  - Agent 节点（直接添加）
+  - 输出节点 → 4 个平台（知乎/公众号/日记/小红书），hover 展开子菜单
+  - 点击调用 `addNode(type, pos, initialData)`，预设 `inputType` 或 `platform`
 - 快捷键：`deleteKeyCode="Delete"`, `multiSelectionKeyCode="Shift"`
 - 快捷提示气泡放 `Panel position="bottom-right"`（避开左下角 Controls）
 - MiniMap 颜色使用 CSS 变量
+- `onInit` 回调 150ms 后 `fitView`；切换工作流后 200ms 触发 `fitView`
+
+**`App.tsx`**：
+- 布局：`Toolbar`（52px top）+ `flex row`（`WorkflowSidebar` 160px + 主内容区 flex:1）
+- 主内容区条件渲染：`memoryOpen ? <MemoryPanel> : <Canvas>`
+- `memoryOpen` 状态由 `App` 管理，通过 props 传给 `WorkflowSidebar`（触发）和 `MemoryPanel`（关闭）
 
 **`Toolbar.tsx`**：
-- 品牌 Logo + 添加节点按钮组 + 运行全部 / 停止全部 + 记忆库触发器 + 主题切换
-- 主题切换：浅色显示月亮图标，深色显示太阳图标，class `tf-theme-toggle`
+- 品牌 Logo + 运行全部 / 停止全部 + 主题切换
+- 记忆库入口已移至 `WorkflowSidebar`
 
-**`MemorySidebar.tsx`**：
-- 侧边抽屉，`transform: translateX` 动画
-- 记忆分类列表（人设 / 素材 / 偏好 / 输出）
-- 搜索、新建、编辑、删除、导入 / 导出 JSON
+**`WorkflowSidebar.tsx`**（新增）：
+- 160px 左侧侧边栏，`flex-direction: column`
+- 顶部"画布"区块：工作流列表（双击重命名，× 关闭，+ 新建）
+- 底部"记忆"入口按钮：点击切换 `memoryOpen`；激活时高亮；点击画布条目自动关闭记忆面板
+- 字体使用 `--text-primary` 确保可读性
+
+**`MemoryPanel.tsx`**（新增，替代侧边抽屉）：
+- 全宽全高，完全占据主内容区（`width: 100%; height: 100%`）
+- 顶部工具栏：标题"记忆" + 分类 Tab（每个 Tab 有对应 SVG 图标 + 颜色下划线）+ 搜索框 + 新建 + 导入/导出/关闭
+- 内容区：`grid auto-fill minmax(280px, 1fr)` 卡片网格
+- 每张卡片左边框颜色按分类区分（人设蓝/灵感绿/素材橙/作品紫/其他灰）
+- 卡片右上角放大按钮 → `MemoryModal`（带背景虚化）
+- 关闭按钮返回画布
+
+**分类颜色方案**：
+```
+persona  (人设) → #3b82f6 蓝
+material (灵感) → #10b981 绿
+preference (素材) → #f59e0b 橙
+output   (作品) → #8b5cf6 紫
+other/custom → #6b7280 灰
+```
+
+**分类图标（SVG 线条，禁止使用 emoji）**：
+- 人设：人形轮廓（circle + path）
+- 灵感：层叠菱形（material layers）
+- 素材：文档（file + lines）
+- 作品：五角星（polygon）
+- 其他/自定义：文件夹（folder path）
 
 ---
 
@@ -200,12 +258,22 @@ packages/thinkflow/
 
 | 文件 | 覆盖 | 用例数 |
 |------|------|--------|
-| `canvasStore.test.ts` | 节点增删、工作流执行、abort | 10 |
-| `memoryStore.test.ts` | CRUD、搜索、导入导出 | 8 |
-| `opencodeClient.test.ts` | Session API、Mock 模式、SSE | 5 |
+| `canvasStore.test.ts` | 节点增删、工作流执行、abort、多工作流切换 | 13 |
+| `memoryStore.test.ts` | CRUD、搜索、导入导出、分类操作 | 10 |
+| `opencodeClient.test.ts` | Session API、Mock 模式、SSE、convertFileToMarkdown | 10 |
 | `nodeTypes.test.ts` | 节点类型注册 | 5 |
 
 `setup.ts` 中需要 `MockEventSource` polyfill（jsdom 无内置 EventSource）。
+
+**`canvasStore.test.ts` resetStore 必须包含**：
+```typescript
+useCanvasStore.setState({
+  nodes: RESET_NODES, edges: RESET_EDGES,
+  activeWorkflowId: wfId,
+  workflows: { [wfId]: { id: wfId, name: "画布 1", nodes: RESET_NODES, edges: RESET_EDGES, history: [], historyIndex: -1 } },
+  _history: [], _historyIndex: -1, _sessionIds: [],
+})
+```
 
 ---
 
@@ -382,6 +450,60 @@ cd packages/thinkflow/app
 
 ---
 
+## Phase 13：MVP1 后续迭代（体验打磨）
+
+### 13.1 多工作流支持
+
+- `canvasStore` 新增 `WorkflowRecord` 结构，persist key 升级为 `thinkflow-canvas-v2`
+- 左侧 `WorkflowSidebar` 代替 Toolbar 标签页：显示所有画布，支持新建/切换/关闭/双击重命名
+- 初始节点坐标以 `(0,0)` 为中心（input x:-560, agent x:-200, outputs x:160），保证 `fitView` 居中
+- 切换画布时自动 abort 正在运行的 agent，避免跨工作流 session 混乱
+- history 不持久化，避免 localStorage 超限
+
+### 13.2 右键菜单多级子菜单
+
+- 原 3 个菜单项拆分为多级：输入节点（5 种）+ Agent + 输出节点（4 平台）
+- hover 触发子菜单（CSS `.tf-context-submenu`，`left: 100%`）
+- `addNode` 新增可选第三参数 `initialData`，merge 到默认 data，直接预设 `inputType`/`platform`
+
+### 13.3 记忆库全屏面板
+
+- 记忆库从右侧 320px 抽屉改为全屏面板，与画布互斥显示（`App.tsx` 条件渲染）
+- `MemoryPanel` 顶部工具栏 + 卡片网格（`auto-fill minmax(280px, 1fr)`）
+- 入口按钮移到 `WorkflowSidebar` 底部，与"画布"区块同级
+- 打开记忆后点击画布条目自动切回画布
+
+### 13.4 记忆卡片详情弹窗
+
+- 每张记忆卡片右上角放大按钮 → `MemoryModal`（`createPortal` + `backdrop-filter: blur(4px)`）
+- Modal 顶部带分类颜色线条，支持复制、ESC 关闭、点背景关闭
+- OutputNode 展开弹窗同样带背景虚化（已有，无需额外修改）
+
+### 13.5 记忆分类重命名
+
+旧名称 → 新名称（`onRehydrateStorage` 自动迁移）：
+
+| 旧 | 新 |
+|----|----|
+| 账号人设 | 人设 |
+| 想法记忆 / 内容素材 | 灵感 |
+| 关键信息 / 用户偏好 | 素材 |
+| 作品记忆 / 输出记录 | 作品 |
+| —（新增）— | 其他 |
+
+- `MemoryFolderType` 放宽为 `string`，支持用户自定义分类
+- `MemoryFolder` 新增 `isDefault?: boolean`，默认分类不显示删除按钮
+- 分类图标全部改为 SVG 线条（禁止 emoji）
+
+### 13.6 视觉细节
+
+- 平台按钮改为 2×2 CSS Grid（替代 flex-wrap 导致的 3+1 换行）
+- 节点 header 图标颜色由 `--accent` 改为 `--text-muted`
+- 侧边栏字体颜色统一为 `--text-primary`
+- 分隔线去重（原 `divider` + `footer border-top` 双线，保留 footer `border-top` 一条即可）
+
+---
+
 ## Phase 12：关键约束更新
 
 | 约束 | 说明 |
@@ -393,3 +515,127 @@ cd packages/thinkflow/app
 | History 禁区 | `_pushHistory` 禁止在 `onNodesChange` 中调用，否则拖拽时爆栈 |
 | Playwright 排除 | vitest 的 `exclude` 需加 `"e2e/**"` 防止误扫描 Playwright 测试文件 |
 | `panActivationKeyCode` | `<ReactFlow panActivationKeyCode={null}>` 防止 Space 键被 ReactFlow 拦截做平移 |
+| markitdown stdin | `markitdown -` 不走 stdin，必须传文件路径；需用临时文件并保留扩展名（markitdown 靠扩展名判断格式） |
+| markitdown PDF 依赖 | 必须用 `uvx --from "markitdown[all]"` 而非 `uvx markitdown`，否则 PDF 转换报 MissingDependencyException |
+| ReactFlow fitView 节点宽度 | `fitView` 依赖节点包装层尺寸计算边界。节点内容若用 CSS `minWidth`，ReactFlow 无法感知真实宽度，导致 fitView 后节点超出视口。解法：在节点对象上设置 `style.width`（input: 280, agent: 300, output: 320），让 ReactFlow 知道节点真实宽度 |
+
+---
+
+## Phase 14：markitdown 文件转 Markdown 集成
+
+### 14.1 背景
+
+InputNode 原先用 `FileReader.readAsText()` 读文件，对 PDF/DOCX/PPTX 等二进制格式完全无效（乱码或空内容）。通过集成 [microsoft/markitdown](https://github.com/microsoft/markitdown)，支持将多种文件格式透明转换为 Markdown 后再传给 Agent。
+
+### 14.2 架构
+
+转换发生在**前端上传时**（不在 Agent 执行阶段），Agent 收到的已经是干净的 Markdown 文本，对 canvasStore / opencodeClient 的核心流程完全透明。
+
+```
+用户拖入文件（PDF/DOCX/PPTX/HTML/图片...）
+    ↓ InputNode.readFile()
+POST /api/convert-to-markdown（Vite 内嵌端点）
+    ↓ spawnSync("uvx", ["--from", "markitdown[all]", "markitdown", tmpPath])
+返回 { markdown: string }
+    ↓
+updateNodeData({ value: markdown, fileConverted: true })
+    ↓ 运行工作流
+canvasStore 将 markdown 字符串作为 【文件内容】 传给 Agent
+```
+
+**降级链**：uvx 不可用 → 503 → 前端降级为 `FileReader.readAsText()`，节点显示「原始文本」灰色徽章，不阻塞工作流。
+
+### 14.3 关键实现
+
+**`vite.config.ts` — `markitdownPlugin()`**：
+
+- 启动时 `spawnSync("uvx", ["--version"])` 检测可用性，不可用则打印警告
+- 注册 `server.middlewares.use("/api/convert-to-markdown", ...)` 路由
+- 接收 `multipart/form-data`，手动解析 boundary 提取文件 buffer 和文件名
+- 写临时文件到 `os.tmpdir()`（**必须保留原始扩展名**，markitdown 依此判断格式）
+- 调用 `uvx --from "markitdown[all]" --quiet markitdown <tmpPath>`（`[all]` 包含 PDF/DOCX/PPTX 等全部转换器）
+- 转换完成后删除临时文件（`finally { unlinkSync(tmpPath) }`）
+- 超时 60 秒（大 PDF 可能需要较长时间）
+
+**两个已知坑**（见 Phase 12 约束表）：
+1. `markitdown -` 不走 stdin，需传文件路径
+2. 基础 `markitdown` 包不含 PDF 支持，必须用 `markitdown[all]`
+
+**`src/services/opencodeClient.ts` — `convertFileToMarkdown(file)`**：
+
+```typescript
+export async function convertFileToMarkdown(file: File): Promise<string> {
+  const formData = new FormData()
+  formData.append("file", file)
+  const res = await fetch("/api/convert-to-markdown", { method: "POST", body: formData })
+  if (!res.ok) throw new Error(`markitdown failed: ${res.status}`)
+  const data = await res.json() as { markdown?: string; error?: string }
+  if (!data.markdown) throw new Error(data.error ?? "empty response")
+  return data.markdown
+}
+```
+
+**`src/types/index.ts`** — `InputNodeData` 新增 `fileConverted?: boolean`
+
+**`src/nodes/InputNode.tsx`**：
+- `readFile` 改为 `async`，先调用 `convertFileToMarkdown`，失败时降级 `readAsText`
+- 文件信息行新增徽章：`fileConverted === true` → 绿色「已转为 MD」；`false` → 灰色「原始文本」
+- 拖拽提示文字改为「支持 PDF、Word、PPT、HTML、图片、文本文件」（移除 emoji 图标）
+
+### 14.4 用户依赖
+
+需要系统安装 `uv`（Python 包管理器）：
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+首次调用时 uvx 自动下载 markitdown[all] 并缓存，后续调用无需重新下载。
+
+### 14.5 测试
+
+`opencodeClient.test.ts` 新增 3 个用例（共 10 个）：
+- 成功时返回 markdown 字符串（fetch mock → `{ markdown: "# Hello" }`）
+- 503 时抛出异常（uvx 不可用场景）
+- 响应无 markdown 字段时抛出异常
+
+---
+
+## Phase 15：画布初始布局与 fitView 精确居中
+
+### 15.1 问题背景
+
+新画布（或切换画布）后，输出节点右侧会超出视口，原因是 ReactFlow 的 `fitView` 在计算节点边界时，依赖的是每个节点包装层（`.react-flow__node`）的尺寸，而非节点内容实际渲染尺寸。
+
+节点组件内部使用 CSS `minWidth` 定义宽度（如 `min-width: 320px`），但节点对象本身没有声明 `style.width`，ReactFlow 感知到的包装层宽度远小于实际渲染宽度，fitView 因此算出错误的边界，导致节点溢出。
+
+### 15.2 解法
+
+在 `canvasStore.ts` 的初始节点和 `addNode` 函数中，为每个节点对象声明 `style.width`，与 CSS 中的 `minWidth` 保持一致：
+
+| 节点类型 | `style.width` | CSS `min-width` |
+|----------|--------------|-----------------|
+| input    | 280          | 280px           |
+| agent    | 300          | 300px（inline style minWidth: 300） |
+| output   | 320          | 320px（inline style minWidth: 320） |
+
+**初始节点示例**：
+```typescript
+const initialInput: InputNodeType = {
+  id: "input-1",
+  type: "input",
+  position: { x: -560, y: -160 },
+  data: { inputType: "text", value: "", label: "输入" },
+  style: { width: 280 },   // ← 关键：让 ReactFlow 感知真实宽度
+}
+```
+
+**`addNode` 函数也同样处理**，确保右键菜单动态添加的节点同样有正确宽度信息。
+
+### 15.3 fitView 参数
+
+所有 `fitView` 调用统一使用 `{ padding: 0.2 }`，不加 `maxZoom` 限制，让框架在任何窗口宽度下都能自动缩放以完整显示所有节点并留出 20% 留白。
+
+```typescript
+fitView({ padding: 0.2 })
+```
