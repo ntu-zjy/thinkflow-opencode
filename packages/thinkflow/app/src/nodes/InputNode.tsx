@@ -4,6 +4,7 @@ import type { NodeProps } from "@xyflow/react"
 import type { InputNodeType, InputType, McpTool } from "../types"
 import { useCanvasStore } from "../store/canvasStore"
 import { useMemoryStore } from "../store/memoryStore"
+import { convertFileToMarkdown } from "../services/opencodeClient"
 
 const INPUT_TABS: { key: InputType; label: string }[] = [
   { key: "text", label: "文本" },
@@ -29,14 +30,21 @@ export function InputNode({ id, data, selected }: NodeProps<InputNodeType>) {
   const setValue = (v: string) => updateNodeData(id, { value: v })
 
   const readFile = useCallback(
-    (file: File) => {
-      const reader = new FileReader()
-      reader.onload = (ev) => {
-        const content = ev.target?.result as string ?? ""
-        updateNodeData(id, { value: content, label: file.name })
+    async (file: File) => {
+      try {
+        const markdown = await convertFileToMarkdown(file)
+        updateNodeData(id, { value: markdown, label: file.name, fileConverted: true })
+        setType("file")
+      } catch {
+        // 降级：readAsText（markitdown 不可用或转换失败）
+        const reader = new FileReader()
+        reader.onload = (ev) => {
+          const content = ev.target?.result as string ?? ""
+          updateNodeData(id, { value: content, label: file.name, fileConverted: false })
+        }
+        reader.readAsText(file)
+        setType("file")
       }
-      reader.readAsText(file)
-      setType("file")
     },
     [id],
   )
@@ -55,7 +63,7 @@ export function InputNode({ id, data, selected }: NodeProps<InputNodeType>) {
     <div className={`tf-node${selected ? " selected" : ""}`}>
       <div className="tf-node__header" style={{ justifyContent: "space-between" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: "var(--accent)" }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: "var(--text-muted)" }}>
             <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
             <polyline points="17 8 12 3 7 8" />
             <line x1="12" y1="3" x2="12" y2="15" />
@@ -123,14 +131,22 @@ export function InputNode({ id, data, selected }: NodeProps<InputNodeType>) {
             }}
           >
             {data.value ? (
-              <span style={{ color: "var(--text-secondary)" }}>
-                {data.label !== "输入" ? data.label : "文件"} · 已读取 {data.value.length} 字
+              <span style={{ color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                <span>{data.label !== "输入" ? data.label : "文件"} · {data.value.length} 字</span>
+                {data.fileConverted === true && (
+                  <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 99, background: "#10b98122", color: "#10b981", flexShrink: 0 }}>已转为 MD</span>
+                )}
+                {data.fileConverted === false && (
+                  <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 99, background: "var(--border)", color: "var(--text-muted)", flexShrink: 0 }}>原始文本</span>
+                )}
               </span>
             ) : (
               <>
-                <div style={{ fontSize: 20, marginBottom: 4 }}>📂</div>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ marginBottom: 4, opacity: 0.4 }}>
+                  <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z" />
+                </svg>
                 <div>拖拽文件或点击选择</div>
-                <div style={{ fontSize: 10, marginTop: 4, color: "var(--text-muted)" }}>支持 PDF、图片、文本文件</div>
+                <div style={{ fontSize: 10, marginTop: 4, color: "var(--text-muted)" }}>支持 PDF、Word、PPT、HTML、图片、文本文件</div>
               </>
             )}
           </div>

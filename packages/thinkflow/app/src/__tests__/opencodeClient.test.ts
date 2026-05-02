@@ -1,10 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from "vitest"
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import "./setup"
 import { MockEventSource } from "./setup"
 import {
   createSession,
   subscribeEvents,
   runMockWorkflow,
+  convertFileToMarkdown,
 } from "../services/opencodeClient"
 
 // jsdom 环境下 sessionStorage polyfill（bun test 无 jsdom 时 sessionStorage 可能不存在）
@@ -72,6 +73,42 @@ describe("opencodeClient — subscribeEvents", () => {
     const es = MockEventSource.instances[MockEventSource.instances.length - 1]
     unsubscribe()
     expect(es.readyState).toBe(2)
+  })
+})
+
+describe("opencodeClient — convertFileToMarkdown", () => {
+  const origFetch = globalThis.fetch
+
+  afterEach(() => {
+    globalThis.fetch = origFetch
+  })
+
+  it("成功时返回 markdown 字符串", async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ markdown: "# Hello\n\n这是转换后的内容" }),
+    }) as unknown as typeof fetch
+    const file = new File(["dummy pdf content"], "test.pdf", { type: "application/pdf" })
+    const result = await convertFileToMarkdown(file)
+    expect(result).toBe("# Hello\n\n这是转换后的内容")
+  })
+
+  it("服务器返回 503 时抛出异常（uvx 不可用）", async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 503,
+    }) as unknown as typeof fetch
+    const file = new File(["dummy"], "test.pdf", { type: "application/pdf" })
+    await expect(convertFileToMarkdown(file)).rejects.toThrow("markitdown failed: 503")
+  })
+
+  it("响应无 markdown 字段时抛出异常", async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ error: "conversion failed" }),
+    }) as unknown as typeof fetch
+    const file = new File(["dummy"], "test.pdf", { type: "application/pdf" })
+    await expect(convertFileToMarkdown(file)).rejects.toThrow("conversion failed")
   })
 })
 

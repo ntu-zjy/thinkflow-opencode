@@ -2,7 +2,8 @@ import { useState, useEffect } from "react"
 import { ReactFlowProvider } from "@xyflow/react"
 import { Canvas } from "./pages/Canvas"
 import { Toolbar } from "./components/Toolbar"
-import { MemorySidebar } from "./components/MemorySidebar"
+import { MemoryPanel } from "./components/MemoryPanel"
+import { WorkflowSidebar } from "./components/WorkflowSidebar"
 
 export type Theme = "light" | "dark"
 
@@ -27,15 +28,23 @@ export default function App() {
     <ReactFlowProvider>
       <div style={{ width: "100vw", height: "100vh", position: "relative", overflow: "hidden" }}>
         <Toolbar
-          onToggleMemory={() => setMemoryOpen((v) => !v)}
-          memoryOpen={memoryOpen}
           theme={theme}
           onToggleTheme={toggleTheme}
         />
-        <div style={{ position: "absolute", inset: 0, top: 52 }}>
-          <Canvas />
+        {/* 左侧工作流侧边栏 + 主内容区（画布或记忆库） */}
+        <div style={{ position: "absolute", inset: 0, top: 52, display: "flex" }}>
+          <WorkflowSidebar
+            memoryOpen={memoryOpen}
+            onToggleMemory={() => setMemoryOpen((v) => !v)}
+          />
+          <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
+            {memoryOpen ? (
+              <MemoryPanel onClose={() => setMemoryOpen(false)} />
+            ) : (
+              <Canvas />
+            )}
+          </div>
         </div>
-        <MemorySidebar open={memoryOpen} onClose={() => setMemoryOpen(false)} />
       </div>
     </ReactFlowProvider>
   )

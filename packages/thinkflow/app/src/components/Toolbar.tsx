@@ -2,13 +2,11 @@ import { useCanvasStore } from "../store/canvasStore"
 import type { Theme } from "../App"
 
 interface ToolbarProps {
-  onToggleMemory: () => void
-  memoryOpen: boolean
   theme: Theme
   onToggleTheme: () => void
 }
 
-export function Toolbar({ onToggleMemory, memoryOpen, theme, onToggleTheme }: ToolbarProps) {
+export function Toolbar({ theme, onToggleTheme }: ToolbarProps) {
   const nodes = useCanvasStore((s) => s.nodes)
   const runWorkflow = useCanvasStore((s) => s.runWorkflow)
   const abortWorkflow = useCanvasStore((s) => s.abortWorkflow)
@@ -18,9 +16,7 @@ export function Toolbar({ onToggleMemory, memoryOpen, theme, onToggleTheme }: To
 
   const handleRunAll = () => {
     agentNodes.forEach((n) => {
-      if ((n.data as { status: string }).status !== "running") {
-        runWorkflow(n.id)
-      }
+      if ((n.data as { status: string }).status !== "running") runWorkflow(n.id)
     })
   }
 
@@ -30,16 +26,12 @@ export function Toolbar({ onToggleMemory, memoryOpen, theme, onToggleTheme }: To
 
   return (
     <div className="tf-toolbar">
-      {/* 品牌 Logo */}
       <div className="tf-toolbar__logo">
         ThinkFlow<span className="tf-toolbar__logo-cn"> · 思流</span>
       </div>
 
-      <div style={{ width: 1, height: 20, background: "var(--border)", margin: "0 4px" }} />
-
       <div className="tf-toolbar__spacer" />
 
-      {/* 右侧操作区 */}
       <div className="tf-toolbar__actions">
         {anyRunning ? (
           <button className="tf-btn tf-btn-danger" onClick={handleAbortAll}>
@@ -58,32 +50,16 @@ export function Toolbar({ onToggleMemory, memoryOpen, theme, onToggleTheme }: To
         )}
 
         <button
-          className={`tf-btn ${memoryOpen ? "tf-btn-primary" : "tf-btn-ghost"}`}
-          onClick={onToggleMemory}
-          title="记忆库"
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <ellipse cx="12" cy="5" rx="9" ry="3" />
-            <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
-            <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
-          </svg>
-          记忆库
-        </button>
-
-        {/* 主题切换按钮 */}
-        <button
           className="tf-btn tf-btn-ghost tf-theme-toggle"
           onClick={onToggleTheme}
           title={theme === "light" ? "切换到深色模式" : "切换到浅色模式"}
           aria-label="切换主题"
         >
           {theme === "light" ? (
-            // 月亮图标 → 切换到深色
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
             </svg>
           ) : (
-            // 太阳图标 → 切换到浅色
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="5" />
               <line x1="12" y1="1" x2="12" y2="3" />

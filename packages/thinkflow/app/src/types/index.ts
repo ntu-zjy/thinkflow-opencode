@@ -12,6 +12,7 @@ export interface InputNodeData extends Record<string, unknown> {
   label: string
   mcpTool?: McpTool
   memoryEntryId?: string
+  fileConverted?: boolean
 }
 
 // ─── Agent 节点 ─────────────────────────────────────────────────────────────
@@ -63,13 +64,14 @@ export type FlowEdge = Edge
 
 // ─── 记忆库 ──────────────────────────────────────────────────────────────────
 
-export type MemoryFolderType = "persona" | "material" | "preference" | "output"
+export type MemoryFolderType = "persona" | "material" | "preference" | "output" | "other" | string
 
 export interface MemoryFolder {
   id: string
   type: MemoryFolderType
   name: string
   createdAt: number
+  isDefault?: boolean
 }
 
 export interface MemoryEntry {

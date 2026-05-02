@@ -6,11 +6,22 @@ import type { MemoryFolder, MemoryEntry, MemoryFolderType } from "../types"
 // ─── 默认分类文件夹 ───────────────────────────────────────────────────────────
 
 const DEFAULT_FOLDERS: MemoryFolder[] = [
-  { id: "folder-persona", type: "persona", name: "账号人设", createdAt: 0 },
-  { id: "folder-material", type: "material", name: "内容素材", createdAt: 0 },
-  { id: "folder-preference", type: "preference", name: "用户偏好", createdAt: 0 },
-  { id: "folder-output", type: "output", name: "输出记录", createdAt: 0 },
+  { id: "folder-persona",    type: "persona",    name: "人设", createdAt: 0, isDefault: true },
+  { id: "folder-material",   type: "material",   name: "灵感", createdAt: 0, isDefault: true },
+  { id: "folder-preference", type: "preference", name: "素材", createdAt: 0, isDefault: true },
+  { id: "folder-output",     type: "output",     name: "作品", createdAt: 0, isDefault: true },
+  { id: "folder-other",      type: "other",      name: "其他", createdAt: 0, isDefault: true },
 ]
+
+const FOLDER_NAME_MIGRATIONS: Record<string, string> = {
+  "内容素材": "灵感",
+  "用户偏好": "素材",
+  "输出记录": "作品",
+  "作品记忆": "作品",
+  "想法记忆": "灵感",
+  "关键信息": "素材",
+  "账号人设": "人设",
+}
 
 // ─── Store 接口 ───────────────────────────────────────────────────────────────
 
@@ -109,6 +120,21 @@ export const useMemoryStore = create<MemoryStore>()(
     }),
     {
       name: "thinkflow-memory",
+      onRehydrateStorage: () => (state) => {
+        if (!state) return
+        // 迁移旧名称
+        state.folders = state.folders.map((f) => ({
+          ...f,
+          name: FOLDER_NAME_MIGRATIONS[f.name] ?? f.name,
+        }))
+        // 补全缺失的默认分类（如旧数据没有"其他"）
+        const existingIds = new Set(state.folders.map((f) => f.id))
+        for (const df of DEFAULT_FOLDERS) {
+          if (!existingIds.has(df.id)) {
+            state.folders.push(df)
+          }
+        }
+      },
     },
   ),
 )

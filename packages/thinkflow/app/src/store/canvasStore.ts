@@ -33,47 +33,76 @@ import {
 
 // ─── 初始示例节点（扇形布局） ───────────────────────────────────────────────
 
+// 坐标以 (0,0) 为中心，fitView 可精确居中
+// style.width 告知 ReactFlow 节点真实宽度，确保 fitView 正确计算边界
 const initialInput: InputNodeType = {
   id: "input-1",
   type: "input",
-  position: { x: 80, y: 200 },
+  position: { x: -560, y: -160 },
   data: { inputType: "text", value: "", label: "输入" },
+  style: { width: 280 },
 }
 
 const initialAgent: AgentNodeType = {
   id: "agent-1",
   type: "agent",
-  position: { x: 420, y: 200 },
+  position: { x: -160, y: -160 },
   data: { idea: "", model: "moonshotai/kimi-k2.6", status: "idle", logs: [], dryRun: false },
+  style: { width: 300 },
 }
 
 const initialOutput1: OutputNodeType = {
   id: "output-1",
   type: "output",
-  position: { x: 760, y: 80 },
+  position: { x: 280, y: -160 },
   data: { platform: "zhihu", content: "", label: "输出" },
-}
-
-const initialOutput2: OutputNodeType = {
-  id: "output-2",
-  type: "output",
-  position: { x: 760, y: 280 },
-  data: { platform: "wechat", content: "", label: "输出" },
-}
-
-const initialOutput3: OutputNodeType = {
-  id: "output-3",
-  type: "output",
-  position: { x: 760, y: 480 },
-  data: { platform: "diary", content: "", label: "输出" },
+  style: { width: 320 },
 }
 
 const initialEdges: FlowEdge[] = [
   { id: "e-input1-agent1", source: "input-1", target: "agent-1", animated: false },
   { id: "e-agent1-output1", source: "agent-1", target: "output-1", animated: false },
-  { id: "e-agent1-output2", source: "agent-1", target: "output-2", animated: false },
-  { id: "e-agent1-output3", source: "agent-1", target: "output-3", animated: false },
 ]
+
+// ─── 多工作流数据结构 ─────────────────────────────────────────────────────────
+
+interface WorkflowRecord {
+  id: string
+  name: string
+  nodes: FlowNode[]
+  edges: FlowEdge[]
+  history: Array<{ nodes: FlowNode[]; edges: FlowEdge[] }>
+  historyIndex: number
+}
+
+function createDefaultWorkflow(name: string): WorkflowRecord {
+  return {
+    id: nanoid(8),
+    name,
+    nodes: [initialInput, initialAgent, initialOutput1] as FlowNode[],
+    edges: initialEdges,
+    history: [],
+    historyIndex: -1,
+  }
+}
+
+// ─── 持久化清理函数 ───────────────────────────────────────────────────────────
+
+function cleanNodeForPersist(n: FlowNode): FlowNode {
+  if (n.type === "agent") {
+    const d = n.data as AgentNodeData
+    return { ...n, data: { ...d, status: "idle" as const, logs: [], sessionId: undefined } }
+  }
+  if (n.type === "output") {
+    const d = n.data as OutputNodeData
+    return { ...n, data: { ...d, images: undefined, contentType: undefined } }
+  }
+  return n
+}
+
+function cleanEdgeForPersist(e: FlowEdge): FlowEdge {
+  return { ...e, animated: false }
+}
 
 // ─── Store 接口 ───────────────────────────────────────────────────────────────
 
@@ -85,7 +114,7 @@ interface CanvasStore {
   onConnect: OnConnect
   setNodes: (nodes: FlowNode[]) => void
   setEdges: (edges: FlowEdge[]) => void
-  addNode: (type: "input" | "agent" | "output", position?: { x: number; y: number }) => void
+  addNode: (type: "input" | "agent" | "output", position?: { x: number; y: number }, initialData?: Record<string, unknown>) => void
   removeNode: (id: string) => void
   updateNodeData: <T extends Record<string, unknown>>(id: string, data: Partial<T>) => void
   runWorkflow: (agentNodeId: string) => Promise<void>
@@ -97,18 +126,109 @@ interface CanvasStore {
   _pushHistory: () => void
   undo: () => void
   redo: () => void
+  // 多工作流
+  workflows: Record<string, WorkflowRecord>
+  activeWorkflowId: string
+  _saveCurrentWorkflow: () => void
+  createWorkflow: () => void
+  switchWorkflow: (id: string) => void
+  closeWorkflow: (id: string) => void
+  renameWorkflow: (id: string, name: string) => void
 }
 
 // ─── Store 实现 ───────────────────────────────────────────────────────────────
 
+const defaultWf = createDefaultWorkflow("画布 1")
+
 export const useCanvasStore = create<CanvasStore>()(
   persist(
     (set, get) => ({
-  nodes: [initialInput, initialAgent, initialOutput1, initialOutput2, initialOutput3] as FlowNode[],
-  edges: initialEdges,
+  nodes: defaultWf.nodes,
+  edges: defaultWf.edges,
   _sessionIds: [],
   _history: [],
   _historyIndex: -1,
+  workflows: { [defaultWf.id]: defaultWf },
+  activeWorkflowId: defaultWf.id,
+
+  // ─── 多工作流操作 ────────────────────────────────────────────────────────
+
+  _saveCurrentWorkflow: () => {
+    const { nodes, edges, _history, _historyIndex, activeWorkflowId, workflows } = get()
+    set({
+      workflows: {
+        ...workflows,
+        [activeWorkflowId]: {
+          ...workflows[activeWorkflowId],
+          nodes,
+          edges,
+          history: _history,
+          historyIndex: _historyIndex,
+        },
+      },
+    })
+  },
+
+  createWorkflow: () => {
+    const { workflows, _saveCurrentWorkflow } = get()
+    _saveCurrentWorkflow()
+    const n = Object.keys(workflows).length + 1
+    const wf = createDefaultWorkflow(`画布 ${n}`)
+    set({
+      workflows: { ...workflows, [wf.id]: wf },
+      activeWorkflowId: wf.id,
+      nodes: wf.nodes,
+      edges: wf.edges,
+      _history: [],
+      _historyIndex: -1,
+    })
+  },
+
+  switchWorkflow: (id) => {
+    const { activeWorkflowId, workflows, nodes, _saveCurrentWorkflow } = get()
+    if (id === activeWorkflowId) return
+    // abort 正在运行的 agent
+    nodes.filter((n) => n.type === "agent" && (n.data as AgentNodeData).status === "running")
+      .forEach((n) => get().abortWorkflow(n.id))
+    _saveCurrentWorkflow()
+    const wf = workflows[id]
+    if (!wf) return
+    set({
+      activeWorkflowId: id,
+      nodes: wf.nodes,
+      edges: wf.edges,
+      _history: wf.history ?? [],
+      _historyIndex: wf.historyIndex ?? -1,
+    })
+  },
+
+  closeWorkflow: (id) => {
+    const { workflows, activeWorkflowId, switchWorkflow } = get()
+    const ids = Object.keys(workflows)
+    if (ids.length <= 1) return
+    // 关闭当前激活的 → 先切换到相邻工作流
+    if (id === activeWorkflowId) {
+      const idx = ids.indexOf(id)
+      const nextId = ids[idx > 0 ? idx - 1 : 1]
+      switchWorkflow(nextId)
+    }
+    set((s) => {
+      const next = { ...s.workflows }
+      delete next[id]
+      return { workflows: next }
+    })
+  },
+
+  renameWorkflow: (id, name) => {
+    set((s) => ({
+      workflows: {
+        ...s.workflows,
+        [id]: { ...s.workflows[id], name },
+      },
+    }))
+  },
+
+  // ─── 历史管理 ────────────────────────────────────────────────────────────
 
   _pushHistory: () => {
     const { nodes, edges, _history, _historyIndex } = get()
@@ -149,7 +269,7 @@ export const useCanvasStore = create<CanvasStore>()(
     set({ edges })
   },
 
-  addNode: (type, position) => {
+  addNode: (type, position, initialData) => {
     get()._pushHistory()
     const id = `${type}-${nanoid(6)}`
     const pos = position ?? {
@@ -163,7 +283,8 @@ export const useCanvasStore = create<CanvasStore>()(
           id,
           type: "input",
           position: pos,
-          data: { inputType: "text", value: "", label: "新输入" } satisfies InputNodeData,
+          data: { inputType: "text", value: "", label: "新输入", ...initialData } satisfies InputNodeData,
+          style: { width: 280 },
         } as InputNodeType
       }
       if (type === "agent") {
@@ -177,14 +298,17 @@ export const useCanvasStore = create<CanvasStore>()(
             status: "idle",
             logs: [],
             dryRun: false,
+            ...initialData,
           } satisfies AgentNodeData,
+          style: { width: 300 },
         } as AgentNodeType
       }
       return {
         id,
         type: "output",
         position: pos,
-        data: { platform: "zhihu", content: "", label: "新输出" } satisfies OutputNodeData,
+        data: { platform: "zhihu", content: "", label: "新输出", ...initialData } satisfies OutputNodeData,
+        style: { width: 320 },
       } as OutputNodeType
     })()
 
@@ -445,22 +569,31 @@ export const useCanvasStore = create<CanvasStore>()(
   },
     }),
     {
-      name: "thinkflow-canvas",
-      // 只持久化 nodes/edges，跳过运行时状态和回调
+      name: "thinkflow-canvas-v2",
       partialize: (s) => ({
-        nodes: s.nodes.map((n) => {
-          if (n.type === "agent") {
-            const d = n.data as AgentNodeData
-            return { ...n, data: { ...d, status: "idle" as const, logs: [], sessionId: undefined } }
-          }
-          if (n.type === "output") {
-            const d = n.data as OutputNodeData
-            return { ...n, data: { ...d, images: undefined, contentType: undefined } }
-          }
-          return n
-        }),
-        edges: s.edges.map((e) => ({ ...e, animated: false })),
+        activeWorkflowId: s.activeWorkflowId,
+        workflows: Object.fromEntries(
+          Object.entries(s.workflows).map(([id, wf]) => [
+            id,
+            {
+              ...wf,
+              nodes: wf.nodes.map(cleanNodeForPersist),
+              edges: wf.edges.map(cleanEdgeForPersist),
+              history: [],
+              historyIndex: -1,
+            },
+          ])
+        ),
       }),
+      onRehydrateStorage: () => (state) => {
+        if (state?.activeWorkflowId && state.workflows?.[state.activeWorkflowId]) {
+          const wf = state.workflows[state.activeWorkflowId]
+          state.nodes = wf.nodes
+          state.edges = wf.edges
+          state._history = []
+          state._historyIndex = -1
+        }
+      },
     }
   )
 )
