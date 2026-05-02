@@ -1,0 +1,11 @@
+{
+  "rewrites": [
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
+    }
+  ],
+  "buildCommand": "bun run build",
+  "outputDirectory": "dist",
+  "installCommand": "bun install"
+}

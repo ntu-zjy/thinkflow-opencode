@@ -1,0 +1,4 @@
+# sidecar 二进制由 CI 构建时注入，不提交到仓库
+# 在 CI 中通过 packages/opencode/script/build.ts 构建后复制
+*
+!.gitignore

@@ -79,10 +79,17 @@
 - [x] **做一下新手教程，方便用户使用**
   首次打开自动弹出 Spotlight 步骤引导（5 步，高亮目标区域 + 说明卡片）；跳过/完成后存 `thinkflow-tour-done` 不再重复弹出；Toolbar「?」按钮可随时重启教程。
 
+- [x] **内测版上线网页版和桌面版**
+  桌面版：opencode-cli sidecar 打包进 Tauri，本地构建 `ThinkFlow_0.1.0_aarch64.dmg`（38MB）；`desktop/src/main.tsx` boot 函数加入轮询重试（最多 30s）；修复 `frontendDist` 路径。网页版：Vercel API Routes（`api/openrouter/`、`api/siliconflow/`）代理注入 API Key；`vercel.json` SPA 路由重写；GitHub Actions `thinkflow-release.yml` 自动化测试 + Vercel 部署 + macOS dmg 构建。
+  **上线前需配置 GitHub Secrets**：`VERCEL_TOKEN`、`VERCEL_ORG_ID`、`VERCEL_PROJECT_ID`、`OPENROUTER_API_KEY`、`SILICONFLOW_API_KEY`
+
+- [ ] **Desktop（Tauri）验证**（已在本地验证 arm64，CI 构建待跑）
+  本地已成功构建 ThinkFlow.app + dmg；CI 构建需在 GitHub Actions 上运行一次验证。
+
 ### 🟢 锦上添花
 
 
-- [ ] **内测版上线网页版和桌面版**
+
 - [ ] **参考之前写好的thinkflow插件，对不同的输出进行精心调整，**
 
 - [ ] **记忆需要更便捷的添加，能够用Agent的方式，和用户沟通去完善记忆**
@@ -96,6 +103,3 @@
   InputNode / OutputNode 的 `label` 已在数据层定义但不可编辑。
   双击标题进入编辑态，blur 时提交。
 
-- [ ] **Desktop（Tauri）验证**
-  `packages/thinkflow/desktop` 结构已搭好，尚未实际构建测试。
-  需放置 opencode-cli sidecar 二进制并验证 `tauri dev` 流程。
