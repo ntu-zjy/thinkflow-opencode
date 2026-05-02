@@ -1,10 +1,14 @@
 import { useState, useRef, useCallback, useEffect } from "react"
-import { useEditor, EditorContent } from "@tiptap/react"
+import { useEditor } from "@tiptap/react"
 import StarterKit from "@tiptap/starter-kit"
 import Placeholder from "@tiptap/extension-placeholder"
 import Typography from "@tiptap/extension-typography"
+import { Table, TableRow, TableCell, TableHeader } from "@tiptap/extension-table"
+import Highlight from "@tiptap/extension-highlight"
+import { TextStyle } from "@tiptap/extension-text-style"
 import { useMemoryStore } from "../store/memoryStore"
 import type { MemoryEntry, MemoryFolderType } from "../types"
+import { MemoryEditor } from "./MemoryEditor"
 
 interface MemoryPanelProps {
   onClose: () => void
@@ -88,9 +92,15 @@ export function MemoryPanel({ onClose }: MemoryPanelProps) {
     extensions: [
       StarterKit,
       Placeholder.configure({
-        placeholder: "开始写作...（# 标题、**粗体**、- 列表、> 引用）",
+        placeholder: "开始写作... 或输入 / 查看可用格式",
       }),
       Typography,
+      Highlight,
+      TextStyle,
+      Table.configure({ resizable: true }),
+      TableRow,
+      TableCell,
+      TableHeader,
     ],
     content: "",
     editorProps: {
@@ -555,10 +565,8 @@ export function MemoryPanel({ onClose }: MemoryPanelProps) {
                 )}
               </div>
 
-              {/* 正文：TipTap 富文本编辑器 */}
-              <div className="tf-memory-tiptap-wrapper">
-                <EditorContent editor={editor} />
-              </div>
+              {/* 正文：TipTap 富文本编辑器（含 Toolbar / BubbleMenu / SlashMenu） */}
+              <MemoryEditor editor={editor} />
             </>
           )}
         </div>
