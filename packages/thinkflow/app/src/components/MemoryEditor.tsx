@@ -131,22 +131,24 @@ function SlashMenu({ editor }: { editor: Editor }) {
   const [cursorRect, setCursorRect] = useState<DOMRect | null>(null)
 
   useEffect(() => {
-    const update = () => {
+    const handleUpdate = () => {
       const { $from } = editor.state.selection
-      const isEmpty = $from.parent.textContent === "" && $from.parent.type.name !== "tableCell"
-      if (!isEmpty) { setVisible(false); return }
-      // 获取光标位置
+      // 只在行首输入了 "/" 时显示
+      const text = $from.parent.textContent
+      const isSlash = text === "/" && $from.parent.type.name !== "tableCell"
+      if (!isSlash) { setVisible(false); return }
       const coords = editor.view.coordsAtPos(editor.state.selection.from)
       setCursorRect(new DOMRect(coords.left, coords.top, 0, coords.bottom - coords.top))
       setVisible(true)
     }
-    editor.on("selectionUpdate", update)
-    editor.on("update", update)
-    editor.on("blur", () => setVisible(false))
+    const handleHide = () => setVisible(false)
+    editor.on("update", handleUpdate)
+    editor.on("selectionUpdate", handleHide)
+    editor.on("blur", handleHide)
     return () => {
-      editor.off("selectionUpdate", update)
-      editor.off("update", update)
-      editor.off("blur", () => setVisible(false))
+      editor.off("update", handleUpdate)
+      editor.off("selectionUpdate", handleHide)
+      editor.off("blur", handleHide)
     }
   }, [editor])
 
@@ -163,6 +165,11 @@ function SlashMenu({ editor }: { editor: Editor }) {
           className="tf-slash-item"
           onMouseDown={(e) => {
             e.preventDefault()
+            // 先删掉 "/" 字符，再执行格式命令
+            editor.chain().focus().deleteRange({
+              from: editor.state.selection.from - 1,
+              to: editor.state.selection.from,
+            }).run()
             item.action(editor)
             setVisible(false)
           }}
