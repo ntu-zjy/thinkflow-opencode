@@ -57,8 +57,22 @@ async function boot() {
     // 检查是否在 Tauri 环境中
     if (typeof window.__TAURI_INTERNALS__ !== "undefined") {
       const { invoke } = await import("@tauri-apps/api/core")
-      const data = await invoke<{ url: string; password?: string }>("ensure_server_ready")
-      sessionStorage.setItem("thinkflow_server_url", data.url)
+      // 轮询等待 sidecar 启动（最多 60 次 × 500ms = 30 秒）
+      let url: string | null = null
+      for (let i = 0; i < 60; i++) {
+        try {
+          const data = await invoke<{ url: string }>("ensure_server_ready")
+          url = data.url
+          break
+        } catch {
+          await new Promise((r) => setTimeout(r, 500))
+        }
+      }
+      if (url) {
+        sessionStorage.setItem("thinkflow_server_url", url)
+      } else {
+        console.warn("Sidecar startup timeout, using default server URL")
+      }
     }
   } catch (err) {
     console.warn("Tauri sidecar not available, using default server URL:", err)

@@ -1,0 +1,104 @@
+name: ThinkFlow Release
+
+on:
+  push:
+    branches: [thinkflow-mvp1]
+    paths:
+      - "packages/thinkflow/**"
+      - ".github/workflows/thinkflow-release.yml"
+  workflow_dispatch:
+
+jobs:
+  # ─── 单元测试 ──────────────────────────────────────────────────────────────
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/thinkflow/app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install
+      - run: bun run typecheck
+      - run: bunx vitest run
+
+  # ─── 网页版部署到 Vercel ───────────────────────────────────────────────────
+  deploy-web:
+    name: Deploy Web (Vercel)
+    runs-on: ubuntu-latest
+    needs: test
+    defaults:
+      run:
+        working-directory: packages/thinkflow/app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install
+      - name: Build
+        run: bun run build
+        env:
+          VITE_OPENCODE_WORKDIR: /tmp/opencode
+      - name: Deploy to Vercel
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          working-directory: packages/thinkflow/app
+          vercel-args: "--prod"
+
+  # ─── 桌面版构建（macOS）────────────────────────────────────────────────────
+  build-desktop-macos:
+    name: Build Desktop (macOS)
+    runs-on: macos-latest
+    needs: test
+    defaults:
+      run:
+        working-directory: packages/thinkflow
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Install app dependencies
+        run: bun install
+        working-directory: packages/thinkflow/app
+
+      - name: Install desktop dependencies
+        run: bun install
+        working-directory: packages/thinkflow/desktop
+
+      - name: Build opencode-cli (macOS arm64)
+        run: bun run script/build.ts --single
+        working-directory: packages/opencode
+
+      - name: Copy sidecar binary
+        run: |
+          mkdir -p desktop/src-tauri/sidecars
+          cp packages/opencode/dist/opencode-darwin-arm64/bin/opencode \
+             packages/thinkflow/desktop/src-tauri/sidecars/opencode-cli-aarch64-apple-darwin
+        working-directory: ${{ github.workspace }}
+
+      - name: Build Tauri app
+        run: bun tauri build
+        working-directory: packages/thinkflow/desktop
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload .dmg artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ThinkFlow-macOS-arm64
+          path: packages/thinkflow/desktop/src-tauri/target/release/bundle/dmg/*.dmg
+          retention-days: 30
