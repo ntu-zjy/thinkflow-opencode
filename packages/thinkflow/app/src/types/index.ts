@@ -39,6 +39,8 @@ export interface AgentNodeData extends Record<string, unknown> {
 
 export type OutputPlatform = "zhihu" | "wechat" | "diary" | "xiaohongshu"
 
+export type ContentFormat = "text" | "image_text" | "auto"
+
 export interface ImageAsset {
   id: string
   url: string
@@ -52,6 +54,7 @@ export interface OutputNodeData extends Record<string, unknown> {
   label: string
   images?: ImageAsset[]
   contentType?: "text" | "image"
+  contentFormat?: ContentFormat
 }
 
 // ─── 节点联合类型 ─────────────────────────────────────────────────────────────

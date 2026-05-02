@@ -31,6 +31,33 @@ import {
   generateImage,
 } from "../services/opencodeClient"
 
+// ─── 创作形式 → 平台指令 ────────────────────────────────────────────────────
+
+function getPlatformInstruction(platform: string, contentFormat: string): string {
+  const isText = contentFormat === "text"
+  const isImageText = contentFormat === "image_text"
+
+  if (platform === "xiaohongshu") {
+    if (isText) {
+      return "请为小红书平台生成活泼种草风格的文案，含话题标签 #xxx，不需要图片。"
+    }
+    return `请为小红书平台生成内容，必须严格按以下格式输出：\n\n第一行：[IMG_PROMPT: <详细的英文图片描述，包含风格、色调、主体、构图，约 20 个单词>]\n空一行\n然后是中文正文文案（活泼种草风格，含话题标签 #xxx）\n\n示例：\n[IMG_PROMPT: Fresh pink cherry blossoms, soft bokeh background, morning light, aesthetic minimalist style, vertical composition]\n\n清晨遇见这朵花，治愈了整个春天 🌸\n\n#花卉 #春日 #小确幸`
+  }
+
+  const imgFormatNote = isText
+    ? "\n\n请只输出文字内容，不需要配图或图片描述。"
+    : isImageText
+    ? "\n\n请在文案开头输出 [IMG_PROMPT: <详细英文图片描述，包含风格、色调、主体、构图，约 20 个单词>]，换行后输出正文。"
+    : ""
+
+  const base: Record<string, string> = {
+    zhihu: "请生成适合知乎平台的长文章，包含标题、引言和正文结构，内容深度且有洞察力。",
+    wechat: "请生成适合微信公众号的图文推送，标题吸引人，排版适合移动端阅读，语言亲切。",
+    diary: "请以个人口吻生成日记或笔记风格的内容，流水记录，自然真实，不必拘谨。",
+  }
+  return (base[platform] ?? base.diary) + imgFormatNote
+}
+
 // ─── 初始示例节点（扇形布局） ───────────────────────────────────────────────
 
 // 坐标以 (0,0) 为中心，fitView 可精确居中
@@ -55,7 +82,7 @@ const initialOutput1: OutputNodeType = {
   id: "output-1",
   type: "output",
   position: { x: 280, y: -160 },
-  data: { platform: "zhihu", content: "", label: "输出" },
+  data: { platform: "zhihu", content: "", label: "输出", contentFormat: "auto" },
   style: { width: 320 },
 }
 
@@ -307,7 +334,7 @@ export const useCanvasStore = create<CanvasStore>()(
         id,
         type: "output",
         position: pos,
-        data: { platform: "zhihu", content: "", label: "新输出", ...initialData } satisfies OutputNodeData,
+        data: { platform: "zhihu", content: "", label: "新输出", contentFormat: "auto", ...initialData } satisfies OutputNodeData,
         style: { width: 320 },
       } as OutputNodeType
     })()
@@ -442,16 +469,10 @@ export const useCanvasStore = create<CanvasStore>()(
       return
     }
 
-    const PLATFORM_INSTRUCTION: Record<string, string> = {
-      zhihu: "请生成适合知乎平台的长文章，包含标题、引言和正文结构，内容深度且有洞察力。",
-      wechat: "请生成适合微信公众号的图文推送，标题吸引人，排版适合移动端阅读，语言亲切。",
-      diary: "请以个人口吻生成日记或笔记风格的内容，流水记录，自然真实，不必拘谨。",
-      xiaohongshu: `请为小红书平台生成内容，必须严格按以下格式输出：\n\n第一行：[IMG_PROMPT: <详细的英文图片描述，包含风格、色调、主体、构图，约 20 个单词>]\n空一行\n然后是中文正文文案（活泼种草风格，含话题标签 #xxx）\n\n示例：\n[IMG_PROMPT: Fresh pink cherry blossoms, soft bokeh background, morning light, aesthetic minimalist style, vertical composition]\n\n清晨遇见这朵花，治愈了整个春天 🌸\n\n#花卉 #春日 #小确幸`,
-    }
-
     // ─ 每个输出节点并行发起独立 AI 会话 ─────────────────────────────────────
     const runOneOutput = async (outputNode: OutputNodeType, idx: number) => {
-      const platformInstr = PLATFORM_INSTRUCTION[outputNode.data.platform] ?? PLATFORM_INSTRUCTION.diary
+      const cf = outputNode.data.contentFormat ?? "auto"
+      const platformInstr = getPlatformInstruction(outputNode.data.platform, cf)
       const parts = [...baseParts, { type: "text" as const, text: platformInstr }]
 
       appendLog(`[${idx + 1}/${outputNodes.length}] 创建 ${outputNode.data.platform} 会话...`)
@@ -511,8 +532,12 @@ export const useCanvasStore = create<CanvasStore>()(
         sendPrompt(sessionId, parts, agentNode.data.model).catch(reject)
       })
 
-      // 小红书两步法：文本 session 完成后，解析 [IMG_PROMPT:...] 标记触发生图
-      if (outputNode.data.platform === "xiaohongshu" && outputBuffer) {
+      // 图文两步法：解析 [IMG_PROMPT:...] 标记触发生图
+      // 触发条件：选了"图文"，或选了"自主"且平台为小红书
+      const shouldGenerateImage =
+        cf === "image_text" ||
+        (cf === "auto" && outputNode.data.platform === "xiaohongshu")
+      if (shouldGenerateImage && outputBuffer) {
         const match = outputBuffer.match(/\[IMG_PROMPT:\s*([\s\S]+?)\]/)
         if (match) {
           const imagePrompt = match[1].trim()
