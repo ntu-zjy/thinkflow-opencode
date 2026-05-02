@@ -33,6 +33,15 @@ import {
 } from "../services/opencodeClient"
 import { useMemoryStore } from "./memoryStore"
 
+// ─── 平台标签（用于自动存记忆标题） ───────────────────────────────────────────
+
+const PLATFORM_LABELS: Record<string, string> = {
+  zhihu: "知乎",
+  wechat: "公众号",
+  diary: "日记/笔记",
+  xiaohongshu: "小红书",
+}
+
 // ─── 创作形式 → 平台指令 ────────────────────────────────────────────────────
 
 function getPlatformInstruction(platform: string, contentFormat: string): string {
@@ -443,6 +452,20 @@ export const useCanvasStore = create<CanvasStore>()(
 
     const dryRun = agentNode.data.dryRun
 
+    // 运行完成后自动存入「作品」记忆
+    const autoSaveToMemory = (outputNodeId: string, platform: string, persona?: string) => {
+      const cur = get().nodes.find((n) => n.id === outputNodeId) as OutputNodeType | undefined
+      if (!cur?.data.content) return
+      const platformLabel = PLATFORM_LABELS[platform] ?? "输出"
+      const personaSuffix = persona ? ` · ${persona}` : ""
+      useMemoryStore.getState().addEntry({
+        folderId: "folder-output",
+        title: `${platformLabel}${personaSuffix} · ${new Date().toLocaleDateString("zh-CN")}`,
+        content: cur.data.content,
+        tags: [platform],
+      })
+    }
+
     const runMock = async (o: OutputNodeType) => {
       await runMockWorkflow(
         o.data.platform,
@@ -537,6 +560,8 @@ export const useCanvasStore = create<CanvasStore>()(
               ],
             })
           })
+          // 本 slot 完成后自动存记忆
+          outputNodes.forEach((o) => autoSaveToMemory(o.id, o.data.platform, label))
           appendLog(`[矩阵 ${i + 1}/${dryMatrixSlots.length}] 完成`)
         }
         // 全部完成：显示第一个 slot 结果
@@ -563,6 +588,7 @@ export const useCanvasStore = create<CanvasStore>()(
       }
 
       for (const o of outputNodes) await runMock(o)
+      outputNodes.forEach((o) => autoSaveToMemory(o.id, o.data.platform))
       updateNodeData<AgentNodeData>(agentNodeId, { status: "done" })
       appendLog("dry-run 完成")
       set((s) => ({
@@ -767,6 +793,8 @@ export const useCanvasStore = create<CanvasStore>()(
               ],
             })
           })
+          // 本 slot 完成后自动存记忆
+          outputNodes.forEach((o) => autoSaveToMemory(o.id, o.data.platform, label))
           appendLog(`[矩阵 ${i + 1}/${matrixSlots.length}] 完成`)
         }
         // 全部完成：把第一个 slot 结果写入 content（默认展示）
@@ -800,6 +828,7 @@ export const useCanvasStore = create<CanvasStore>()(
     try {
       appendLog(`并行启动 ${outputNodes.length} 个输出节点...`)
       await Promise.all(outputNodes.map((o, i) => runOneOutput(o, i)))
+      outputNodes.forEach((o) => autoSaveToMemory(o.id, o.data.platform))
       updateNodeData<AgentNodeData>(agentNodeId, { status: "done" })
       appendLog(`全部 ${outputNodes.length} 个输出节点生成完成`)
     } catch (err) {

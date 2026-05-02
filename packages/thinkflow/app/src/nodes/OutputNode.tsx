@@ -7,6 +7,7 @@ import type { OutputNodeType, OutputPlatform, OutputNodeData, ContentFormat, Mat
 import { useCanvasStore } from "../store/canvasStore"
 import { useMemoryStore } from "../store/memoryStore"
 import { OutputModal } from "../components/OutputModal"
+import { downloadSingleText, downloadAsZip } from "../utils/download"
 
 const PLATFORMS: { key: OutputPlatform; label: string; desc: string }[] = [
   { key: "zhihu", label: "知乎", desc: "长文章格式" },
@@ -40,6 +41,8 @@ export function OutputNode({ id, data, selected }: NodeProps<OutputNodeType>) {
   const displayContent = activeResult ? activeResult.content : data.content
   const displayImages = activeResult ? activeResult.images : data.images
   const displayContentType = activeResult ? activeResult.contentType : data.contentType
+  const hasImage = displayContentType === "image" && displayImages && displayImages.length > 0
+  const hasContent = !!(displayContent || hasImage)
 
   // 切换人设时同步展示内容
   const switchMatrix = (idx: number) => {
@@ -63,6 +66,32 @@ export function OutputNode({ id, data, selected }: NodeProps<OutputNodeType>) {
     })
   }, [displayContent, data.platform, activeResult, addEntry])
 
+  const doDownload = useCallback(() => {
+    const platformLabel = PLATFORMS.find((p) => p.key === data.platform)?.label ?? "输出"
+    const personaSuffix = activeResult ? `-${activeResult.personaLabel}` : ""
+    const date = new Date().toLocaleDateString("zh-CN").replace(/\//g, "-")
+    if (hasImage && displayImages?.[0]) {
+      downloadAsZip(
+        [{ filename: `${platformLabel}${personaSuffix}-${date}.txt`, content: displayContent ?? "", imageBase64: displayImages[0].url }],
+        `${platformLabel}${personaSuffix}-${date}.zip`,
+      )
+    } else if (displayContent) {
+      downloadSingleText(displayContent, `${platformLabel}${personaSuffix}-${date}.txt`)
+    }
+  }, [displayContent, displayImages, hasImage, data.platform, activeResult])
+
+  const doDownloadAll = useCallback(() => {
+    if (!isMatrix || matrixResults.length === 0) return
+    const platformLabel = PLATFORMS.find((p) => p.key === data.platform)?.label ?? "输出"
+    const date = new Date().toLocaleDateString("zh-CN").replace(/\//g, "-")
+    const items = matrixResults.map((r) => ({
+      filename: `${platformLabel}-${r.personaLabel || `人设${r.slotIndex + 1}`}-${date}.txt`,
+      content: r.content,
+      imageBase64: r.images?.[0]?.url,
+    }))
+    downloadAsZip(items, `${platformLabel}-矩阵全部-${date}.zip`)
+  }, [matrixResults, isMatrix, data.platform])
+
   const handleCopy = () => {
     doCopy()
     setCopied(true)
@@ -74,9 +103,6 @@ export function OutputNode({ id, data, selected }: NodeProps<OutputNodeType>) {
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }
-
-  const hasImage = displayContentType === "image" && displayImages && displayImages.length > 0
-  const hasContent = !!(displayContent || hasImage)
 
   return (
     <div className={`tf-node${selected ? " selected" : ""}`} style={{ minWidth: 320 }}>
@@ -226,63 +252,48 @@ export function OutputNode({ id, data, selected }: NodeProps<OutputNodeType>) {
 
         {/* 操作按钮 */}
         {hasContent && (
-          <div style={{ display: "flex", gap: "var(--space-2)" }}>
-            {hasImage && displayImages?.[0] ? (
-              <a
-                href={displayImages[0].url}
-                download="thinkflow-image.png"
-                className="tf-btn tf-btn-ghost"
-                style={{ flex: 1, textDecoration: "none", textAlign: "center", justifyContent: "center" }}
-              >
+          <>
+            <div style={{ display: "flex", gap: "var(--space-2)" }}>
+              {!hasImage && (
+                <button className="tf-btn tf-btn-ghost" style={{ flex: 1 }} onClick={handleCopy}>
+                  {copied ? (
+                    <>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                      已复制
+                    </>
+                  ) : (
+                    <>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                        <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+                      </svg>
+                      复制
+                    </>
+                  )}
+                </button>
+              )}
+              <button className="tf-btn tf-btn-ghost" style={{ flex: 1 }} onClick={doDownload}>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
                   <polyline points="7 10 12 15 17 10" />
                   <line x1="12" y1="15" x2="12" y2="3" />
                 </svg>
-                下载图片
-              </a>
-            ) : (
-              <button className="tf-btn tf-btn-ghost" style={{ flex: 1 }} onClick={handleCopy}>
-                {copied ? (
-                  <>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                    已复制
-                  </>
-                ) : (
-                  <>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                      <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
-                    </svg>
-                    复制
-                  </>
-                )}
+                下载
+              </button>
+            </div>
+            {isMatrix && (
+              <button className="tf-btn tf-btn-ghost" style={{ width: "100%", marginTop: "var(--space-1)" }} onClick={doDownloadAll}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                下载全部人设（ZIP）
               </button>
             )}
-            {displayContent && (
-              <button className="tf-btn tf-btn-ghost" style={{ flex: 1 }} onClick={handleSaveToMemory}>
-                {saved ? (
-                  <>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                    已保存
-                  </>
-                ) : (
-                  <>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" />
-                      <polyline points="17 21 17 13 7 13 7 21" />
-                      <polyline points="7 3 7 8 15 8" />
-                    </svg>
-                    存为记忆
-                  </>
-                )}
-              </button>
-            )}
-          </div>
+          </>
         )}
       </div>
 
@@ -295,6 +306,7 @@ export function OutputNode({ id, data, selected }: NodeProps<OutputNodeType>) {
           onClose={() => setShowModal(false)}
           doCopy={doCopy}
           doSave={doSave}
+          doDownload={doDownload}
         />
       )}
     </div>
