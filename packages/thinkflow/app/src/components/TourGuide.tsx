@@ -65,7 +65,7 @@ const TOUR_STEPS: TourStep[] = [
     title: "记忆库",
     content: "点击左下角「记忆」按钮打开记忆库。\n\n分为 5 个分类：\n• 人设 — 账号定位和写作风格\n• 灵感 — 随手记录的想法\n• 素材 — 参考资料和数据\n• 作品 — 自动保存每次创作结果\n• 其他",
     targetSelector: ".tf-wf-sidebar__memory-btn",
-    placement: "right",
+    placement: "top",
     tip: "每次 Agent 运行完成后，输出内容会自动存入「作品」分类",
   },
   {
@@ -80,7 +80,7 @@ const TOUR_STEPS: TourStep[] = [
 
 const PAD = 8
 const CARD_W = 320
-const CARD_H_EST = 300
+const CARD_H_EST = 380  // 偏大估算，保证 clampT 给足底部余量
 const GAP = 14
 
 export function TourGuide({ onClose }: TourGuideProps) {

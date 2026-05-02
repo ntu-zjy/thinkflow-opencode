@@ -2024,6 +2024,8 @@ html {
 .tf-tour-card {
   position: fixed;
   width: 320px;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
   background: var(--bg-node);
   border: 1.5px solid var(--border-accent);
   border-radius: var(--radius-xl);
