@@ -1540,13 +1540,96 @@ html {
 
 .tf-memory-tiptap-wrapper {
   flex: 1;
-  overflow-y: auto;
-  padding: var(--space-3) var(--space-6) var(--space-6);
-  min-height: 200px;
-  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
 }
 
-.tf-memory-tiptap-wrapper .ProseMirror {
+/* ── 固定 Toolbar ─────────────────────────────────────────────────────────── */
+
+.tf-editor-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  background: var(--bg-surface);
+  flex-wrap: wrap;
+}
+
+.tf-editor-toolbar-sep {
+  width: 1px;
+  height: 16px;
+  background: var(--border);
+  margin: 0 var(--space-1);
+  flex-shrink: 0;
+}
+
+.tf-editor-btn {
+  min-width: 26px;
+  height: 26px;
+  padding: 0 4px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.1s, color 0.1s;
+  font-family: var(--font-body);
+}
+
+.tf-editor-btn:hover {
+  background: var(--bg-canvas);
+  color: var(--text-primary);
+}
+
+.tf-editor-btn.active {
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
+
+.tf-editor-btn.danger {
+  color: var(--status-error, #ef4444);
+}
+
+.tf-editor-btn.danger:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.tf-editor-btn.small {
+  min-width: 22px;
+  height: 22px;
+  font-size: 11px;
+}
+
+/* ── 表格操作栏 ───────────────────────────────────────────────────────────── */
+
+.tf-table-menu {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px var(--space-4);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  background: var(--bg-surface-2);
+  font-size: 11px;
+}
+
+/* ── 编辑内容区 ───────────────────────────────────────────────────────────── */
+
+.tf-memory-tiptap-body {
+  flex: 1;
+  overflow-y: auto;
+  position: relative;
+  padding: var(--space-3) var(--space-6) var(--space-6);
+}
+
+.tf-memory-tiptap-body .ProseMirror {
   outline: none;
   min-height: 200px;
   font-family: var(--font-body);
@@ -1556,7 +1639,105 @@ html {
 }
 
 /* Placeholder */
-.tf-memory-tiptap-wrapper .ProseMirror p.is-editor-empty:first-child::before {
+.tf-memory-tiptap-body .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--text-muted);
+  font-style: italic;
+  pointer-events: none;
+  float: left;
+  height: 0;
+}
+
+/* ── Bubble Menu ─────────────────────────────────────────────────────────── */
+
+.tf-bubble-menu {
+  position: fixed;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 6px;
+  background: var(--bg-toolbar);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-panel);
+  backdrop-filter: blur(8px);
+  transform: translateY(-100%);
+  pointer-events: all;
+}
+
+.tf-bubble-menu-sep {
+  width: 1px;
+  height: 14px;
+  background: var(--border);
+  margin: 0 2px;
+}
+
+/* ── Slash Menu ──────────────────────────────────────────────────────────── */
+
+.tf-slash-menu {
+  position: fixed;
+  z-index: 999;
+  background: var(--bg-toolbar);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-panel);
+  backdrop-filter: blur(8px);
+  padding: var(--space-1);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 200px;
+  max-height: 320px;
+  overflow-y: auto;
+  pointer-events: all;
+}
+
+.tf-slash-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px var(--space-2);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  width: 100%;
+  text-align: left;
+  transition: background 0.1s;
+}
+
+.tf-slash-item:hover {
+  background: var(--accent-subtle);
+}
+
+.tf-slash-item-icon {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-surface);
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
+
+.tf-slash-item-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  flex-shrink: 0;
+}
+
+.tf-slash-item-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+
+/* ── ProseMirror 内容样式（从 .tf-memory-tiptap-wrapper 改为 .tf-memory-tiptap-body）*/
+.tf-memory-tiptap-body .ProseMirror p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   color: var(--text-muted);
   font-style: italic;
@@ -1566,33 +1747,33 @@ html {
 }
 
 /* 标题 */
-.tf-memory-tiptap-wrapper .ProseMirror h1,
-.tf-memory-tiptap-wrapper .ProseMirror h2,
-.tf-memory-tiptap-wrapper .ProseMirror h3,
-.tf-memory-tiptap-wrapper .ProseMirror h4 {
+.tf-memory-tiptap-body .ProseMirror h1,
+.tf-memory-tiptap-body .ProseMirror h2,
+.tf-memory-tiptap-body .ProseMirror h3,
+.tf-memory-tiptap-body .ProseMirror h4 {
   font-family: var(--font-display);
   color: var(--text-primary);
   margin: 1.2em 0 0.4em;
   line-height: 1.3;
 }
 
-.tf-memory-tiptap-wrapper .ProseMirror h1 { font-size: 20px; font-weight: 700; }
-.tf-memory-tiptap-wrapper .ProseMirror h2 { font-size: 17px; font-weight: 600; }
-.tf-memory-tiptap-wrapper .ProseMirror h3 { font-size: 15px; font-weight: 600; }
-.tf-memory-tiptap-wrapper .ProseMirror h4 { font-size: 14px; font-weight: 600; }
+.tf-memory-tiptap-body .ProseMirror h1 { font-size: 20px; font-weight: 700; }
+.tf-memory-tiptap-body .ProseMirror h2 { font-size: 17px; font-weight: 600; }
+.tf-memory-tiptap-body .ProseMirror h3 { font-size: 15px; font-weight: 600; }
+.tf-memory-tiptap-body .ProseMirror h4 { font-size: 14px; font-weight: 600; }
 
 /* 段落 */
-.tf-memory-tiptap-wrapper .ProseMirror p { margin: 0 0 0.6em; }
-.tf-memory-tiptap-wrapper .ProseMirror p:last-child { margin-bottom: 0; }
+.tf-memory-tiptap-body .ProseMirror p { margin: 0 0 0.6em; }
+.tf-memory-tiptap-body .ProseMirror p:last-child { margin-bottom: 0; }
 
 /* 列表 */
-.tf-memory-tiptap-wrapper .ProseMirror ul,
-.tf-memory-tiptap-wrapper .ProseMirror ol { padding-left: 1.5em; margin: 0.4em 0 0.8em; }
-.tf-memory-tiptap-wrapper .ProseMirror li { line-height: 1.8; margin: 0.1em 0; }
-.tf-memory-tiptap-wrapper .ProseMirror li p { margin: 0; }
+.tf-memory-tiptap-body .ProseMirror ul,
+.tf-memory-tiptap-body .ProseMirror ol { padding-left: 1.5em; margin: 0.4em 0 0.8em; }
+.tf-memory-tiptap-body .ProseMirror li { line-height: 1.8; margin: 0.1em 0; }
+.tf-memory-tiptap-body .ProseMirror li p { margin: 0; }
 
 /* 引用 */
-.tf-memory-tiptap-wrapper .ProseMirror blockquote {
+.tf-memory-tiptap-body .ProseMirror blockquote {
   border-left: 3px solid var(--border-accent);
   margin: 0.8em 0;
   padding: 0.2em 0 0.2em 1em;
@@ -1601,7 +1782,7 @@ html {
 }
 
 /* 内联代码 */
-.tf-memory-tiptap-wrapper .ProseMirror code {
+.tf-memory-tiptap-body .ProseMirror code {
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: 3px;
@@ -1612,7 +1793,7 @@ html {
 }
 
 /* 代码块 */
-.tf-memory-tiptap-wrapper .ProseMirror pre {
+.tf-memory-tiptap-body .ProseMirror pre {
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -1621,7 +1802,7 @@ html {
   margin: 0.8em 0;
 }
 
-.tf-memory-tiptap-wrapper .ProseMirror pre code {
+.tf-memory-tiptap-body .ProseMirror pre code {
   background: none;
   border: none;
   padding: 0;
@@ -1630,15 +1811,15 @@ html {
 }
 
 /* 分割线 */
-.tf-memory-tiptap-wrapper .ProseMirror hr {
+.tf-memory-tiptap-body .ProseMirror hr {
   border: none;
   border-top: 1px solid var(--border);
   margin: 1.2em 0;
 }
 
 /* 强调 */
-.tf-memory-tiptap-wrapper .ProseMirror strong { font-weight: 600; }
-.tf-memory-tiptap-wrapper .ProseMirror em { font-style: italic; }
+.tf-memory-tiptap-body .ProseMirror strong { font-weight: 600; }
+.tf-memory-tiptap-body .ProseMirror em { font-style: italic; }
 
 .tf-memory-notion__empty {
   flex: 1;
@@ -1697,4 +1878,49 @@ html {
   text-align: center;
   font-size: 12px;
   color: var(--text-primary);
+}
+
+/* ─── TipTap 表格样式 ─────────────────────────────────────────────────────── */
+
+.tf-memory-tiptap-body .ProseMirror table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.8em 0;
+  font-size: 13px;
+  table-layout: fixed;
+  overflow: hidden;
+}
+
+.tf-memory-tiptap-body .ProseMirror th,
+.tf-memory-tiptap-body .ProseMirror td {
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  text-align: left;
+  vertical-align: top;
+  position: relative;
+  min-width: 60px;
+}
+
+.tf-memory-tiptap-body .ProseMirror th {
+  background: var(--bg-surface);
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.tf-memory-tiptap-body .ProseMirror td.selectedCell,
+.tf-memory-tiptap-body .ProseMirror th.selectedCell {
+  background: var(--accent-subtle);
+}
+
+/* 高亮 */
+.tf-memory-tiptap-body .ProseMirror mark {
+  background: rgba(245, 158, 11, 0.25);
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 2px;
+}
+
+[data-theme="light"] .tf-memory-tiptap-body .ProseMirror mark {
+  background: rgba(28, 28, 28, 0.1);
 }
