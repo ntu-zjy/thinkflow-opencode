@@ -1,6 +1,8 @@
-import { useState, useRef, useCallback, useEffect } from "react"
+import { useState, useRef, useCallback, useEffect, type KeyboardEvent } from "react"
+import ReactMarkdown from "react-markdown"
+import remarkGfm from "remark-gfm"
 import { useMemoryStore } from "../store/memoryStore"
-import type { MemoryEntry } from "../types"
+import type { MemoryEntry, MemoryFolderType } from "../types"
 
 interface MemoryPanelProps {
   onClose: () => void
@@ -40,6 +42,9 @@ export function MemoryPanel({ onClose }: MemoryPanelProps) {
   const addEntry = useMemoryStore((s) => s.addEntry)
   const updateEntry = useMemoryStore((s) => s.updateEntry)
   const removeEntry = useMemoryStore((s) => s.removeEntry)
+  const addFolder = useMemoryStore((s) => s.addFolder)
+  const removeFolder = useMemoryStore((s) => s.removeFolder)
+  const renameFolder = useMemoryStore((s) => s.renameFolder)
   const searchEntries = useMemoryStore((s) => s.searchEntries)
   const importFromJson = useMemoryStore((s) => s.importFromJson)
   const exportToJson = useMemoryStore((s) => s.exportToJson)
@@ -53,9 +58,18 @@ export function MemoryPanel({ onClose }: MemoryPanelProps) {
   const [editFolderId, setEditFolderId] = useState("")
   const [query, setQuery] = useState("")
   const [copied, setCopied] = useState(false)
+  const [contentEditing, setContentEditing] = useState(false)
+
+  // 分类重命名状态
+  const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null)
+  const [renamingValue, setRenamingValue] = useState("")
+  // 新建分类表单
+  const [showNewFolder, setShowNewFolder] = useState(false)
+  const [newFolderName, setNewFolderName] = useState("")
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const contentRef = useRef<HTMLTextAreaElement>(null)
+  const renamingInputRef = useRef<HTMLInputElement>(null)
 
   // 当前选中的条目对象
   const selectedEntry = entries.find((e) => e.id === selectedId) ?? null
@@ -66,7 +80,6 @@ export function MemoryPanel({ onClose }: MemoryPanelProps) {
   // 切换到新条目时同步编辑状态
   const selectEntry = useCallback(
     (entry: MemoryEntry) => {
-      // 立即刷新待保存项
       if (saveTimer.current) {
         clearTimeout(saveTimer.current)
         saveTimer.current = null
@@ -75,6 +88,8 @@ export function MemoryPanel({ onClose }: MemoryPanelProps) {
       setEditTitle(entry.title)
       setEditContent(entry.content)
       setEditFolderId(entry.folderId)
+      // 新条目（内容为空）直接进入编辑模式
+      setContentEditing(!entry.content)
     },
     [],
   )
@@ -118,18 +133,48 @@ export function MemoryPanel({ onClose }: MemoryPanelProps) {
   }
 
   // 新建记忆
-  const handleNew = () => {
-    const folderId = selectedEntry?.folderId ?? folders[0]?.id ?? "folder-material"
+  const handleNew = (targetFolderId?: string) => {
+    const folderId = targetFolderId ?? selectedEntry?.folderId ?? folders[0]?.id ?? "folder-material"
     const id = addEntry({ folderId, title: "新记忆", content: "" })
     const created = { id, folderId, title: "新记忆", content: "", tags: [], createdAt: Date.now(), updatedAt: Date.now() }
     selectEntry(created)
-    // 展开对应分类
     setExpandedFolders((prev) => new Set([...prev, folderId]))
-    // 聚焦标题（延迟等 DOM 更新）
+    // 聚焦并全选标题，方便用户直接覆盖输入
     setTimeout(() => {
-      const el = document.getElementById("tf-memory-title-input")
-      if (el) { (el as HTMLTextAreaElement).select() }
+      const el = document.getElementById("tf-memory-title-input") as HTMLTextAreaElement | null
+      if (el) { el.focus(); el.select() }
     }, 50)
+  }
+
+  // ─── 分类管理 ─────────────────────────────────────────────────────────────
+
+  const handleAddFolder = () => {
+    const name = newFolderName.trim()
+    if (!name) return
+    const id = addFolder("other" as MemoryFolderType, name)
+    setExpandedFolders((prev) => new Set([...prev, id]))
+    setNewFolderName("")
+    setShowNewFolder(false)
+  }
+
+  const startRenameFolder = (id: string, currentName: string) => {
+    setRenamingFolderId(id)
+    setRenamingValue(currentName)
+    setTimeout(() => renamingInputRef.current?.select(), 30)
+  }
+
+  const commitRenameFolder = () => {
+    if (renamingFolderId && renamingValue.trim()) {
+      renameFolder(renamingFolderId, renamingValue.trim())
+    }
+    setRenamingFolderId(null)
+  }
+
+  const handleDeleteFolder = (id: string) => {
+    const count = entries.filter((e) => e.folderId === id).length
+    if (count > 0 && !confirm(`该分类下有 ${count} 条记忆，删除后将一并清除，确认吗？`)) return
+    if (selectedEntry?.folderId === id) setSelectedId(null)
+    removeFolder(id)
   }
 
   // 删除当前条目
@@ -225,7 +270,7 @@ export function MemoryPanel({ onClose }: MemoryPanelProps) {
       <div className="tf-memory-notion">
         {/* 左栏：导航列表 */}
         <div className="tf-memory-notion__sidebar">
-          {/* 左栏顶部：搜索 + 新建 */}
+          {/* 左栏顶部：搜索 */}
           <div className="tf-memory-notion__sidebar-header">
             <input
               className="tf-input"
@@ -234,17 +279,6 @@ export function MemoryPanel({ onClose }: MemoryPanelProps) {
               onChange={(e) => setQuery(e.target.value)}
               style={{ flex: 1, padding: "4px 8px", fontSize: 12 }}
             />
-            <button
-              className="tf-btn tf-btn-primary"
-              style={{ padding: "4px 10px", fontSize: 12, marginLeft: "var(--space-2)", flexShrink: 0 }}
-              onClick={handleNew}
-              title="新建记忆"
-            >
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <line x1="12" y1="5" x2="12" y2="19" />
-                <line x1="5" y1="12" x2="19" y2="12" />
-              </svg>
-            </button>
           </div>
 
           {/* 条目列表（分组） */}
@@ -268,46 +302,135 @@ export function MemoryPanel({ onClose }: MemoryPanelProps) {
                     >
                       <div className="tf-memory-notion__item-title">{entry.title || "无标题"}</div>
                       <div className="tf-memory-notion__item-preview">{entry.content || "空内容"}</div>
+                      <button
+                        className="tf-memory-item-del"
+                        title="删除"
+                        onClick={(e) => { e.stopPropagation(); removeEntry(entry.id); if (selectedId === entry.id) setSelectedId(null) }}
+                      >
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                        </svg>
+                      </button>
                     </div>
                   )
                 })
               )
             ) : (
               // 正常模式：按分类分组
-              folders.map((folder) => {
-                const folderEntries = entries.filter((e) => e.folderId === folder.id)
-                const color = getFolderColor(folder.type)
-                const isOpen = expandedFolders.has(folder.id)
-                return (
-                  <div key={folder.id}>
-                    <div
-                      className="tf-memory-notion__folder-header"
-                      style={{ color: isOpen ? color : undefined }}
-                      onClick={() => toggleFolder(folder.id)}
-                    >
-                      <FolderChevron open={isOpen} />
-                      <span style={{ flex: 1 }}>{folder.name}</span>
-                      <span style={{ fontSize: 10, opacity: 0.6 }}>{folderEntries.length}</span>
-                    </div>
-                    {isOpen && folderEntries.map((entry) => (
+              <>
+                {folders.map((folder) => {
+                  const folderEntries = entries.filter((e) => e.folderId === folder.id)
+                  const color = getFolderColor(folder.type)
+                  const isOpen = expandedFolders.has(folder.id)
+                  const isRenaming = renamingFolderId === folder.id
+                  return (
+                    <div key={folder.id}>
                       <div
-                        key={entry.id}
-                        className={`tf-memory-notion__item${selectedId === entry.id ? " active" : ""}`}
-                        style={{ "--item-color": color } as React.CSSProperties}
-                        onClick={() => selectEntry(entry)}
+                        className="tf-memory-notion__folder-header"
+                        style={{ color: isOpen ? color : undefined }}
+                        onClick={() => !isRenaming && toggleFolder(folder.id)}
                       >
-                        <div className="tf-memory-notion__item-title">{entry.title || "无标题"}</div>
-                        <div className="tf-memory-notion__item-preview">{entry.content || "空内容"}</div>
+                        <FolderChevron open={isOpen} />
+                        {isRenaming ? (
+                          <input
+                            ref={renamingInputRef}
+                            className="tf-memory-folder-rename"
+                            value={renamingValue}
+                            onChange={(e) => setRenamingValue(e.target.value)}
+                            onBlur={commitRenameFolder}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") commitRenameFolder()
+                              if (e.key === "Escape") setRenamingFolderId(null)
+                              e.stopPropagation()
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        ) : (
+                          <span style={{ flex: 1 }}>{folder.name}</span>
+                        )}
+                        {/* 固定显示：条目数 + 新建 + 重命名；删除仅 hover 显示 */}
+                        <div className="tf-memory-folder-actions" onClick={(e) => e.stopPropagation()}>
+                          <span className="tf-memory-folder-count">{folderEntries.length}</span>
+                          <button title="新建记忆" onClick={() => handleNew(folder.id)}>
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                              <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+                            </svg>
+                          </button>
+                          <button className="tf-memory-folder-rename-btn" title="重命名" onClick={() => startRenameFolder(folder.id, folder.name)}>
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
+                              <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
+                            </svg>
+                          </button>
+                          {!folder.isDefault && (
+                            <button className="tf-memory-folder-del-btn" title="删除分类" onClick={() => handleDeleteFolder(folder.id)}>
+                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
                       </div>
-                    ))}
-                    {isOpen && folderEntries.length === 0 && (
-                      <div style={{ padding: "var(--space-1) var(--space-5)", fontSize: 11, color: "var(--text-muted)" }}>
-                        暂无记忆
-                      </div>
-                    )}
+                      {isOpen && folderEntries.map((entry) => (
+                        <div
+                          key={entry.id}
+                          className={`tf-memory-notion__item${selectedId === entry.id ? " active" : ""}`}
+                          style={{ "--item-color": color } as React.CSSProperties}
+                          onClick={() => selectEntry(entry)}
+                        >
+                          <div className="tf-memory-notion__item-title">{entry.title || "无标题"}</div>
+                          <div className="tf-memory-notion__item-preview">{entry.content || "空内容"}</div>
+                          <button
+                            className="tf-memory-item-del"
+                            title="删除"
+                            onClick={(e) => { e.stopPropagation(); removeEntry(entry.id); if (selectedId === entry.id) setSelectedId(null) }}
+                          >
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                            </svg>
+                          </button>
+                        </div>
+                      ))}
+                      {isOpen && folderEntries.length === 0 && (
+                        <div style={{ padding: "var(--space-1) var(--space-5)", fontSize: 11, color: "var(--text-muted)" }}>
+                          暂无记忆
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+
+                {/* 新建分类按钮 & 表单 */}
+                {showNewFolder ? (
+                  <div className="tf-memory-new-folder-form">
+                    <input
+                      className="tf-memory-folder-rename"
+                      placeholder="分类名称..."
+                      value={newFolderName}
+                      autoFocus
+                      onChange={(e) => setNewFolderName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleAddFolder()
+                        if (e.key === "Escape") { setShowNewFolder(false); setNewFolderName("") }
+                      }}
+                    />
+                    <div style={{ display: "flex", gap: "var(--space-1)", marginTop: "var(--space-1)" }}>
+                      <button className="tf-btn tf-btn-primary" style={{ flex: 1, fontSize: 11, padding: "3px 0" }} onClick={handleAddFolder}>确认</button>
+                      <button className="tf-btn tf-btn-ghost" style={{ flex: 1, fontSize: 11, padding: "3px 0" }} onClick={() => { setShowNewFolder(false); setNewFolderName("") }}>取消</button>
+                    </div>
                   </div>
-                )
-              })
+                ) : (
+                  <button
+                    className="tf-memory-add-folder-btn"
+                    onClick={() => setShowNewFolder(true)}
+                  >
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+                    </svg>
+                    新建分类
+                  </button>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -326,21 +449,55 @@ export function MemoryPanel({ onClose }: MemoryPanelProps) {
             </div>
           ) : (
             <>
-              {/* 标题区 */}
-              <textarea
-                id="tf-memory-title-input"
-                className="tf-memory-notion__title-input"
-                value={editTitle}
-                onChange={(e) => handleTitleChange(e.target.value)}
-                placeholder="无标题"
-                rows={1}
-                style={{ overflowY: "hidden" }}
-                onInput={(e) => {
-                  const el = e.currentTarget
-                  el.style.height = "auto"
-                  el.style.height = `${el.scrollHeight}px`
-                }}
-              />
+              {/* 标题 + 右上角操作按钮 */}
+              <div className="tf-memory-notion__title-row">
+                <textarea
+                  id="tf-memory-title-input"
+                  className="tf-memory-notion__title-input"
+                  value={editTitle}
+                  onChange={(e) => handleTitleChange(e.target.value)}
+                  placeholder="无标题"
+                  rows={1}
+                  style={{ overflowY: "hidden" }}
+                  onInput={(e) => {
+                    const el = e.currentTarget
+                    el.style.height = "auto"
+                    el.style.height = `${el.scrollHeight}px`
+                  }}
+                />
+                <div className="tf-memory-notion__editor-actions">
+                  <button
+                    className={`tf-btn tf-btn-ghost${copied ? " tf-copied" : ""}`}
+                    style={{ padding: "4px 8px", fontSize: 11, gap: 4 }}
+                    title="复制正文"
+                    onClick={handleCopy}
+                  >
+                    {copied ? (
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    ) : (
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                        <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+                      </svg>
+                    )}
+                    {copied ? "已复制" : "复制"}
+                  </button>
+                  <button
+                    className="tf-btn tf-btn-danger"
+                    style={{ padding: "4px 8px", fontSize: 11 }}
+                    title="删除"
+                    onClick={handleDelete}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polyline points="3 6 5 6 21 6" />
+                      <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2" />
+                    </svg>
+                    删除
+                  </button>
+                </div>
+              </div>
 
               {/* 元信息：分类 */}
               <div className="tf-memory-notion__meta">
@@ -362,56 +519,41 @@ export function MemoryPanel({ onClose }: MemoryPanelProps) {
                     ))}
                   </div>
                 )}
+                {editContent.length > 0 && (
+                  <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--text-muted)", flexShrink: 0 }}>
+                    {editContent.length} 字
+                  </span>
+                )}
               </div>
 
-              {/* 正文 */}
-              <textarea
-                ref={contentRef}
-                className="tf-memory-notion__content-input"
-                value={editContent}
-                onChange={(e) => handleContentChange(e.target.value)}
-                placeholder="开始写作..."
-              />
-
-              {/* 底部操作栏 */}
-              <div className="tf-memory-notion__footer">
-                <span>{editContent.length > 0 ? `${editContent.length} 字` : ""}</span>
-                <div style={{ display: "flex", gap: "var(--space-2)" }}>
-                  <button
-                    className="tf-btn tf-btn-ghost"
-                    style={{ padding: "3px 10px", fontSize: 12 }}
-                    onClick={handleCopy}
-                  >
-                    {copied ? (
-                      <>
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <polyline points="20 6 9 17 4 12" />
-                        </svg>
-                        已复制
-                      </>
-                    ) : (
-                      <>
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                          <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
-                        </svg>
-                        复制
-                      </>
-                    )}
-                  </button>
-                  <button
-                    className="tf-btn tf-btn-danger"
-                    style={{ padding: "3px 10px", fontSize: 12 }}
-                    onClick={handleDelete}
-                  >
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <polyline points="3 6 5 6 21 6" />
-                      <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2" />
-                    </svg>
-                    删除
-                  </button>
+              {/* 正文：编辑 / 预览双模式 */}
+              {contentEditing ? (
+                <textarea
+                  ref={contentRef}
+                  className="tf-memory-notion__content-input"
+                  value={editContent}
+                  onChange={(e) => handleContentChange(e.target.value)}
+                  placeholder="开始写作...（支持 Markdown）"
+                  autoFocus
+                  onBlur={() => { if (editContent.trim()) setContentEditing(false) }}
+                  onKeyDown={(e: KeyboardEvent<HTMLTextAreaElement>) => {
+                    // Escape 退出编辑
+                    if (e.key === "Escape" && editContent.trim()) setContentEditing(false)
+                  }}
+                />
+              ) : (
+                <div
+                  className="tf-memory-notion__content-preview"
+                  onClick={() => setContentEditing(true)}
+                  title="点击编辑"
+                >
+                  {editContent ? (
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{editContent}</ReactMarkdown>
+                  ) : (
+                    <span className="tf-memory-notion__content-placeholder">开始写作...（支持 Markdown）</span>
+                  )}
                 </div>
-              </div>
+              )}
             </>
           )}
         </div>

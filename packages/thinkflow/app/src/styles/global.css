@@ -1307,17 +1307,115 @@ html {
   letter-spacing: 0.05em;
   user-select: none;
   transition: color 0.1s;
+  position: relative;
 }
 
 .tf-memory-notion__folder-header:hover {
   color: var(--text-secondary);
 }
 
+/* 分类操作区：固定显示（条目数 + 新建 + 重命名），删除仅 hover */
+.tf-memory-folder-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.tf-memory-folder-count {
+  font-size: 10px;
+  opacity: 0.5;
+  min-width: 14px;
+  text-align: right;
+  margin-right: 2px;
+}
+
+.tf-memory-folder-actions button {
+  width: 18px;
+  height: 18px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: background 0.1s, color 0.1s;
+}
+
+.tf-memory-folder-actions button:hover {
+  background: var(--bg-canvas);
+  color: var(--text-primary);
+}
+
+/* 重命名和删除按钮：仅 hover 分类行时显示 */
+.tf-memory-folder-rename-btn,
+.tf-memory-folder-del-btn {
+  opacity: 0;
+  transition: opacity 0.1s, background 0.1s, color 0.1s !important;
+}
+
+.tf-memory-notion__folder-header:hover .tf-memory-folder-rename-btn,
+.tf-memory-notion__folder-header:hover .tf-memory-folder-del-btn {
+  opacity: 1;
+}
+
+/* 分类重命名 inline input */
+.tf-memory-folder-rename {
+  flex: 1;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-accent);
+  border-radius: 3px;
+  color: var(--text-primary);
+  outline: none;
+  padding: 1px 4px;
+  min-width: 0;
+}
+
+/* 新建分类表单 */
+.tf-memory-new-folder-form {
+  padding: var(--space-2) var(--space-3);
+  border-top: 1px solid var(--border);
+  margin-top: var(--space-1);
+}
+
+/* 底部"新建分类"按钮 */
+.tf-memory-add-folder-btn {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  text-align: left;
+  transition: color 0.1s, background 0.1s;
+  border-top: 1px solid var(--border);
+  margin-top: var(--space-1);
+}
+
+.tf-memory-add-folder-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-canvas);
+}
+
+/* 条目行：position relative 用于放删除按钮 */
 .tf-memory-notion__item {
   padding: var(--space-1) var(--space-3) var(--space-1) var(--space-5);
   cursor: pointer;
   border-left: 3px solid transparent;
   transition: background 0.1s, border-color 0.1s;
+  position: relative;
 }
 
 .tf-memory-notion__item:hover {
@@ -1337,6 +1435,7 @@ html {
   text-overflow: ellipsis;
   white-space: nowrap;
   line-height: 1.5;
+  padding-right: 20px;
 }
 
 .tf-memory-notion__item-preview {
@@ -1347,6 +1446,36 @@ html {
   white-space: nowrap;
   margin-top: 1px;
   line-height: 1.4;
+  padding-right: 20px;
+}
+
+/* 条目 hover 删除按钮 */
+.tf-memory-item-del {
+  position: absolute;
+  top: 50%;
+  right: var(--space-2);
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 3px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: background 0.1s, color 0.1s;
+}
+
+.tf-memory-notion__item:hover .tf-memory-item-del {
+  display: flex;
+}
+
+.tf-memory-item-del:hover {
+  background: var(--status-error-bg, #fee2e2);
+  color: var(--status-error, #ef4444);
 }
 
 .tf-memory-notion__editor {
@@ -1358,8 +1487,31 @@ html {
   min-width: 0;
 }
 
+/* 标题行（标题 textarea + 右上角操作按钮） */
+.tf-memory-notion__title-row {
+  display: flex;
+  align-items: flex-start;
+  padding: var(--space-4) var(--space-6) 0;
+  gap: var(--space-3);
+}
+
+.tf-memory-notion__editor-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+  padding-top: 6px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.tf-memory-notion__editor:hover .tf-memory-notion__editor-actions,
+.tf-memory-notion__editor-actions:focus-within {
+  opacity: 1;
+}
+
 .tf-memory-notion__title-input {
-  width: 100%;
+  flex: 1;
   font-family: var(--font-display);
   font-size: 22px;
   font-weight: 700;
@@ -1368,18 +1520,20 @@ html {
   border: none;
   outline: none;
   resize: none;
-  padding: var(--space-5) var(--space-6) var(--space-2);
+  padding: 0;
   line-height: 1.3;
   box-sizing: border-box;
+  min-width: 0;
 }
 
 .tf-memory-notion__meta {
-  padding: 0 var(--space-6) var(--space-3);
+  padding: var(--space-2) var(--space-6) var(--space-3);
   display: flex;
   align-items: center;
   gap: var(--space-3);
   flex-shrink: 0;
   border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
 }
 
 .tf-memory-notion__content-input {
@@ -1392,10 +1546,131 @@ html {
   border: none;
   outline: none;
   resize: none;
-  padding: var(--space-4) var(--space-6);
+  padding: var(--space-3) var(--space-6) var(--space-6);
   overflow-y: auto;
   min-height: 200px;
   box-sizing: border-box;
+}
+
+/* Markdown 预览区（点击进入编辑） */
+.tf-memory-notion__content-preview {
+  flex: 1;
+  padding: var(--space-3) var(--space-6) var(--space-6);
+  overflow-y: auto;
+  cursor: text;
+  min-height: 200px;
+  box-sizing: border-box;
+}
+
+.tf-memory-notion__content-placeholder {
+  color: var(--text-muted);
+  font-size: 14px;
+  font-style: italic;
+}
+
+/* Markdown 渲染样式 */
+.tf-memory-notion__content-preview h1,
+.tf-memory-notion__content-preview h2,
+.tf-memory-notion__content-preview h3,
+.tf-memory-notion__content-preview h4 {
+  font-family: var(--font-display);
+  color: var(--text-primary);
+  margin: 1.2em 0 0.4em;
+  line-height: 1.3;
+}
+
+.tf-memory-notion__content-preview h1 { font-size: 20px; font-weight: 700; }
+.tf-memory-notion__content-preview h2 { font-size: 17px; font-weight: 600; }
+.tf-memory-notion__content-preview h3 { font-size: 15px; font-weight: 600; }
+.tf-memory-notion__content-preview h4 { font-size: 14px; font-weight: 600; }
+
+.tf-memory-notion__content-preview p {
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--text-primary);
+  margin: 0 0 0.8em;
+}
+
+.tf-memory-notion__content-preview strong { font-weight: 600; }
+.tf-memory-notion__content-preview em { font-style: italic; }
+
+.tf-memory-notion__content-preview ul,
+.tf-memory-notion__content-preview ol {
+  padding-left: 1.5em;
+  margin: 0.4em 0 0.8em;
+}
+
+.tf-memory-notion__content-preview li {
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--text-primary);
+  margin: 0.1em 0;
+}
+
+.tf-memory-notion__content-preview blockquote {
+  border-left: 3px solid var(--border-accent);
+  margin: 0.8em 0;
+  padding: 0.2em 0 0.2em 1em;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.tf-memory-notion__content-preview code {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-family: var(--font-mono, monospace);
+  font-size: 13px;
+  color: var(--accent);
+}
+
+.tf-memory-notion__content-preview pre {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  overflow-x: auto;
+  margin: 0.8em 0;
+}
+
+.tf-memory-notion__content-preview pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.tf-memory-notion__content-preview a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.tf-memory-notion__content-preview hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 1.2em 0;
+}
+
+.tf-memory-notion__content-preview table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.8em 0;
+  font-size: 13px;
+}
+
+.tf-memory-notion__content-preview th,
+.tf-memory-notion__content-preview td {
+  border: 1px solid var(--border);
+  padding: 4px 10px;
+  text-align: left;
+}
+
+.tf-memory-notion__content-preview th {
+  background: var(--bg-surface);
+  font-weight: 600;
 }
 
 .tf-memory-notion__footer {
