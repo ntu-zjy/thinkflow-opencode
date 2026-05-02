@@ -26,6 +26,13 @@ export interface AgentLog {
   type: "info" | "tool" | "output" | "error"
 }
 
+export interface MatrixSlot {
+  id: string
+  folderId: string           // 选择的记忆分类，"custom" 表示自定义
+  memoryEntryId?: string
+  customPersona?: string
+}
+
 export interface AgentNodeData extends Record<string, unknown> {
   idea: string
   model: string
@@ -33,6 +40,10 @@ export interface AgentNodeData extends Record<string, unknown> {
   logs: AgentLog[]
   sessionId?: string
   dryRun: boolean
+  scheduleEnabled: boolean
+  scheduleTime: string       // "HH:MM"，每天固定时间执行
+  matrixMode: boolean
+  matrixSlots: MatrixSlot[]
 }
 
 // ─── 输出节点 ────────────────────────────────────────────────────────────────

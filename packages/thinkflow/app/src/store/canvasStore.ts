@@ -20,6 +20,7 @@ import type {
   AgentNodeData,
   OutputNodeData,
   AgentLog,
+  MatrixSlot,
 } from "../types"
 import {
   createSession,
@@ -30,6 +31,7 @@ import {
   runMockWorkflow,
   generateImage,
 } from "../services/opencodeClient"
+import { useMemoryStore } from "./memoryStore"
 
 // ─── 创作形式 → 平台指令 ────────────────────────────────────────────────────
 
@@ -74,7 +76,20 @@ const initialAgent: AgentNodeType = {
   id: "agent-1",
   type: "agent",
   position: { x: -160, y: -160 },
-  data: { idea: "", model: "moonshotai/kimi-k2.6", status: "idle", logs: [], dryRun: false },
+  data: {
+    idea: "",
+    model: "moonshotai/kimi-k2.6",
+    status: "idle",
+    logs: [],
+    dryRun: false,
+    scheduleEnabled: false,
+    scheduleTime: "09:00",
+    matrixMode: false,
+    matrixSlots: [
+      { id: "slot-1", folderId: "folder-persona" },
+      { id: "slot-2", folderId: "folder-persona" },
+    ],
+  },
   style: { width: 300 },
 }
 
@@ -161,6 +176,10 @@ interface CanvasStore {
   switchWorkflow: (id: string) => void
   closeWorkflow: (id: string) => void
   renameWorkflow: (id: string, name: string) => void
+  // 定时任务 interval 管理（运行时，不持久化）
+  _scheduleTimers: Record<string, ReturnType<typeof setInterval>>
+  setScheduleTimer: (agentNodeId: string, timer: ReturnType<typeof setInterval>) => void
+  clearScheduleTimer: (agentNodeId: string) => void
 }
 
 // ─── Store 实现 ───────────────────────────────────────────────────────────────
@@ -177,6 +196,20 @@ export const useCanvasStore = create<CanvasStore>()(
   _historyIndex: -1,
   workflows: { [defaultWf.id]: defaultWf },
   activeWorkflowId: defaultWf.id,
+  _scheduleTimers: {},
+
+  setScheduleTimer: (agentNodeId, timer) =>
+    set((s) => ({ _scheduleTimers: { ...s._scheduleTimers, [agentNodeId]: timer } })),
+
+  clearScheduleTimer: (agentNodeId) => {
+    const timer = get()._scheduleTimers[agentNodeId]
+    if (timer !== undefined) clearInterval(timer)
+    set((s) => {
+      const next = { ...s._scheduleTimers }
+      delete next[agentNodeId]
+      return { _scheduleTimers: next }
+    })
+  },
 
   // ─── 多工作流操作 ────────────────────────────────────────────────────────
 
@@ -325,6 +358,13 @@ export const useCanvasStore = create<CanvasStore>()(
             status: "idle",
             logs: [],
             dryRun: false,
+            scheduleEnabled: false,
+            scheduleTime: "09:00",
+            matrixMode: false,
+            matrixSlots: [
+              { id: `slot-${nanoid(4)}`, folderId: "folder-persona" },
+              { id: `slot-${nanoid(4)}`, folderId: "folder-persona" },
+            ],
             ...initialData,
           } satisfies AgentNodeData,
           style: { width: 300 },
@@ -470,10 +510,14 @@ export const useCanvasStore = create<CanvasStore>()(
     }
 
     // ─ 每个输出节点并行发起独立 AI 会话 ─────────────────────────────────────
-    const runOneOutput = async (outputNode: OutputNodeType, idx: number) => {
+    const runOneOutput = async (
+      outputNode: OutputNodeType,
+      idx: number,
+      overrideParts?: { type: "text"; text: string }[],
+    ) => {
       const cf = outputNode.data.contentFormat ?? "auto"
       const platformInstr = getPlatformInstruction(outputNode.data.platform, cf)
-      const parts = [...baseParts, { type: "text" as const, text: platformInstr }]
+      const parts = [...(overrideParts ?? baseParts), { type: "text" as const, text: platformInstr }]
 
       appendLog(`[${idx + 1}/${outputNodes.length}] 创建 ${outputNode.data.platform} 会话...`)
       const sessionId = await createSession()
@@ -558,6 +602,59 @@ export const useCanvasStore = create<CanvasStore>()(
       }
     }
 
+    // ─ 矩阵模式：按 slot 配置串行执行各人设 ───────────────────────────────
+    const matrixMode = agentNode.data.matrixMode ?? false
+    const matrixSlots: MatrixSlot[] = agentNode.data.matrixSlots ?? []
+
+    const buildPersonaText = (slot: MatrixSlot): string => {
+      if (slot.folderId === "custom") return slot.customPersona ?? ""
+      if (slot.memoryEntryId) {
+        return useMemoryStore.getState().entries.find((e) => e.id === slot.memoryEntryId)?.content ?? ""
+      }
+      return ""
+    }
+
+    const getSlotLabel = (slot: MatrixSlot): string => {
+      if (slot.folderId === "custom") {
+        return slot.customPersona ? slot.customPersona.slice(0, 12) + (slot.customPersona.length > 12 ? "…" : "") : "自定义（空）"
+      }
+      if (slot.memoryEntryId) {
+        return useMemoryStore.getState().entries.find((e) => e.id === slot.memoryEntryId)?.title ?? "未选条目"
+      }
+      return "未选条目"
+    }
+
+    if (matrixMode && matrixSlots.length > 0) {
+      try {
+        for (let i = 0; i < matrixSlots.length; i++) {
+          const slot = matrixSlots[i]
+          const personaText = buildPersonaText(slot)
+          const label = getSlotLabel(slot)
+          appendLog(`[矩阵 ${i + 1}/${matrixSlots.length}] 开始（人设: ${label}）`)
+          const matrixParts = personaText
+            ? [...baseParts, { type: "text" as const, text: `【账号人设】\n${personaText}` }]
+            : baseParts
+          outputNodes.forEach((o) => updateNodeData<OutputNodeData>(o.id, { content: "" }))
+          await Promise.all(outputNodes.map((o, idx) => runOneOutput(o, idx, matrixParts)))
+          appendLog(`[矩阵 ${i + 1}/${matrixSlots.length}] 完成`)
+        }
+        updateNodeData<AgentNodeData>(agentNodeId, { status: "done" })
+        appendLog(`矩阵运行完成，共 ${matrixSlots.length} 个人设`)
+      } catch (err) {
+        appendLog(`矩阵运行失败: ${(err as Error).message}`, "error")
+        updateNodeData<AgentNodeData>(agentNodeId, { status: "error" })
+      } finally {
+        set((s) => ({
+          edges: s.edges.map((e) =>
+            e.source === agentNodeId || e.target === agentNodeId
+              ? { ...e, animated: false }
+              : e
+          ),
+        }))
+      }
+      return
+    }
+
     try {
       appendLog(`并行启动 ${outputNodes.length} 个输出节点...`)
       await Promise.all(outputNodes.map((o, i) => runOneOutput(o, i)))
@@ -611,7 +708,43 @@ export const useCanvasStore = create<CanvasStore>()(
         ),
       }),
       onRehydrateStorage: () => (state) => {
-        if (state?.activeWorkflowId && state.workflows?.[state.activeWorkflowId]) {
+        if (!state) return
+        // 迁移旧版 AgentNode 字段
+        const migrateAgentNode = (n: FlowNode): FlowNode => {
+          if (n.type !== "agent") return n
+          const d = n.data as AgentNodeData & { matrixCount?: number; scheduleInterval?: number }
+          const patched: Partial<AgentNodeData> = {}
+          // matrixCount → matrixSlots
+          if (!d.matrixSlots) {
+            const count = d.matrixCount ?? 2
+            patched.matrixSlots = Array.from({ length: count }, () => ({
+              id: `slot-${nanoid(4)}`,
+              folderId: "folder-persona",
+            }))
+          }
+          // 旧 personaSource 字段迁移 → folderId
+          if (d.matrixSlots) {
+            type LegacySlot = { id: string; personaSource?: string; folderId?: string; memoryEntryId?: string; customPersona?: string }
+            patched.matrixSlots = (d.matrixSlots as LegacySlot[]).map((s) => {
+              if (s.personaSource && !s.folderId) {
+                return { id: s.id, folderId: s.personaSource === "custom" ? "custom" : "folder-persona", memoryEntryId: s.memoryEntryId, customPersona: s.customPersona }
+              }
+              return s as MatrixSlot
+            })
+          }
+          // scheduleInterval → scheduleTime
+          if (!d.scheduleTime) {
+            patched.scheduleTime = "09:00"
+          }
+          if (Object.keys(patched).length === 0) return n
+          return { ...n, data: { ...d, ...patched } }
+        }
+
+        Object.values(state.workflows ?? {}).forEach((wf) => {
+          wf.nodes = wf.nodes.map(migrateAgentNode)
+        })
+
+        if (state.activeWorkflowId && state.workflows?.[state.activeWorkflowId]) {
           const wf = state.workflows[state.activeWorkflowId]
           state.nodes = wf.nodes
           state.edges = wf.edges
