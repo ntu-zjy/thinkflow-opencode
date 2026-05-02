@@ -4,9 +4,10 @@ import type { Theme } from "../App"
 interface ToolbarProps {
   theme: Theme
   onToggleTheme: () => void
+  onRestartTour?: () => void
 }
 
-export function Toolbar({ theme, onToggleTheme }: ToolbarProps) {
+export function Toolbar({ theme, onToggleTheme, onRestartTour }: ToolbarProps) {
   const nodes = useCanvasStore((s) => s.nodes)
   const runWorkflow = useCanvasStore((s) => s.runWorkflow)
   const abortWorkflow = useCanvasStore((s) => s.abortWorkflow)
@@ -48,6 +49,15 @@ export function Toolbar({ theme, onToggleTheme }: ToolbarProps) {
             运行全部
           </button>
         )}
+
+        <button
+          className="tf-btn tf-btn-ghost tf-toolbar__help-btn"
+          onClick={onRestartTour}
+          title="查看新手教程"
+          aria-label="新手教程"
+        >
+          ?
+        </button>
 
         <button
           className="tf-btn tf-btn-ghost tf-theme-toggle"

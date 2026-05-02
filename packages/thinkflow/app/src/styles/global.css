@@ -2002,3 +2002,109 @@ html {
 [data-theme="light"] .tf-memory-tiptap-body .ProseMirror mark {
   background: rgba(28, 28, 28, 0.1);
 }
+
+/* ─── 新手引导教程 TourGuide ──────────────────────────────────────────────── */
+
+.tf-tour-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9997;
+  pointer-events: none;
+}
+
+.tf-tour-spotlight {
+  position: fixed;
+  border-radius: var(--radius-md);
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+  transition: top 0.3s ease, left 0.3s ease, width 0.3s ease, height 0.3s ease;
+  z-index: 9998;
+}
+
+.tf-tour-card {
+  position: fixed;
+  width: 320px;
+  background: var(--bg-node);
+  border: 1.5px solid var(--border-accent);
+  border-radius: var(--radius-xl);
+  padding: var(--space-4) var(--space-5);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  z-index: 9999;
+  animation: tf-fade-in 0.2s ease-out;
+}
+
+.tf-tour-dots {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: var(--space-3);
+}
+
+.tf-tour-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--border);
+  transition: all 0.2s;
+}
+
+.tf-tour-dot--active {
+  background: var(--accent);
+  width: 16px;
+  border-radius: 3px;
+}
+
+.tf-tour-card__step {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--font-code);
+  margin-bottom: var(--space-1);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.tf-tour-card__title {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: var(--space-2);
+}
+
+.tf-tour-card__content {
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--text-secondary);
+  white-space: pre-line;
+  margin-bottom: var(--space-3);
+}
+
+.tf-tour-card__tip {
+  font-size: 12px;
+  color: var(--text-muted);
+  background: var(--bg-surface);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-3);
+  border-left: 2px solid var(--border-accent);
+}
+
+.tf-tour-card__actions {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+
+/* Toolbar 帮助按钮 */
+.tf-toolbar__help-btn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: var(--font-display);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
