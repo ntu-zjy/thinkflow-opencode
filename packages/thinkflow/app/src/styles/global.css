@@ -481,6 +481,84 @@ html, body, #root {
 .tf-log-line.output { color: var(--status-done); }
 .tf-log-line.error { color: var(--status-error); }
 
+/* ─── 矩阵人设选择器 ─────────────────────────────────────────────────────── */
+
+.tf-matrix-selector {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.tf-matrix-selector-label {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.tf-matrix-select {
+  flex: 1;
+  min-width: 0;
+  padding: 2px 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-size: 11px;
+  font-family: var(--font-body);
+  cursor: pointer;
+  outline: none;
+  appearance: auto;
+}
+
+.tf-matrix-select:focus {
+  border-color: var(--accent);
+}
+
+.tf-matrix-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.12s;
+}
+
+.tf-matrix-nav:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.tf-matrix-nav:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.tf-matrix-counter {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: var(--font-code);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 /* ─── 内容预览 ───────────────────────────────────────────────────────────── */
 
 .tf-preview {

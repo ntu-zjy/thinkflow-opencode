@@ -59,6 +59,14 @@ export interface ImageAsset {
   generatedAt?: number
 }
 
+export interface MatrixResult {
+  slotIndex: number
+  personaLabel: string
+  content: string
+  images?: ImageAsset[]
+  contentType?: "text" | "image"
+}
+
 export interface OutputNodeData extends Record<string, unknown> {
   platform: OutputPlatform
   content: string
@@ -66,6 +74,7 @@ export interface OutputNodeData extends Record<string, unknown> {
   images?: ImageAsset[]
   contentType?: "text" | "image"
   contentFormat?: ContentFormat
+  matrixResults?: MatrixResult[]   // 矩阵模式下各人设的输出结果
 }
 
 // ─── 节点联合类型 ─────────────────────────────────────────────────────────────

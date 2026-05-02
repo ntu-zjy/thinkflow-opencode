@@ -398,6 +398,58 @@ useEffect(() => {
 
 ---
 
+## Phase 19：矩阵模式 dry-run 差异内容 + 多人设结果查看
+
+### 19.1 dry-run 矩阵差异内容
+
+**问题**：dry-run 矩阵模式原先所有 slot 调用同一个 `runMock(o)`，完全忽略人设，输出完全相同。
+
+**修复**：
+- `runMockWorkflow` 增加可选 `persona?: string` 参数
+- 非空人设时，文本 mock 尾部追加 `（以「xxx」人设创作）` 差异标记
+- 小红书 SVG 占位图内嵌人设标签，caption 追加 `（xxx 风格）`
+- `canvasStore` dry-run 分支：判断矩阵模式 → 逐 slot 提取人设 → 传入 `runMockWorkflow`
+
+### 19.2 矩阵多人设结果存储
+
+**新增类型**（`types/index.ts`）：
+```typescript
+export interface MatrixResult {
+  slotIndex: number
+  personaLabel: string
+  content: string
+  images?: ImageAsset[]
+  contentType?: "text" | "image"
+}
+
+// OutputNodeData 新增字段：
+matrixResults?: MatrixResult[]
+```
+
+**canvasStore 矩阵执行逻辑**（真实运行 + dry-run 统一）：
+1. 运行前：`updateNodeData(o.id, { matrixResults: [], content: "", images: undefined })`
+2. 每个 slot 完成后：把当前 `content/images/contentType` 追加进 `matrixResults`
+3. 全部完成后：把 `matrixResults[0]` 写回 `content`（默认展示第一个人设）
+4. `cleanNodeForPersist` 中将 `matrixResults` 设为 `undefined`（不持久化，避免 localStorage 膨胀）
+
+### 19.3 OutputNode 人设选择器 UI
+
+**取代原横排 Tab 方案**（Tab 在人设多时会折行）：
+
+```
+┌─ 人设图标 + "人设" ─── ‹ ─── [下拉 select] ─── › ─── n/total ─┐
+```
+
+- `select` 列出全部人设（`1. 人设名` 格式），支持几十个人设不破坏布局
+- `‹` / `›` 箭头：快速前/后翻页；只有一个人设时禁用（`opacity: 0.35`）
+- `n/total` 计数：`var(--font-code)` 等宽字体，右侧固定
+- 仅在 `matrixResults.length > 1` 时出现，不影响普通模式
+- 所有展示变量（`displayContent`, `displayImages`, `displayContentType`）基于当前选中人设；复制/存为记忆/Modal 均对应当前人设
+
+**CSS 类**：`.tf-matrix-selector`, `.tf-matrix-select`, `.tf-matrix-nav`, `.tf-matrix-counter`
+
+---
+
 ## 验证方式
 
 ```bash

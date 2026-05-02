@@ -3,7 +3,7 @@ import { Handle, Position } from "@xyflow/react"
 import type { NodeProps } from "@xyflow/react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
-import type { OutputNodeType, OutputPlatform, OutputNodeData, ContentFormat } from "../types"
+import type { OutputNodeType, OutputPlatform, OutputNodeData, ContentFormat, MatrixResult } from "../types"
 import { useCanvasStore } from "../store/canvasStore"
 import { useMemoryStore } from "../store/memoryStore"
 import { OutputModal } from "../components/OutputModal"
@@ -30,22 +30,38 @@ export function OutputNode({ id, data, selected }: NodeProps<OutputNodeType>) {
   const [saved, setSaved] = useState(false)
   const [showPreview, setShowPreview] = useState(true)
   const [showModal, setShowModal] = useState(false)
+  const [activeMatrixIdx, setActiveMatrixIdx] = useState(0)
+
+  // 矩阵结果
+  const matrixResults: MatrixResult[] = (data.matrixResults as MatrixResult[] | undefined) ?? []
+  const isMatrix = matrixResults.length > 1
+  const activeResult = isMatrix ? matrixResults[activeMatrixIdx] : null
+
+  const displayContent = activeResult ? activeResult.content : data.content
+  const displayImages = activeResult ? activeResult.images : data.images
+  const displayContentType = activeResult ? activeResult.contentType : data.contentType
+
+  // 切换人设时同步展示内容
+  const switchMatrix = (idx: number) => {
+    setActiveMatrixIdx(idx)
+  }
 
   const doCopy = useCallback(() => {
-    if (!data.content) return
-    navigator.clipboard.writeText(data.content)
-  }, [data.content])
+    if (!displayContent) return
+    navigator.clipboard.writeText(displayContent)
+  }, [displayContent])
 
   const doSave = useCallback(() => {
-    if (!data.content) return
+    if (!displayContent) return
     const platformName = PLATFORMS.find((p) => p.key === data.platform)?.label ?? "输出"
+    const personaSuffix = activeResult ? ` · ${activeResult.personaLabel}` : ""
     addEntry({
       folderId: "folder-output",
-      title: `${platformName} · ${new Date().toLocaleDateString("zh-CN")}`,
-      content: data.content,
+      title: `${platformName}${personaSuffix} · ${new Date().toLocaleDateString("zh-CN")}`,
+      content: displayContent,
       tags: [data.platform],
     })
-  }, [data.content, data.platform, addEntry])
+  }, [displayContent, data.platform, activeResult, addEntry])
 
   const handleCopy = () => {
     doCopy()
@@ -59,8 +75,8 @@ export function OutputNode({ id, data, selected }: NodeProps<OutputNodeType>) {
     setTimeout(() => setSaved(false), 2000)
   }
 
-  const hasImage = data.contentType === "image" && data.images && data.images.length > 0
-  const hasContent = !!(data.content || hasImage)
+  const hasImage = displayContentType === "image" && displayImages && displayImages.length > 0
+  const hasContent = !!(displayContent || hasImage)
 
   return (
     <div className={`tf-node${selected ? " selected" : ""}`} style={{ minWidth: 320 }}>
@@ -83,6 +99,42 @@ export function OutputNode({ id, data, selected }: NodeProps<OutputNodeType>) {
       </div>
 
       <div className="tf-node__body">
+        {/* 矩阵模式人设切换 — 紧凑下拉选择器 */}
+        {isMatrix && (
+          <div className="tf-matrix-selector">
+            <span className="tf-matrix-selector-label">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+              </svg>
+              人设
+            </span>
+            <button
+              className="tf-matrix-nav"
+              onClick={() => switchMatrix((activeMatrixIdx - 1 + matrixResults.length) % matrixResults.length)}
+              title="上一个人设"
+              disabled={matrixResults.length <= 1}
+            >‹</button>
+            <select
+              className="tf-matrix-select"
+              value={activeMatrixIdx}
+              onChange={(e) => switchMatrix(Number(e.target.value))}
+            >
+              {matrixResults.map((r, idx) => (
+                <option key={idx} value={idx}>
+                  {idx + 1}. {r.personaLabel || `人设 ${idx + 1}`}
+                </option>
+              ))}
+            </select>
+            <button
+              className="tf-matrix-nav"
+              onClick={() => switchMatrix((activeMatrixIdx + 1) % matrixResults.length)}
+              title="下一个人设"
+              disabled={matrixResults.length <= 1}
+            >›</button>
+            <span className="tf-matrix-counter">{activeMatrixIdx + 1}/{matrixResults.length}</span>
+          </div>
+        )}
+
         {/* 平台选择 — 2×2 网格 */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-1)" }}>
           {PLATFORMS.map((p) => (
@@ -116,7 +168,7 @@ export function OutputNode({ id, data, selected }: NodeProps<OutputNodeType>) {
         {/* 字数 / 切换 / 放大 */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
-            {data.content ? `${data.content.length} 字` : hasImage ? "图片已生成" : "等待生成..."}
+            {displayContent ? `${displayContent.length} 字` : hasImage ? "图片已生成" : "等待生成..."}
           </span>
           <div style={{ display: "flex", gap: "var(--space-1)" }}>
             {hasContent && (
@@ -147,7 +199,7 @@ export function OutputNode({ id, data, selected }: NodeProps<OutputNodeType>) {
         <div className="tf-preview">
           {hasImage ? (
             <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
-              {data.images!.map((img) => (
+              {displayImages!.map((img) => (
                 <img
                   key={img.id}
                   src={img.url}
@@ -155,16 +207,16 @@ export function OutputNode({ id, data, selected }: NodeProps<OutputNodeType>) {
                   style={{ maxWidth: "100%", borderRadius: "var(--radius-sm)", display: "block" }}
                 />
               ))}
-              {data.content && (
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{data.content}</ReactMarkdown>
+              {displayContent && (
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{displayContent}</ReactMarkdown>
               )}
             </div>
-          ) : data.content ? (
+          ) : displayContent ? (
             showPreview ? (
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{data.content}</ReactMarkdown>
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{displayContent}</ReactMarkdown>
             ) : (
               <pre style={{ fontFamily: "var(--font-code)", fontSize: 11, whiteSpace: "pre-wrap", color: "var(--text-secondary)" }}>
-                {data.content}
+                {displayContent}
               </pre>
             )
           ) : (
@@ -175,9 +227,9 @@ export function OutputNode({ id, data, selected }: NodeProps<OutputNodeType>) {
         {/* 操作按钮 */}
         {hasContent && (
           <div style={{ display: "flex", gap: "var(--space-2)" }}>
-            {hasImage && data.images?.[0] ? (
+            {hasImage && displayImages?.[0] ? (
               <a
-                href={data.images[0].url}
+                href={displayImages[0].url}
                 download="thinkflow-image.png"
                 className="tf-btn tf-btn-ghost"
                 style={{ flex: 1, textDecoration: "none", textAlign: "center", justifyContent: "center" }}
@@ -209,7 +261,7 @@ export function OutputNode({ id, data, selected }: NodeProps<OutputNodeType>) {
                 )}
               </button>
             )}
-            {data.content && (
+            {displayContent && (
               <button className="tf-btn tf-btn-ghost" style={{ flex: 1 }} onClick={handleSaveToMemory}>
                 {saved ? (
                   <>
@@ -236,9 +288,9 @@ export function OutputNode({ id, data, selected }: NodeProps<OutputNodeType>) {
 
       {showModal && (
         <OutputModal
-          content={data.content}
-          images={data.images}
-          contentType={data.contentType}
+          content={displayContent}
+          images={displayImages}
+          contentType={displayContentType}
           platform={data.platform}
           onClose={() => setShowModal(false)}
           doCopy={doCopy}
