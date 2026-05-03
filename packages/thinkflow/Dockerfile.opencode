@@ -1,0 +1,23 @@
+# ThinkFlow 云端 OpenCode 服务
+# 直接用 bun 运行源码，无需预先编译
+FROM oven/bun:1-alpine
+
+RUN apk add --no-cache ripgrep ca-certificates git
+
+WORKDIR /app
+
+# 复制 opencode 包
+COPY packages/opencode/package.json packages/opencode/
+COPY packages/opencode/src packages/opencode/src
+COPY packages/opencode/tsconfig.json packages/opencode/
+COPY package.json bun.lock* ./
+
+# 安装依赖
+RUN cd packages/opencode && bun install --frozen-lockfile
+
+ENV PORT=4096
+
+EXPOSE 4096
+
+# 用 bun 直接运行 opencode serve
+CMD ["sh", "-c", "cd packages/opencode && bun run --conditions=browser src/index.ts serve --hostname 0.0.0.0 --port ${PORT} --cors '*'"]
