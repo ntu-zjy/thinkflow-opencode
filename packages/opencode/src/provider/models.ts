@@ -80,7 +80,11 @@ export namespace ModelsDev {
     const file = Bun.file(filepath)
     const result = await file.json().catch(() => {})
     if (result) return result as Record<string, Provider>
-    const json = await data()
+    // data 是 Bun macro，直接运行源码时可能未展开，fallback 到直接 fetch
+    const json =
+      typeof data === "function"
+        ? await data()
+        : await fetch("https://models.dev/api.json").then((r) => r.text())
     return JSON.parse(json) as Record<string, Provider>
   }
 
