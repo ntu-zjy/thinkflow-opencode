@@ -133,7 +133,7 @@ export namespace Server {
               if (/^https:\/\/([a-z0-9-]+\.)*opencode\.ai$/.test(input)) {
                 return input
               }
-              if (_corsWhitelist.includes(input)) {
+              if (_corsWhitelist.includes("*") || _corsWhitelist.includes(input)) {
                 return input
               }
 
