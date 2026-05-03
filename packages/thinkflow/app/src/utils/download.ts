@@ -27,7 +27,7 @@ export function downloadAsZip(items: DownloadItem[], zipName: string): void {
     }
   }
   const zipped = zipSync(files)
-  triggerDownload(new Blob([zipped], { type: "application/zip" }), zipName)
+  triggerDownload(new Blob([zipped.buffer as ArrayBuffer], { type: "application/zip" }), zipName)
 }
 
 export function downloadSingleText(content: string, filename: string): void {
