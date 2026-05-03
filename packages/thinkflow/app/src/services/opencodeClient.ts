@@ -8,9 +8,9 @@ export function getBaseUrl(): string {
     typeof sessionStorage !== "undefined"
       ? sessionStorage.getItem("thinkflow_server_url")
       : null
+  if (stored) return stored
   const buildTimeUrl = import.meta.env.VITE_OPENCODE_SERVER_URL as string | undefined
-  const raw = stored || buildTimeUrl || "http://localhost:4096"
-  // 确保 URL 有协议前缀（防止 Vercel 环境变量漏写 https://）
+  const raw = buildTimeUrl || "http://localhost:4096"
   if (raw && !raw.startsWith("http://") && !raw.startsWith("https://")) {
     return `https://${raw}`
   }
