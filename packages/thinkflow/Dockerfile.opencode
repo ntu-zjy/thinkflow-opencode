@@ -7,6 +7,7 @@ WORKDIR /app
 
 # 复制 monorepo 根配置
 COPY package.json bun.lock* ./
+COPY patches patches/
 
 # 复制真实 workspace 包的 package.json
 COPY packages/opencode/package.json packages/opencode/
