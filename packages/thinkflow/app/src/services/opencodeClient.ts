@@ -3,11 +3,13 @@ import type { OpenCodeEvent } from "../types"
 // ─── Base URL ────────────────────────────────────────────────────────────────
 
 export function getBaseUrl(): string {
+  // 优先级：Tauri sidecar 写入的地址 > 构建时注入的云端地址 > 本地默认
   const stored =
     typeof sessionStorage !== "undefined"
       ? sessionStorage.getItem("thinkflow_server_url")
       : null
-  return stored ?? "http://localhost:4096"
+  const buildTimeUrl = import.meta.env.VITE_OPENCODE_SERVER_URL as string | undefined
+  return stored || buildTimeUrl || "http://localhost:4096"
 }
 
 // ─── Session API ─────────────────────────────────────────────────────────────
