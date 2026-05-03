@@ -1,0 +1,5 @@
+**/node_modules
+**/dist
+**/.git
+packages/thinkflow/desktop/src-tauri/target
+packages/opencode/test
