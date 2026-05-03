@@ -8,32 +8,32 @@ WORKDIR /app
 # 复制 monorepo 根配置
 COPY package.json bun.lock* ./
 
-# 复制所有 workspace 包（bun install 需要完整 workspace 结构）
-# 只复制 package.json 先让 bun 解析依赖图
+# 复制真实 workspace 包的 package.json
 COPY packages/opencode/package.json packages/opencode/
 COPY packages/plugin/package.json packages/plugin/
 COPY packages/script/package.json packages/script/
 COPY packages/sdk/js/package.json packages/sdk/js/
 COPY packages/util/package.json packages/util/
-# 其余 workspace 声明的包（只需 package.json 占位）
+
+# 其余 workspace 包用各自唯一名称占位（bun 要求 workspace name 不重复）
 RUN mkdir -p packages/app packages/console/app packages/console/core \
     packages/console/function packages/console/mail packages/console/resource \
     packages/desktop packages/enterprise packages/function packages/slack \
-    packages/ui packages/web packages/thinkflow/app packages/thinkflow/desktop && \
-    echo '{"name":"placeholder","version":"0.0.0"}' > packages/app/package.json && \
-    echo '{"name":"placeholder","version":"0.0.0"}' > packages/console/app/package.json && \
-    echo '{"name":"placeholder","version":"0.0.0"}' > packages/console/core/package.json && \
-    echo '{"name":"placeholder","version":"0.0.0"}' > packages/console/function/package.json && \
-    echo '{"name":"placeholder","version":"0.0.0"}' > packages/console/mail/package.json && \
-    echo '{"name":"placeholder","version":"0.0.0"}' > packages/console/resource/package.json && \
-    echo '{"name":"placeholder","version":"0.0.0"}' > packages/desktop/package.json && \
-    echo '{"name":"placeholder","version":"0.0.0"}' > packages/enterprise/package.json && \
-    echo '{"name":"placeholder","version":"0.0.0"}' > packages/function/package.json && \
-    echo '{"name":"placeholder","version":"0.0.0"}' > packages/slack/package.json && \
-    echo '{"name":"placeholder","version":"0.0.0"}' > packages/ui/package.json && \
-    echo '{"name":"placeholder","version":"0.0.0"}' > packages/web/package.json && \
-    echo '{"name":"placeholder","version":"0.0.0"}' > packages/thinkflow/app/package.json && \
-    echo '{"name":"placeholder","version":"0.0.0"}' > packages/thinkflow/desktop/package.json
+    packages/ui packages/web packages/thinkflow/app packages/thinkflow/desktop
+RUN echo '{"name":"@stub/app","version":"0.0.0"}' > packages/app/package.json
+RUN echo '{"name":"@stub/console-app","version":"0.0.0"}' > packages/console/app/package.json
+RUN echo '{"name":"@stub/console-core","version":"0.0.0"}' > packages/console/core/package.json
+RUN echo '{"name":"@stub/console-function","version":"0.0.0"}' > packages/console/function/package.json
+RUN echo '{"name":"@stub/console-mail","version":"0.0.0"}' > packages/console/mail/package.json
+RUN echo '{"name":"@stub/console-resource","version":"0.0.0"}' > packages/console/resource/package.json
+RUN echo '{"name":"@stub/desktop","version":"0.0.0"}' > packages/desktop/package.json
+RUN echo '{"name":"@stub/enterprise","version":"0.0.0"}' > packages/enterprise/package.json
+RUN echo '{"name":"@stub/function","version":"0.0.0"}' > packages/function/package.json
+RUN echo '{"name":"@stub/slack","version":"0.0.0"}' > packages/slack/package.json
+RUN echo '{"name":"@stub/ui","version":"0.0.0"}' > packages/ui/package.json
+RUN echo '{"name":"@stub/web","version":"0.0.0"}' > packages/web/package.json
+RUN echo '{"name":"@stub/thinkflow-app","version":"0.0.0"}' > packages/thinkflow/app/package.json
+RUN echo '{"name":"@stub/thinkflow-desktop","version":"0.0.0"}' > packages/thinkflow/desktop/package.json
 
 # 安装依赖
 RUN bun install --frozen-lockfile
@@ -51,7 +51,6 @@ COPY packages/util/src packages/util/src
 COPY packages/util/tsconfig.json packages/util/
 
 ENV PORT=4096
-
 EXPOSE 4096
 
 CMD ["sh", "-c", "cd packages/opencode && bun run --conditions=browser src/index.ts serve --hostname 0.0.0.0 --port ${PORT} --cors '*'"]
