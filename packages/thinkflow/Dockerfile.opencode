@@ -35,8 +35,8 @@ RUN echo '{"name":"@stub/web","version":"0.0.0"}' > packages/web/package.json
 RUN echo '{"name":"@stub/thinkflow-app","version":"0.0.0"}' > packages/thinkflow/app/package.json
 RUN echo '{"name":"@stub/thinkflow-desktop","version":"0.0.0"}' > packages/thinkflow/desktop/package.json
 
-# 安装依赖
-RUN bun install --frozen-lockfile
+# 安装依赖（不用 --frozen-lockfile，因为 stub package.json 与 lockfile 不完全匹配）
+RUN bun install
 
 # 复制实际源码
 COPY packages/opencode/src packages/opencode/src
