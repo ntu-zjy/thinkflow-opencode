@@ -144,12 +144,13 @@ const MOCK_RESPONSES: Record<string, string> = {
   note: `# 笔记：ThinkFlow 使用总结\n\n## 核心概念\n- **输入节点**：支持文本、链接、文件、记忆、信息流五种类型\n- **Agent 节点**：基于 OpenCode 内核，统一 build 模式\n- **输出节点**：适配知乎、公众号、日记、笔记、小红书五个平台\n\n## 关键流程\n1. 右键画布添加节点\n2. 输入 → Agent → 输出，连线完成\n3. 点击运行或使用 ⌘↵ 快捷键\n\n## 注意事项\n- 记忆库可存储人设、灵感、素材等，重复使用上下文\n- 矩阵模式支持一次运行多个人设`,
   xiaohongshu: `__IMAGE_MOCK__`,
   video: JSON.stringify({
-    title: "ThinkFlow 功能介绍",
+    title: "AI 内容创作新时代",
     slides: [
-      { title: "AI 驱动创作", voiceover: "用ThinkFlow让创作更简单高效", background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)" },
-      { title: "多平台输出", voiceover: "一键生成多平台专属内容", background: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)" },
-      { title: "智能记忆", voiceover: "记忆沉淀，创作持续进化", background: "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)" },
-      { title: "矩阵运营", voiceover: "多账号人设一次全部搞定", background: "linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)" },
+      { title: "时代变了", voiceover: "AI 正在重写内容创作的规则，你准备好了吗？", background: "linear-gradient(135deg, #0f0c29, #302b63, #24243e)" },
+      { title: "一键多平台", voiceover: "知乎、公众号、小红书，一次输入，全平台同步输出", background: "linear-gradient(135deg, #0d2137, #1565c0, #4fc3f7)" },
+      { title: "记忆加持", voiceover: "把你的风格、观点、素材存进记忆库，AI 越用越懂你", background: "linear-gradient(135deg, #004d2e, #00b09b)" },
+      { title: "矩阵起号", voiceover: "多个人设同时运营，账号矩阵从未如此简单", background: "linear-gradient(135deg, #4a1942, #c74b50)" },
+      { title: "现在就试", voiceover: "ThinkFlow，让你的创意以光速变成内容", background: "linear-gradient(135deg, #1a0a00, #7b2d00, #c45c00)" },
     ],
   }),
 }
