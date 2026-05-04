@@ -188,6 +188,35 @@ Avoid generic AI-generated aesthetics:
 Interpret creatively and make unexpected choices that feel genuinely designed for the context. Vary between light and dark themes, different fonts, different aesthetics. You still tend to converge on common choices (Space Grotesk, for example) across generations. Avoid this: it is critical that you think outside the box!
 </frontend_aesthetics>
 
+## 部署架构（已上线）
+
+### 网页版（Vercel + Railway）
+
+```
+用户浏览器
+  ↓  HTTPS
+Vercel（静态前端 + /api/openrouter 代理 API Key）
+  ↓  HTTPS
+Railway（OpenCode serve，Docker 容器，--cors '*'）
+  ↓
+OpenRouter → AI 模型（Kimi K2.6 等）
+```
+
+- **Vercel 网址**：`https://thinkflow-opencode-app.vercel.app`
+- **Railway 服务**：`https://thinkflow-opencode-production.up.railway.app`
+- **生产分支**：`thinkflow-mvp1`
+- **Vercel 环境变量**：`VITE_OPENCODE_SERVER_URL`（指向 Railway URL）、`OPENROUTER_API_KEY`
+- **Railway 环境变量**：`OPENROUTER_API_KEY`
+- **Dockerfile**：`packages/thinkflow/Dockerfile.opencode`（Railway Settings → Build → Dockerfile Path）
+
+### 桌面版（Tauri + Sidecar）
+
+- sidecar 二进制放在 `packages/thinkflow/desktop/src-tauri/sidecars/`
+- 已构建：`ThinkFlow_0.1.0_aarch64.dmg`（macOS ARM，约 38MB）
+- 用户安装后直接运行，无需安装 OpenCode
+
+---
+
 # 具体实现技术栈
 ## 桌面端
 - **框架**：Tauri (Rust + WebView)
@@ -210,14 +239,16 @@ Interpret creatively and make unexpected choices that feel genuinely designed fo
 - **生图模型（优先级链）**：
   1. `openai/gpt-5.4-image-2`（via OpenRouter，需 VPN，画质最佳）
   2. `bytedance-seed/seedream-4.5`（via OpenRouter，字节跳动，**国内可直连**，当前默认生效）
-  3. 硅基流动 `Tongyi-MAI/Z-Image-Turbo`（需配置 `siliconflow.key`，国内直连，兜底）
-  4. SVG 占位图（以上全部失败时的最终降级）
-- **图片生成调用方式**：OpenRouter 走 `/v1/chat/completions`，图片返回在 `choices[0].message.images[0].image_url.url`（base64）；硅基流动走 `/v1/images/generations`，图片在 `data[0].url`
+  3. SVG 占位图（以上全部失败时的最终降级）
+- **图片生成调用方式**：OpenRouter 走 `/v1/chat/completions`，图片返回在 `choices[0].message.images[0].image_url.url`（base64）
+- **注意**：硅基流动已移除（内测阶段放弃），不再作为兜底选项
 
 ## 构建与发布
-- **CI/CD**：GitHub Actions
+- **CI/CD**：GitHub Actions（`.github/workflows/thinkflow-release.yml`，触发 branch `thinkflow-mvp1`）
 - **代码签名**：Apple Developer / Windows EV
 - **更新机制**：Tauri Updater
+- **网页版部署**：Vercel 自动监听 `thinkflow-mvp1` 分支，push 后自动构建
+- **Railway 部署**：GitHub 触发自动重建 Docker 镜像（约 5–10 分钟）
 
 ## 可借鉴
 借鉴Opencode的思路，实现一个通用的app, 之后网页端和桌面端都复用app的代码就好
@@ -291,6 +322,9 @@ Interpret creatively and make unexpected choices that feel genuinely designed fo
 - **运行后自动存档**：每次 Agent 运行完成后，输出内容自动写入记忆库「作品」分类（含平台标签和人设标识）
 - **新手引导教程**：首次使用自动弹出 8 步 Spotlight 引导，Toolbar「?」可随时重启
 - **E2E Benchmark 测试**：`e2e/benchmark/` 目录，7 场景 dry-run 验证 5 种输入类型全链路通畅
+- **E2E Vercel 冒烟测试**：`e2e/vercel-smoke.spec.ts`，9 场景验证网页版核心功能（页面加载、右键菜单、主题切换、记忆面板、工作流执行）
+- **网页版上线**：Vercel（静态前端）+ Railway（OpenCode 云服务），支持真实 AI 调用
+- **桌面版打包**：Tauri + sidecar，用户无需安装 OpenCode，直接安装 .dmg 即可使用
 
 ## 不包含在 MVP（预留接口，后续快速接入）
 - 邮箱注册 / 支付系统 / 邀请码系统 / 管理员超级号 / 内测码
