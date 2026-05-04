@@ -571,4 +571,241 @@ bun run typecheck      # 零 TS 错误
 
 # E2E benchmark（干跑，无需 OpenCode）
 bunx playwright test e2e/benchmark/context-injection.spec.ts   # 7 个场景全部通过
+
+# E2E Vercel 冒烟测试（本地 dev server）
+TEST_BASE_URL="http://localhost:1421" ./node_modules/.bin/playwright test e2e/vercel-smoke.spec.ts   # 9 个场景全部通过
+```
+
+---
+
+## Phase 23：桌面版发布（Tauri + Sidecar）
+
+### 23.1 架构
+
+- **Tauri sidecar**：将 `opencode-cli` 二进制打包进 `.app` 内，用户安装后无需自行安装 OpenCode
+- sidecar 路径：`packages/thinkflow/desktop/src-tauri/sidecars/opencode-cli-<target-triple>`
+  - macOS ARM：`opencode-cli-aarch64-apple-darwin`
+  - macOS x86：`opencode-cli-x86_64-apple-darwin`
+- `.gitignore` 排除 sidecars 目录下所有二进制（仅保留 `.gitignore` 文件本身）
+
+### 23.2 tauri.conf.json 关键配置
+
+```json
+{
+  "bundle": {
+    "externalBin": ["sidecars/opencode-cli"]
+  },
+  "build": {
+    "frontendDist": "../../app/dist",
+    "beforeBuildCommand": "cd ../../app && bun run build"
+  }
+}
+```
+
+> **坑**：`frontendDist` 和 `beforeBuildCommand` 路径是相对于 `src-tauri/` 目录的，不是相对于 `desktop/`。
+
+### 23.3 前端启动逻辑（`desktop/src/main.tsx`）
+
+```typescript
+// 轮询等待 sidecar 启动，最多 30 秒
+for (let i = 0; i < 60; i++) {
+  try {
+    const data = await invoke<{ url: string }>("ensure_server_ready")
+    url = data.url
+    break
+  } catch {
+    await new Promise((r) => setTimeout(r, 500))
+  }
+}
+// 超时则降级为 localhost:4096
+sessionStorage.setItem("thinkflow_server_url", url)
+```
+
+### 23.4 `opencodeClient.ts` 多环境 URL 优先级
+
+```
+sessionStorage("thinkflow_server_url")   ← Tauri sidecar 写入
+  ||
+VITE_OPENCODE_SERVER_URL（构建时注入）   ← Vercel 部署时设置
+  ||
+"http://localhost:4096"                  ← 本地开发默认
+```
+
+---
+
+## Phase 24：网页版部署（Vercel + Railway）
+
+### 24.1 整体架构
+
+```
+用户浏览器
+  ↓  HTTPS
+Vercel（静态前端 + API Routes）
+  ↓  HTTPS（CORS 通过）
+Railway（OpenCode serve 进程，Docker 容器）
+  ↓  OpenRouter API
+AI 模型（Kimi K2.6 等）
+```
+
+### 24.2 Vercel 配置（`packages/thinkflow/app/vercel.json`）
+
+```json
+{
+  "rewrites": [{ "source": "/((?!api/).*)", "destination": "/index.html" }],
+  "buildCommand": "bun run build",
+  "outputDirectory": "dist",
+  "installCommand": "bun install"
+}
+```
+
+- Root Directory：`packages/thinkflow/app`（在 Vercel 控制台 Settings 里设置）
+- Production Branch：`thinkflow-mvp1`
+- 环境变量：`VITE_OPENCODE_SERVER_URL` = Railway 服务 URL（`https://xxx.railway.app`）
+
+> **坑 1**：`VITE_OPENCODE_SERVER_URL` 是 Vite 构建时注入，设置后必须 **Redeploy**（不能用缓存构建）才生效。  
+> **坑 2**：Vercel 默认用 `dev` 分支，需在 Settings → Git → Production Branch 改为 `thinkflow-mvp1`。  
+> **坑 3**：commit 作者邮箱必须与 GitHub 账号绑定，否则 Vercel 认证失败无法自动部署。
+
+### 24.3 Vercel API Route（`api/openrouter/[...path].ts`）
+
+OpenRouter 请求由服务端代理，避免 API Key 暴露在前端：
+
+```typescript
+const apiKey = process.env.OPENROUTER_API_KEY
+if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`
+```
+
+- 需要在 `tsconfig.json` 的 `include` 里加入 `"api"` 目录
+- 需要安装 `@types/node` devDependency（否则 `process` 报类型错误）
+
+### 24.4 Railway 配置（`packages/thinkflow/Dockerfile.opencode`）
+
+```dockerfile
+# Builder: Dockerfile
+# Dockerfile Path: packages/thinkflow/Dockerfile.opencode
+
+CMD ["sh", "-c", "cd packages/opencode && bun run --conditions=browser src/index.ts serve \
+  --hostname 0.0.0.0 --port ${PORT} --cors '*'"]
+```
+
+**monorepo workspace 依赖处理**：opencode 依赖多个 workspace 包，需用 stub package.json 占位让 bun 能解析 workspace：
+
+```dockerfile
+RUN echo '{"name":"@stub/app","version":"0.0.0"}' > packages/app/package.json
+# 每个 stub 必须有唯一 name，否则 bun 报 workspace name 冲突
+```
+
+需复制的真实包：`opencode`, `plugin`, `script`, `sdk/js`, `util`, `patches/`
+
+> **坑**：`--frozen-lockfile` 与 stub 不兼容，需去掉。
+
+### 24.5 CORS 修复（核心问题）
+
+**症状**：Railway 服务正常响应（`/global/health` 返回 200），但浏览器请求被拦截。  
+**根因**：OpenCode server.ts 的 CORS 白名单只做精确匹配，`--cors '*'` 传入的是字面字符串 `*`，不是通配符。
+
+**修复**（`packages/opencode/src/server/server.ts`）：
+
+```typescript
+// 修复前
+if (_corsWhitelist.includes(input)) { return input }
+
+// 修复后
+if (_corsWhitelist.includes("*") || _corsWhitelist.includes(input)) { return input }
+```
+
+### 24.6 Bun Macro 运行时错误修复
+
+**症状**：Railway 容器日志出现 `ReferenceError: data is not defined`（`models.ts:83`）  
+**根因**：`models.ts` 用了 Bun macro（`with { type: "macro" }`），但 `--conditions=browser` 直接运行源码时 macro 不展开。
+
+**修复**（`packages/opencode/src/provider/models.ts`）：
+
+```typescript
+// 修复前
+const json = await data()
+
+// 修复后
+const json =
+  typeof data === "function"
+    ? await data()
+    : await fetch("https://models.dev/api.json").then((r) => r.text())
+```
+
+### 24.7 部署验证命令
+
+```bash
+# Railway CORS 是否生效
+curl -H "Origin: https://thinkflow-opencode-app.vercel.app" \
+  -I "https://thinkflow-opencode-production.up.railway.app/global/health" \
+  | grep access-control-allow-origin
+# 期望输出: access-control-allow-origin: https://thinkflow-opencode-app.vercel.app
+
+# Railway 服务健康
+curl "https://thinkflow-opencode-production.up.railway.app/global/health"
+# 期望输出: {"healthy":true,"version":"local"}
+```
+
+---
+
+## Phase 25：E2E Vercel 冒烟测试（`e2e/vercel-smoke.spec.ts`）
+
+### 25.1 测试范围（9 个场景）
+
+| 场景 | 验证内容 |
+|------|---------|
+| 页面加载并显示画布 | 标题含 ThinkFlow，`.react-flow` 可见 |
+| Toolbar 渲染正常 | `.tf-toolbar` 可见 |
+| 右键菜单可打开 | `.tf-context-menu` 出现，含 3 个选项 |
+| 添加输入节点 | 右键 → 第一项 → `.react-flow__node` 出现 |
+| 添加 Agent 节点 | 右键 → 第二项 → `.react-flow__node-agent` 出现 |
+| 添加输出节点 | 右键 → 第三项 → `.react-flow__node-output` 出现 |
+| 主题切换 | 点击主题按钮后 `data-theme` 属性变化 |
+| 记忆侧边栏 | 点击记忆按钮后 `.tf-memory-panel` 出现 |
+| Dry-run 工作流 | 默认 3 节点存在，输出节点可见 |
+
+### 25.2 关键实现细节
+
+**`resetCanvas` 必须保留 `thinkflow-tour-done`**：清空 localStorage 会触发 TourGuide 弹出，遮挡画布操作。
+
+```typescript
+async function resetCanvas(page) {
+  await page.evaluate(() => {
+    const tourDone = localStorage.getItem("thinkflow-tour-done")
+    Object.keys(localStorage).filter(k => k.includes("thinkflow"))
+      .forEach(k => localStorage.removeItem(k))
+    localStorage.setItem("thinkflow-tour-done", tourDone ?? "1")
+  })
+}
+```
+
+**右键坐标必须避开默认节点区域**：默认画布有 3 个初始节点，`fitView` 后会居中显示，右键点到节点上不触发 `onPaneContextMenu`。使用右下角安全坐标 `(900, 600)`：
+
+```typescript
+async function openContextMenu(page, x = 900, y = 600) {
+  const pane = page.locator(".react-flow__pane")
+  const box = await pane.boundingBox()
+  const safeX = box ? Math.min(x, box.width - 40) : x
+  const safeY = box ? Math.min(y, box.height - 40) : y
+  await pane.click({ button: "right", position: { x: safeX, y: safeY } })
+}
+```
+
+**本地无法访问 Vercel 时**：用 `TEST_BASE_URL=http://localhost:1421` 在本地 dev server 跑测试，功能等价。
+
+### 25.3 playwright.config.ts
+
+```typescript
+const BASE_URL = process.env.TEST_BASE_URL || "http://localhost:1421"
+export default defineConfig({
+  testDir: "./e2e",
+  timeout: 90000,
+  use: {
+    baseURL: BASE_URL,
+    headless: true,
+    viewport: { width: 1280, height: 800 },
+    actionTimeout: 15000,
+    navigationTimeout: 30000,
+  },
+})
 ```
