@@ -48,9 +48,23 @@ export interface AgentNodeData extends Record<string, unknown> {
 
 // ─── 输出节点 ────────────────────────────────────────────────────────────────
 
-export type OutputPlatform = "zhihu" | "wechat" | "diary" | "note" | "xiaohongshu"
+export type OutputPlatform = "zhihu" | "wechat" | "diary" | "note" | "xiaohongshu" | "video"
 
 export type ContentFormat = "text" | "image_text" | "auto"
+
+// ─── 视频脚本 ─────────────────────────────────────────────────────────────────
+
+export interface VideoSlide {
+  title: string
+  voiceover: string
+  background: string
+  duration?: number
+}
+
+export interface VideoScript {
+  title: string
+  slides: VideoSlide[]
+}
 
 export interface ImageAsset {
   id: string

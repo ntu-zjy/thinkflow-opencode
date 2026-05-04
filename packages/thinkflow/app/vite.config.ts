@@ -2,8 +2,8 @@ import { defineConfig } from "vite"
 import react from "@vitejs/plugin-react"
 import { spawn, spawnSync } from "child_process"
 import { fileURLToPath } from "url"
-import { resolve, extname } from "path"
-import { readFileSync, writeFileSync, unlinkSync } from "fs"
+import { resolve, extname, join } from "path"
+import { readFileSync, writeFileSync, unlinkSync, mkdirSync, existsSync, createReadStream } from "fs"
 import { homedir, tmpdir } from "os"
 import type { IncomingMessage, ServerResponse } from "http"
 import { HttpsProxyAgent } from "https-proxy-agent"
@@ -184,11 +184,150 @@ function markitdownPlugin() {
   }
 }
 
+// ─── 视频生成插件 ─────────────────────────────────────────────────────────────
+
+const VIDEO_RENDERER_DIR = resolve(
+  fileURLToPath(new URL(".", import.meta.url)),
+  "../video-renderer",
+)
+
+interface VideoSlideInput {
+  title: string
+  voiceover: string
+  background: string
+  duration?: number
+}
+
+interface VideoGenRequest {
+  videoId: string
+  title: string
+  slides: VideoSlideInput[]
+}
+
+function sseWrite(res: ServerResponse, data: Record<string, unknown>): void {
+  res.write(`data: ${JSON.stringify(data)}\n\n`)
+}
+
+const WORKER_SCRIPT = resolve(VIDEO_RENDERER_DIR, "render-worker.mjs")
+
+function videoGeneratorPlugin() {
+  // 存储已生成视频的临时目录
+  const videoTmpDirs = new Map<string, string>()
+
+  return {
+    name: "vite-plugin-video-generator",
+    configureServer(server: { middlewares: { use: (path: string, handler: (req: IncomingMessage, res: ServerResponse) => void) => void } }) {
+
+      // ─── POST /api/generate-video ─────────────────────────────────────────
+      server.middlewares.use("/api/generate-video", (req: IncomingMessage, res: ServerResponse) => {
+        if (req.method !== "POST") { res.statusCode = 405; res.end(); return }
+
+        res.setHeader("Content-Type", "text/event-stream")
+        res.setHeader("Cache-Control", "no-cache")
+        res.setHeader("Connection", "keep-alive")
+        res.setHeader("Access-Control-Allow-Origin", "*")
+
+        const chunks: Buffer[] = []
+        req.on("data", (chunk: Buffer) => chunks.push(chunk))
+        req.on("end", () => {
+          let body: VideoGenRequest
+          try {
+            body = JSON.parse(Buffer.concat(chunks).toString()) as VideoGenRequest
+          } catch {
+            sseWrite(res, { type: "error", message: "invalid JSON" })
+            res.end()
+            return
+          }
+
+          const { videoId } = body
+          const tmpDir = resolve(tmpdir(), `thinkflow-video-${videoId}`)
+          mkdirSync(tmpDir, { recursive: true })
+          videoTmpDirs.set(videoId, tmpDir)
+
+          // spawn 独立 worker：detached=true 让 worker 有独立进程组
+          // 这样 Vite/Shell 的 SIGTERM 不会通过进程组广播给 worker
+          const nodeBin = process.execPath  // 用当前 Node.js 的完整路径，避免 PATH 问题
+          const workerConfig = JSON.stringify({ ...body, tmpDir })
+          const worker = spawn(nodeBin, [WORKER_SCRIPT, workerConfig], {
+            stdio: ["ignore", "pipe", "pipe"],
+            cwd: VIDEO_RENDERER_DIR,
+            detached: true,  // 独立进程组，不受 Vite 进程的信号影响
+          })
+          worker.unref()  // 不阻止 Vite 主进程退出
+
+          let lineBuf = ""
+          worker.stdout.on("data", (chunk: Buffer) => {
+            lineBuf += chunk.toString()
+            const lines = lineBuf.split("\n")
+            lineBuf = lines.pop() ?? ""
+            for (const line of lines) {
+              if (!line.trim()) continue
+              try {
+                const evt = JSON.parse(line) as Record<string, unknown>
+                if (evt.type === "done") {
+                  // 注入 videoUrl
+                  sseWrite(res, { ...evt, videoUrl: `/api/video-file/${videoId}` })
+                } else {
+                  sseWrite(res, evt)
+                }
+              } catch { /* 忽略非 JSON 行 */ }
+            }
+          })
+
+          worker.stderr.on("data", (chunk: Buffer) => {
+            // worker stderr 直接打印到 Vite 终端（用于调试）
+            process.stderr.write(`[video-worker] ${chunk.toString()}`)
+          })
+
+          worker.on("close", (code, signal) => {
+            if (code !== 0) {
+              if (signal) {
+                sseWrite(res, { type: "error", message: `Worker 被信号 ${signal} 终止` })
+              } else {
+                sseWrite(res, { type: "error", message: `Worker 退出码 ${code}` })
+              }
+            }
+            res.end()
+          })
+
+          worker.on("error", (err) => {
+            sseWrite(res, { type: "error", message: err.message })
+            res.end()
+          })
+
+          // 客户端主动断开时 kill worker 进程组（监听 res close 更可靠）
+          res.on("close", () => {
+            if (!res.writableEnded && !worker.killed) {
+              try {
+                process.kill(-(worker.pid as number), "SIGKILL")
+              } catch { worker.kill("SIGKILL") }
+            }
+          })
+        })
+      })
+
+      // ─── GET /api/video-file/:videoId ─────────────────────────────────────
+      server.middlewares.use("/api/video-file", (req: IncomingMessage, res: ServerResponse) => {
+        if (req.method !== "GET") { res.statusCode = 405; res.end(); return }
+        const videoId = (req.url ?? "").replace(/^\//, "").split("?")[0]
+        const tmpDir = videoTmpDirs.get(videoId)
+        if (!tmpDir) { res.statusCode = 404; res.end(); return }
+        const videoPath = join(tmpDir, "output.mp4")
+        if (!existsSync(videoPath)) { res.statusCode = 404; res.end(); return }
+
+        res.setHeader("Content-Type", "video/mp4")
+        res.setHeader("Content-Disposition", `attachment; filename="thinkflow-video.mp4"`)
+        createReadStream(videoPath).pipe(res)
+      })
+    },
+  }
+}
+
 const OPENROUTER_KEY = readAuthKey("openrouter", "OPENROUTER_API_KEY")
 const LOCAL_PROXY = readLocalProxy()
 
 export default defineConfig({
-  plugins: [react(), opencodePlugin(), markitdownPlugin()],
+  plugins: [react(), opencodePlugin(), markitdownPlugin(), videoGeneratorPlugin()],
   define: {
     "import.meta.env.VITE_OPENCODE_WORKDIR": JSON.stringify(OPENCODE_DIR),
   },
@@ -212,6 +351,9 @@ export default defineConfig({
         },
       },
     },
+  },
+  optimizeDeps: {
+    exclude: ["@remotion/renderer", "@remotion/bundler", "remotion", "@remotion/cli"],
   },
   build: {
     outDir: "dist",

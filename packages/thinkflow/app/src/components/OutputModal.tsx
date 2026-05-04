@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react"
 import { createPortal } from "react-dom"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
-import type { OutputPlatform, ImageAsset } from "../types"
+import type { OutputPlatform, ImageAsset, VideoScript } from "../types"
 
 const PLATFORM_LABELS: Record<OutputPlatform, string> = {
   zhihu: "知乎",
@@ -10,6 +10,7 @@ const PLATFORM_LABELS: Record<OutputPlatform, string> = {
   diary: "日记",
   note: "笔记",
   xiaohongshu: "小红书",
+  video: "视频脚本",
 }
 
 interface OutputModalProps {
@@ -55,6 +56,20 @@ export function OutputModal({ content, images, contentType, platform, onClose, d
   }
 
   const hasImage = contentType === "image" && images && images.length > 0
+
+  // 视频脚本 JSON 解析（兼容 AI 用 ```json 包裹的情况）
+  const videoScript: VideoScript | null = platform === "video" && content
+    ? (() => {
+        try {
+          const cleaned = content
+            .replace(/^```(?:json)?\s*/i, "")
+            .replace(/\s*```\s*$/, "")
+            .trim()
+          return JSON.parse(cleaned) as VideoScript
+        } catch { return null }
+      })()
+    : null
+
   const charCount = content.length
 
   return createPortal(
@@ -69,7 +84,7 @@ export function OutputModal({ content, images, contentType, platform, onClose, d
             {PLATFORM_LABELS[platform] ?? platform} · 详细内容
           </span>
           <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
-            {!hasImage && (
+            {!hasImage && !videoScript && (
               <div className="tf-tabs">
                 <button
                   className={`tf-tab${showPreview ? " active" : ""}`}
@@ -151,9 +166,34 @@ export function OutputModal({ content, images, contentType, platform, onClose, d
 
         {/* 内容 */}
         <div className="tf-modal__body">
-          {hasImage ? (
+          {videoScript ? (
+            /* 视频脚本：分镜卡片列表 */
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div style={{ fontSize: 18, fontWeight: 700, color: "var(--text-primary)", marginBottom: 4 }}>
+                {videoScript.title}
+              </div>
+              {videoScript.slides.map((s, idx) => (
+                <div key={idx} style={{ borderRadius: 8, overflow: "hidden", border: "1px solid var(--border)" }}>
+                  <div style={{
+                    background: s.background,
+                    height: 72,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}>
+                    <span style={{ color: "white", fontSize: 20, fontWeight: 800, textShadow: "0 2px 8px rgba(0,0,0,0.4)" }}>
+                      {s.title}
+                    </span>
+                  </div>
+                  <div style={{ padding: "10px 14px", fontSize: 13, color: "var(--text-secondary)" }}>
+                    {s.voiceover}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : hasImage ? (
             <div>
-              {images.map((img) => (
+              {images!.map((img) => (
                 <img key={img.id} src={img.url} alt={img.title ?? "生成的图片"} />
               ))}
               {content && <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>}
@@ -172,7 +212,7 @@ export function OutputModal({ content, images, contentType, platform, onClose, d
         {/* 页脚 */}
         <div className="tf-modal__footer">
           <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
-            {charCount > 0 ? `${charCount} 字` : ""}
+            {videoScript ? `${videoScript.slides.length} 个分镜` : charCount > 0 ? `${charCount} 字` : ""}
           </span>
           <span style={{ fontSize: 11, color: "var(--text-muted)" }}>按 ESC 关闭</span>
         </div>

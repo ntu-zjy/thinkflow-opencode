@@ -90,7 +90,14 @@
 - [x] Agent的时间没有更新，今年是2026年，但是没有指明时间的时候，输出还会说2024年的事情
   构建 baseParts 时自动注入当前日期（如"2026年5月4日 星期一"），作为上下文第一条传给 Agent。
 
+- [x] 增加简易的视频生成格式，实现思路如下：
+  用户输入一段文稿后，系统先把文稿交给大模型做结构化拆解，生成一个稳定的中间 JSON。这个 JSON 是视频结构的核心。接着后端逐页处理 `slides`：每页拿 `voiceover` 调 TTS，生成 mp3；再读取 mp3 时长；页面视频时长设置为”音频时长 + 0.3 秒”。最后用 Remotion 把每页渲染成竖版 1080x1920 视频画面底部展示字幕，也就是 `voiceover`的语音字母。每一页配上对应 mp3，按顺序拼接，导出一个 MP4。
+  Remotion 4.0.456 渲染竖版 1080×1920 React 组件（渐变背景+淡入字幕动效）；edge-tts 生成中文 TTS 音频；ffprobe 读取时长；Vite 内嵌 `/api/generate-video` SSE 端点（进度推送）+ `/api/video-file/:id` 下载端点；OutputNode 新增”视频”平台、分镜卡片预览、进度条和下载 MP4 按钮。`packages/thinkflow/video-renderer/` 为独立 Remotion 子项目。
+
 ### 🟢 锦上添花
+- [ ] 可以在新手教程那里，加一个让用户跳转到示例的选项。示例这里，可以放一些提前跑出来的，保存好的场景使用示例，来更直观的告诉用户产品怎么用。
+- [ ] 输出卡片区分平台和内容格式。
+
 
 - [ ] **Desktop（Tauri）验证**（已在本地验证 arm64，CI 构建待跑）
   本地已成功构建 ThinkFlow.app + dmg；CI 构建需在 GitHub Actions 上运行一次验证。
