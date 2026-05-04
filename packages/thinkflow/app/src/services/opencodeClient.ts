@@ -140,7 +140,8 @@ export async function isServerAvailable(): Promise<boolean> {
 const MOCK_RESPONSES: Record<string, string> = {
   zhihu: `# 示例知乎文章\n\n这是一篇由 ThinkFlow 生成的示例文章。\n\n## 引言\n\n内容创作从未如此高效...\n\n## 正文\n\n通过 ThinkFlow 的 Agent 节点，您可以将多种输入来源整合，一键生成适配各平台的内容。`,
   wechat: `**ThinkFlow 思流**\n\n> 可记忆的内容创作助手\n\n点击阅读，了解如何用 AI 重新定义内容创作流程。\n\n---\n\n内容自动生成中...`,
-  diary: `2026年4月29日\n\n今天使用 ThinkFlow 完成了内容创作，感觉非常顺畅。AI 帮我整理了思路，还记住了我的写作风格。`,
+  diary: `2026年5月4日\n\n今天用 ThinkFlow 搞了不少内容，感觉挺爽的，之前每次写东西都要重新想提示词，现在一套工作流直接跑，省了好多时间。晚上还顺手记了几条灵感进记忆库，以后用得上。`,
+  note: `# 笔记：ThinkFlow 使用总结\n\n## 核心概念\n- **输入节点**：支持文本、链接、文件、记忆、信息流五种类型\n- **Agent 节点**：基于 OpenCode 内核，统一 build 模式\n- **输出节点**：适配知乎、公众号、日记、笔记、小红书五个平台\n\n## 关键流程\n1. 右键画布添加节点\n2. 输入 → Agent → 输出，连线完成\n3. 点击运行或使用 ⌘↵ 快捷键\n\n## 注意事项\n- 记忆库可存储人设、灵感、素材等，重复使用上下文\n- 矩阵模式支持一次运行多个人设`,
   xiaohongshu: `__IMAGE_MOCK__`,
 }
 

@@ -83,14 +83,20 @@
   桌面版：opencode-cli sidecar 打包进 Tauri，本地构建 `ThinkFlow_0.1.0_aarch64.dmg`（38MB）；`desktop/src/main.tsx` boot 函数加入轮询重试（最多 30s）；修复 `frontendDist` 路径。网页版：Vercel API Routes（`api/openrouter/`、`api/siliconflow/`）代理注入 API Key；`vercel.json` SPA 路由重写；GitHub Actions `thinkflow-release.yml` 自动化测试 + Vercel 部署 + macOS dmg 构建。
   **上线前需配置 GitHub Secrets**：`VERCEL_TOKEN`、`VERCEL_ORG_ID`、`VERCEL_PROJECT_ID`、`OPENROUTER_API_KEY`
 
-- [ ] **Desktop（Tauri）验证**（已在本地验证 arm64，CI 构建待跑）
-  本地已成功构建 ThinkFlow.app + dmg；CI 构建需在 GitHub Actions 上运行一次验证。
+- [x] 日记和笔记分成两个类型，日记是口语化的，笔记是更正式一些的记录，内容要更全面
+  日记（口语流水账）和笔记（正式结构化）拆分为独立平台；各自有独立的 AI 提示词；InputNode 平台选择器改为 3+2 布局。
+- [x] 记忆的内容并没按照markdown格式渲染好
+  新增 `markdownToHtml` 工具函数；存入「作品」记忆时自动将 AI 输出的 markdown 转换为 TipTap 可渲染的 HTML；12 个单元测试覆盖全语法。
+- [x] Agent的时间没有更新，今年是2026年，但是没有指明时间的时候，输出还会说2024年的事情
+  构建 baseParts 时自动注入当前日期（如"2026年5月4日 星期一"），作为上下文第一条传给 Agent。
 
 ### 🟢 锦上添花
 
-
+- [ ] **Desktop（Tauri）验证**（已在本地验证 arm64，CI 构建待跑）
+  本地已成功构建 ThinkFlow.app + dmg；CI 构建需在 GitHub Actions 上运行一次验证。
 
 - [ ] **参考之前写好的thinkflow插件，对不同的输出进行精心调整，**
+
 
 - [ ] **记忆需要更便捷的添加，能够用Agent的方式，和用户沟通去完善记忆**
   画布的Agent节点可以添加一个配置按钮，叫做“自动记忆”。开启后，Agent会自动连接一个记忆输出节点。Agent能够自动整理用户本次运行产生的记忆，显示在记忆节点里面，用户可以自主选择是否将这些记忆添加到记忆中。同时也支持用户直接创建记忆节点，或者是单独将输出的作品也添加到记忆中。

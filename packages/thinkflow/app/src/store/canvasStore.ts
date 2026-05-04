@@ -32,13 +32,15 @@ import {
   generateImage,
 } from "../services/opencodeClient"
 import { useMemoryStore } from "./memoryStore"
+import { markdownToHtml } from "../utils/markdownToHtml"
 
 // ─── 平台标签（用于自动存记忆标题） ───────────────────────────────────────────
 
 const PLATFORM_LABELS: Record<string, string> = {
   zhihu: "知乎",
   wechat: "公众号",
-  diary: "日记/笔记",
+  diary: "日记",
+  note: "笔记",
   xiaohongshu: "小红书",
 }
 
@@ -64,9 +66,10 @@ function getPlatformInstruction(platform: string, contentFormat: string): string
   const base: Record<string, string> = {
     zhihu: "请生成适合知乎平台的长文章，包含标题、引言和正文结构，内容深度且有洞察力。",
     wechat: "请生成适合微信公众号的图文推送，标题吸引人，排版适合移动端阅读，语言亲切。",
-    diary: "请以个人口吻生成日记或笔记风格的内容，流水记录，自然真实，不必拘谨。",
+    diary: "请以第一人称口语化方式写日记，就像在和朋友聊天一样，记录今天发生的事情和感受，口吻随意自然，不追求逻辑结构，真实生动。",
+    note: "请生成一篇正式的结构化笔记，包含标题、摘要、主要内容（分点或分节）和总结，语言精准简洁，信息全面，适合日后查阅和复习。",
   }
-  return (base[platform] ?? base.diary) + imgFormatNote
+  return (base[platform] ?? base.note) + imgFormatNote
 }
 
 // ─── 初始示例节点（扇形布局） ───────────────────────────────────────────────
@@ -461,7 +464,7 @@ export const useCanvasStore = create<CanvasStore>()(
       useMemoryStore.getState().addEntry({
         folderId: "folder-output",
         title: `${platformLabel}${personaSuffix} · ${new Date().toLocaleDateString("zh-CN")}`,
-        content: cur.data.content,
+        content: markdownToHtml(cur.data.content),
         tags: [platform],
       })
     }
@@ -613,6 +616,11 @@ export const useCanvasStore = create<CanvasStore>()(
 
     // ─ 构建基础提示词（输入 + 想法，各输出节点共用） ────────────────────────
     const baseParts: { type: "text"; text: string }[] = []
+
+    // 注入当前日期，避免模型输出过时年份
+    const today = new Date().toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric", weekday: "long" })
+    baseParts.push({ type: "text" as const, text: `【当前日期】${today}` })
+
     for (const node of inputNodes) {
       const val = node.data.value.trim()
       if (!val) continue

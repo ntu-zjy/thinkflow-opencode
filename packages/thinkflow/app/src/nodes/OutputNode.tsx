@@ -8,11 +8,13 @@ import { useCanvasStore } from "../store/canvasStore"
 import { useMemoryStore } from "../store/memoryStore"
 import { OutputModal } from "../components/OutputModal"
 import { downloadSingleText, downloadAsZip } from "../utils/download"
+import { markdownToHtml } from "../utils/markdownToHtml"
 
 const PLATFORMS: { key: OutputPlatform; label: string; desc: string }[] = [
   { key: "zhihu", label: "知乎", desc: "长文章格式" },
   { key: "wechat", label: "公众号", desc: "图文推送格式" },
-  { key: "diary", label: "日记/笔记", desc: "个人记录格式" },
+  { key: "diary", label: "日记", desc: "口语化流水记录" },
+  { key: "note", label: "笔记", desc: "正式结构化记录" },
   { key: "xiaohongshu", label: "小红书", desc: "图文/图片格式" },
 ]
 
@@ -61,7 +63,7 @@ export function OutputNode({ id, data, selected }: NodeProps<OutputNodeType>) {
     addEntry({
       folderId: "folder-output",
       title: `${platformName}${personaSuffix} · ${new Date().toLocaleDateString("zh-CN")}`,
-      content: displayContent,
+      content: markdownToHtml(displayContent),
       tags: [data.platform],
     })
   }, [displayContent, data.platform, activeResult, addEntry])
@@ -161,9 +163,22 @@ export function OutputNode({ id, data, selected }: NodeProps<OutputNodeType>) {
           </div>
         )}
 
-        {/* 平台选择 — 2×2 网格 */}
+        {/* 平台选择 — 3+2 网格 */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "var(--space-1)" }}>
+          {PLATFORMS.slice(0, 3).map((p) => (
+            <button
+              key={p.key}
+              className={`tf-btn${data.platform === p.key ? " tf-btn-primary" : " tf-btn-ghost"}`}
+              style={{ padding: "5px 8px", fontSize: 11 }}
+              onClick={() => updateNodeData<OutputNodeData>(id, { platform: p.key })}
+              title={p.desc}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-1)" }}>
-          {PLATFORMS.map((p) => (
+          {PLATFORMS.slice(3).map((p) => (
             <button
               key={p.key}
               className={`tf-btn${data.platform === p.key ? " tf-btn-primary" : " tf-btn-ghost"}`}
