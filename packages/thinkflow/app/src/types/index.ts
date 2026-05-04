@@ -48,7 +48,7 @@ export interface AgentNodeData extends Record<string, unknown> {
 
 // ─── 输出节点 ────────────────────────────────────────────────────────────────
 
-export type OutputPlatform = "zhihu" | "wechat" | "diary" | "xiaohongshu"
+export type OutputPlatform = "zhihu" | "wechat" | "diary" | "note" | "xiaohongshu"
 
 export type ContentFormat = "text" | "image_text" | "auto"
 

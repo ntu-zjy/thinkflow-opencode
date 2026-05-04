@@ -7,7 +7,8 @@ import type { OutputPlatform, ImageAsset } from "../types"
 const PLATFORM_LABELS: Record<OutputPlatform, string> = {
   zhihu: "知乎",
   wechat: "公众号",
-  diary: "日记/笔记",
+  diary: "日记",
+  note: "笔记",
   xiaohongshu: "小红书",
 }
 

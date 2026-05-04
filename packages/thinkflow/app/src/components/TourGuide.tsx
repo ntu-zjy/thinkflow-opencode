@@ -35,7 +35,7 @@ const TOUR_STEPS: TourStep[] = [
   },
   {
     title: "输出节点",
-    content: "右键画布选择「输出节点」，再从 Agent 拖线到输出节点。\n\n支持 4 个内容平台：\n• 知乎 — 长文专栏\n• 公众号 — 图文推送\n• 日记/笔记 — 个人记录\n• 小红书 — 图文笔记",
+    content: "右键画布选择「输出节点」，再从 Agent 拖线到输出节点。\n\n支持 5 个内容平台：\n• 知乎 — 长文专栏\n• 公众号 — 图文推送\n• 日记 — 口语化流水记录\n• 笔记 — 正式结构化记录\n• 小红书 — 图文笔记",
     targetSelector: ".react-flow__node-output",
     placement: "left",
     tip: "可同时连多个输出节点，并行生成不同平台的内容",
