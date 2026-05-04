@@ -42,6 +42,7 @@ const PLATFORM_LABELS: Record<string, string> = {
   diary: "日记",
   note: "笔记",
   xiaohongshu: "小红书",
+  video: "视频",
 }
 
 // ─── 创作形式 → 平台指令 ────────────────────────────────────────────────────
@@ -62,6 +63,18 @@ function getPlatformInstruction(platform: string, contentFormat: string): string
     : isImageText
     ? "\n\n请在文案开头输出 [IMG_PROMPT: <详细英文图片描述，包含风格、色调、主体、构图，约 20 个单词>]，换行后输出正文。"
     : ""
+
+  if (platform === "video") {
+    return `请将内容转化为短视频脚本，以 JSON 格式输出（不要 markdown 代码块，直接输出纯 JSON）：
+{
+  "title": "视频总标题",
+  "slides": [
+    { "title": "分镜标题（10字以内）", "voiceover": "旁白文字（20字以内，口语化）", "background": "linear-gradient(135deg, #667eea, #764ba2)" },
+    ...（3-6个分镜）
+  ]
+}
+要求：background 使用 CSS linear-gradient 深色渐变，每页颜色不同以体现视觉层次。旁白简洁有力，适合 TikTok/抖音风格。`
+  }
 
   const base: Record<string, string> = {
     zhihu: "请生成适合知乎平台的长文章，包含标题、引言和正文结构，内容深度且有洞察力。",

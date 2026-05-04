@@ -143,6 +143,15 @@ const MOCK_RESPONSES: Record<string, string> = {
   diary: `2026年5月4日\n\n今天用 ThinkFlow 搞了不少内容，感觉挺爽的，之前每次写东西都要重新想提示词，现在一套工作流直接跑，省了好多时间。晚上还顺手记了几条灵感进记忆库，以后用得上。`,
   note: `# 笔记：ThinkFlow 使用总结\n\n## 核心概念\n- **输入节点**：支持文本、链接、文件、记忆、信息流五种类型\n- **Agent 节点**：基于 OpenCode 内核，统一 build 模式\n- **输出节点**：适配知乎、公众号、日记、笔记、小红书五个平台\n\n## 关键流程\n1. 右键画布添加节点\n2. 输入 → Agent → 输出，连线完成\n3. 点击运行或使用 ⌘↵ 快捷键\n\n## 注意事项\n- 记忆库可存储人设、灵感、素材等，重复使用上下文\n- 矩阵模式支持一次运行多个人设`,
   xiaohongshu: `__IMAGE_MOCK__`,
+  video: JSON.stringify({
+    title: "ThinkFlow 功能介绍",
+    slides: [
+      { title: "AI 驱动创作", voiceover: "用ThinkFlow让创作更简单高效", background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)" },
+      { title: "多平台输出", voiceover: "一键生成多平台专属内容", background: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)" },
+      { title: "智能记忆", voiceover: "记忆沉淀，创作持续进化", background: "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)" },
+      { title: "矩阵运营", voiceover: "多账号人设一次全部搞定", background: "linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)" },
+    ],
+  }),
 }
 
 function buildMockContent(platform: string, idea: string, persona: string): string {

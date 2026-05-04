@@ -3,7 +3,7 @@ import { Handle, Position } from "@xyflow/react"
 import type { NodeProps } from "@xyflow/react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
-import type { OutputNodeType, OutputPlatform, OutputNodeData, ContentFormat, MatrixResult } from "../types"
+import type { OutputNodeType, OutputPlatform, OutputNodeData, ContentFormat, MatrixResult, VideoScript } from "../types"
 import { useCanvasStore } from "../store/canvasStore"
 import { useMemoryStore } from "../store/memoryStore"
 import { OutputModal } from "../components/OutputModal"
@@ -16,7 +16,18 @@ const PLATFORMS: { key: OutputPlatform; label: string; desc: string }[] = [
   { key: "diary", label: "日记", desc: "口语化流水记录" },
   { key: "note", label: "笔记", desc: "正式结构化记录" },
   { key: "xiaohongshu", label: "小红书", desc: "图文/图片格式" },
+  { key: "video", label: "视频", desc: "短视频脚本+MP4" },
 ]
+
+// 背景色渐变预览
+const GRADIENT_PREVIEW: Record<string, string> = {
+  "linear-gradient(135deg, #667eea 0%, #764ba2 100%)": "#667eea",
+  "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)": "#f093fb",
+  "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)": "#4facfe",
+  "linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)": "#43e97b",
+  "linear-gradient(135deg, #fa709a 0%, #fee140 100%)": "#fa709a",
+  "linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)": "#a18cd1",
+}
 
 const FORMAT_OPTIONS: { key: ContentFormat; label: string; title: string }[] = [
   { key: "text",       label: "纯文本", title: "只输出文字内容" },
@@ -34,6 +45,12 @@ export function OutputNode({ id, data, selected }: NodeProps<OutputNodeType>) {
   const [showPreview, setShowPreview] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [activeMatrixIdx, setActiveMatrixIdx] = useState(0)
+
+  // 视频生成状态
+  const [videoGenStatus, setVideoGenStatus] = useState<"idle" | "generating" | "done" | "error">("idle")
+  const [videoProgress, setVideoProgress] = useState(0)
+  const [videoMessage, setVideoMessage] = useState("")
+  const [videoUrl, setVideoUrl] = useState<string | null>(null)
 
   // 矩阵结果
   const matrixResults: MatrixResult[] = (data.matrixResults as MatrixResult[] | undefined) ?? []
@@ -93,6 +110,66 @@ export function OutputNode({ id, data, selected }: NodeProps<OutputNodeType>) {
     }))
     downloadAsZip(items, `${platformLabel}-矩阵全部-${date}.zip`)
   }, [matrixResults, isMatrix, data.platform])
+
+  // 解析视频脚本 JSON（兼容 AI 用 ```json 包裹的情况）
+  const videoScript: VideoScript | null = (() => {
+    if (data.platform !== "video" || !displayContent) return null
+    try {
+      // 去掉可能的 markdown 代码块包裹
+      const cleaned = displayContent
+        .replace(/^```(?:json)?\s*/i, "")
+        .replace(/\s*```\s*$/, "")
+        .trim()
+      return JSON.parse(cleaned) as VideoScript
+    } catch { return null }
+  })()
+
+  const doGenerateVideo = useCallback(async () => {
+    if (!videoScript) return
+    setVideoGenStatus("generating")
+    setVideoProgress(0)
+    setVideoMessage("准备中...")
+    setVideoUrl(null)
+
+    const videoId = `${id}-${Date.now()}`
+    try {
+      const resp = await fetch("/api/generate-video", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ videoId, title: videoScript.title, slides: videoScript.slides }),
+      })
+      if (!resp.ok || !resp.body) throw new Error(`HTTP ${resp.status}`)
+
+      const reader = resp.body.getReader()
+      const decoder = new TextDecoder()
+      let buf = ""
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buf += decoder.decode(value, { stream: true })
+        const lines = buf.split("\n")
+        buf = lines.pop() ?? ""
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue
+          const evt = JSON.parse(line.slice(6)) as { type: string; progress?: number; message?: string; videoUrl?: string }
+          if (evt.type === "step" || evt.type === "done") {
+            setVideoProgress(evt.progress ?? 0)
+            setVideoMessage(evt.message ?? "")
+            if (evt.type === "done" && evt.videoUrl) {
+              setVideoUrl(evt.videoUrl)
+              setVideoGenStatus("done")
+            }
+          } else if (evt.type === "error") {
+            throw new Error(evt.message ?? "未知错误")
+          }
+        }
+      }
+    } catch (err) {
+      setVideoGenStatus("error")
+      setVideoMessage(err instanceof Error ? err.message : "生成失败")
+    }
+  }, [videoScript, id])
 
   const handleCopy = () => {
     doCopy()
@@ -163,22 +240,9 @@ export function OutputNode({ id, data, selected }: NodeProps<OutputNodeType>) {
           </div>
         )}
 
-        {/* 平台选择 — 3+2 网格 */}
+        {/* 平台选择 — 3+3 网格 */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "var(--space-1)" }}>
-          {PLATFORMS.slice(0, 3).map((p) => (
-            <button
-              key={p.key}
-              className={`tf-btn${data.platform === p.key ? " tf-btn-primary" : " tf-btn-ghost"}`}
-              style={{ padding: "5px 8px", fontSize: 11 }}
-              onClick={() => updateNodeData<OutputNodeData>(id, { platform: p.key })}
-              title={p.desc}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-1)" }}>
-          {PLATFORMS.slice(3).map((p) => (
+          {PLATFORMS.map((p) => (
             <button
               key={p.key}
               className={`tf-btn${data.platform === p.key ? " tf-btn-primary" : " tf-btn-ghost"}`}
@@ -191,25 +255,29 @@ export function OutputNode({ id, data, selected }: NodeProps<OutputNodeType>) {
           ))}
         </div>
 
-        {/* 创作形式选择 — 1×3 网格 */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "var(--space-1)" }}>
-          {FORMAT_OPTIONS.map((f) => (
-            <button
-              key={f.key}
-              className={`tf-btn${(data.contentFormat ?? "auto") === f.key ? " tf-btn-primary" : " tf-btn-ghost"}`}
-              style={{ padding: "4px 6px", fontSize: 10 }}
-              onClick={() => updateNodeData<OutputNodeData>(id, { contentFormat: f.key })}
-              title={f.title}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
+        {/* 创作形式选择 — 视频平台不显示 */}
+        {data.platform !== "video" && (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "var(--space-1)" }}>
+            {FORMAT_OPTIONS.map((f) => (
+              <button
+                key={f.key}
+                className={`tf-btn${(data.contentFormat ?? "auto") === f.key ? " tf-btn-primary" : " tf-btn-ghost"}`}
+                style={{ padding: "4px 6px", fontSize: 10 }}
+                onClick={() => updateNodeData<OutputNodeData>(id, { contentFormat: f.key })}
+                title={f.title}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* 字数 / 切换 / 放大 */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
-            {displayContent ? `${displayContent.length} 字` : hasImage ? "图片已生成" : "等待生成..."}
+            {data.platform === "video"
+              ? videoScript ? `${videoScript.slides.length} 个分镜` : displayContent ? "解析中..." : "等待生成..."
+              : displayContent ? `${displayContent.length} 字` : hasImage ? "图片已生成" : "等待生成..."}
           </span>
           <div style={{ display: "flex", gap: "var(--space-1)" }}>
             {hasContent && (
@@ -238,7 +306,44 @@ export function OutputNode({ id, data, selected }: NodeProps<OutputNodeType>) {
 
         {/* 内容区域 */}
         <div className="tf-preview">
-          {hasImage ? (
+          {data.platform === "video" && videoScript ? (
+            /* 视频脚本分镜预览 */
+            <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", marginBottom: "var(--space-1)" }}>
+                {videoScript.title}
+              </div>
+              {videoScript.slides.map((s, idx) => (
+                <div
+                  key={idx}
+                  style={{
+                    borderRadius: "var(--radius-sm)",
+                    overflow: "hidden",
+                    border: "1px solid var(--border)",
+                  }}
+                >
+                  <div
+                    style={{
+                      background: s.background,
+                      height: 40,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <span style={{ color: "white", fontSize: 11, fontWeight: 700 }}>{s.title}</span>
+                  </div>
+                  <div style={{ padding: "4px 8px", fontSize: 10, color: "var(--text-muted)" }}>
+                    {s.voiceover}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : data.platform === "video" && displayContent ? (
+            /* 视频平台有内容但解析失败，显示原文 */
+            <pre style={{ fontFamily: "var(--font-code)", fontSize: 10, whiteSpace: "pre-wrap", color: "var(--text-secondary)" }}>
+              {displayContent}
+            </pre>
+          ) : hasImage ? (
             <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
               {displayImages!.map((img) => (
                 <img
@@ -265,8 +370,51 @@ export function OutputNode({ id, data, selected }: NodeProps<OutputNodeType>) {
           )}
         </div>
 
+        {/* 视频生成区域 */}
+        {data.platform === "video" && videoScript && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+            {videoGenStatus === "generating" && (
+              <div>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                  <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{videoMessage}</span>
+                  <span style={{ fontSize: 11, color: "var(--accent)" }}>{videoProgress}%</span>
+                </div>
+                <div style={{ height: 4, background: "var(--border)", borderRadius: 2, overflow: "hidden" }}>
+                  <div style={{ height: "100%", background: "var(--accent)", width: `${videoProgress}%`, transition: "width 0.3s ease" }} />
+                </div>
+              </div>
+            )}
+            {videoGenStatus === "error" && (
+              <div style={{ fontSize: 11, color: "var(--error, #e74c3c)", padding: "4px 0" }}>
+                ✗ {videoMessage}
+              </div>
+            )}
+            {videoGenStatus !== "generating" && (
+              <div style={{ display: "flex", gap: "var(--space-1)" }}>
+                <button
+                  className="tf-btn tf-btn-primary"
+                  style={{ flex: 1, fontSize: 11 }}
+                  onClick={() => void doGenerateVideo()}
+                >
+                  {videoGenStatus === "done" ? "重新生成" : "生成视频"}
+                </button>
+                {videoGenStatus === "done" && videoUrl && (
+                  <a
+                    href={videoUrl}
+                    download="thinkflow-video.mp4"
+                    className="tf-btn tf-btn-ghost"
+                    style={{ flex: 1, fontSize: 11, textAlign: "center", textDecoration: "none" }}
+                  >
+                    下载 MP4
+                  </a>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* 操作按钮 */}
-        {hasContent && (
+        {hasContent && data.platform !== "video" && (
           <>
             <div style={{ display: "flex", gap: "var(--space-2)" }}>
               {!hasImage && (

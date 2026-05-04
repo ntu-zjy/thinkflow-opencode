@@ -1,0 +1,23 @@
+{
+  "name": "@thinkflow/video-renderer",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "preview": "remotion preview src/index.ts",
+    "render": "remotion render src/index.ts VideoSlide"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "remotion": "4.0.456",
+    "@remotion/renderer": "4.0.456",
+    "@remotion/cli": "4.0.456"
+  },
+  "devDependencies": {
+    "@babel/preset-react": "^7.28.5",
+    "@babel/preset-typescript": "^7.28.5",
+    "@types/react": "^18.3.20",
+    "@types/react-dom": "^18.3.5",
+    "typescript": "^5.8.2"
+  }
+}
