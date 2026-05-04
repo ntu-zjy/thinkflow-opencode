@@ -26,18 +26,17 @@ const DECORATION_CIRCLES = [
 
 function SingleSlide({
   slide,
-  globalStartFrame,
   slideIndex,
   totalSlides,
 }: {
   slide: SlideData
-  globalStartFrame: number
   slideIndex: number
   totalSlides: number
 }) {
+  // Sequence 内部 useCurrentFrame() 已自动归零，直接用即可
   const frame = useCurrentFrame()
   const { fps } = useVideoConfig()
-  const localFrame = frame - globalStartFrame
+  const localFrame = frame
 
   // ── 淡入动画 ─────────────────────────────────────────────────────────────
   const fadeIn = interpolate(localFrame, [0, Math.min(fps * 0.4, 12)], [0, 1], {
@@ -272,7 +271,6 @@ export function VideoSlide({ slides }: Props) {
         <Sequence key={idx} from={slideOffsets[idx]} durationInFrames={slide.durationInFrames}>
           <SingleSlide
             slide={slide}
-            globalStartFrame={slideOffsets[idx]}
             slideIndex={idx}
             totalSlides={slides.length}
           />
