@@ -556,6 +556,154 @@ e2e/benchmark/
 
 ---
 
+## Phase 26：视频生成功能（Remotion + edge-tts）
+
+### 26.1 架构概述
+
+```
+OutputNode（选"视频"平台）
+  ↓ AI 生成 slides JSON
+用户点"生成视频"
+  ↓
+POST /api/generate-video（Vite 内嵌插件）
+  ├─ 调 edge-tts 为每页生成 mp3
+  ├─ 读 mp3 时长（ffprobe）
+  ├─ 将音频复制到 video-renderer/public/（staticFile() 访问要求）
+  ├─ bundle() Remotion 组件
+  ├─ RenderInternals.serveStatic(bundlePath) → HTTP URL
+  ├─ renderMedia() 渲染 1080×1920 竖版 MP4
+  └─ SSE 推送进度
+      ↓
+/api/video-file/:videoId 下载 MP4
+```
+
+### 26.2 目录结构
+
+```
+packages/thinkflow/
+├── app/
+│   ├── vite.config.ts         ← 新增 videoGeneratorPlugin()
+│   └── src/
+│       ├── types/index.ts     ← 新增 "video" OutputPlatform, VideoSlide, VideoScript
+│       ├── nodes/OutputNode.tsx   ← video 平台 + 分镜预览 + 进度条
+│       ├── components/OutputModal.tsx  ← video 标签渲染
+│       ├── store/canvasStore.ts    ← video 平台指令 + PLATFORM_LABELS
+│       └── services/opencodeClient.ts  ← video mock 数据
+└── video-renderer/            ← 独立 Remotion 子项目
+    ├── package.json
+    ├── remotion.config.ts
+    ├── render-worker.mjs      ← 独立 Node.js Worker 进程（关键！）
+    └── src/
+        ├── index.ts
+        ├── Root.tsx
+        └── VideoSlide.tsx
+```
+
+### 26.3 关键架构决策
+
+**为什么用独立 Worker 进程？**
+
+Remotion 的 `bundle()` + `renderMedia()` 会占用大量 CPU/内存，直接在 Vite 插件中调用会阻塞整个 Vite 开发服务器。因此将渲染逻辑抽离为 `render-worker.mjs`，通过 `child_process.spawn` 启动独立 Node.js 进程，Worker 的 stdout 输出 JSON 进度行，由 Vite 插件转发为 SSE 事件。
+
+**为什么必须用 `RenderInternals.serveStatic`？**
+
+`bundle()` 返回的是本地文件系统路径，Chromium headless 无法直接访问 `file://` 路径渲染 React 组件（会报 "Got no response" 错误）。必须调用 `RenderInternals.serveStatic(bundlePath)` 将 bundle 目录转为 `http://localhost:PORT` 形式，再传给 `renderMedia()`。
+
+**为什么音频文件要复制到 `public/` 目录？**
+
+Remotion 的 `staticFile()` 只能访问 `publicDir` 下的文件（打包时被 webpack 复制进 bundle）。TTS 生成的 mp3 在 tmpDir 中，必须在 `bundle()` 调用前 `copyFileSync` 到 `video-renderer/public/` 目录，并用 `videoId` 作为文件名前缀避免并发冲突。渲染完成后统一清理。
+
+### 26.4 关键 Bug：spawn worker 被立即 SIGTERM 杀死
+
+**症状**：Worker 进程在 SSE 输出第一行 TTS 进度后，立即收到 SIGTERM，退出码为 null，signal 为 SIGTERM。
+
+**根因**：`opencodePlugin()` 注册了 `process.on("SIGTERM", cleanup)`（用于停止 OpenCode 子进程）。`spawn` 默认 `detached: false`，Worker 和 Vite 在同一个进程组，父进程收到 SIGTERM 时会通过进程组广播给所有子进程。此外，`req.on("close")` 在 POST body 读完后即触发（客户端发完请求体就关闭写端），不应用于检测 SSE 客户端断开。
+
+**修复**：
+```typescript
+// vite.config.ts
+const worker = spawn(nodeBin, [WORKER_SCRIPT, workerConfig], {
+  stdio: ["ignore", "pipe", "pipe"],
+  cwd: VIDEO_RENDERER_DIR,
+  detached: true,  // 独立进程组，不受 Vite SIGTERM 影响
+})
+worker.unref()  // 不阻止 Vite 主进程退出
+
+// 监听 res.on("close") 而非 req.on("close") 检测客户端真正断开
+res.on("close", () => {
+  if (!res.writableEnded && !worker.killed) {
+    try { process.kill(-(worker.pid as number), "SIGKILL") }
+    catch { worker.kill("SIGKILL") }
+  }
+})
+```
+
+### 26.5 关键 Bug：VideoSlide 动画全程透明（画面空白）
+
+**症状**：生成的视频背景正常，但文字/装饰元素全程透明，只在每个分镜最后几帧闪现。
+
+**根因**：Remotion 的 `<Sequence from={n}>` 会将内部 `useCurrentFrame()` **自动归零**（从 Sequence 起始帧开始计数，不是全局帧）。代码中将 `globalStartFrame` 传入 `SingleSlide` 并执行 `localFrame = frame - globalStartFrame`，实际上 `frame` 已是局部帧（从 0 开始），减去 `globalStartFrame` 后得到负数。所有动画插值输入为负数，`extrapolateLeft: "clamp"` 夹到初始值（透明/偏移状态）。
+
+**修复**：
+```tsx
+// 错误写法
+function SingleSlide({ slide, globalStartFrame, ... }) {
+  const frame = useCurrentFrame()
+  const localFrame = frame - globalStartFrame  // ❌ frame 已是局部帧，再减就变负数
+}
+
+// 正确写法
+function SingleSlide({ slide, ... }) {
+  const frame = useCurrentFrame()
+  const localFrame = frame  // ✅ Sequence 内部已自动归零
+}
+```
+
+### 26.6 视频生成 AI 提示词
+
+提示词需指定 `background` 使用深色渐变（7 种预设方案），要求背景色随分镜情绪变化，旁白 15-25 字口语化，4-6 个分镜：
+
+| 配色名 | 渐变值 |
+|--------|--------|
+| 深夜蓝 | `linear-gradient(135deg, #0f0c29, #302b63, #24243e)` |
+| 紫罗兰 | `linear-gradient(135deg, #4a1942, #c74b50)` |
+| 暗金橙 | `linear-gradient(135deg, #1a0a00, #7b2d00, #c45c00)` |
+| 深海绿 | `linear-gradient(135deg, #004d2e, #00b09b)` |
+| 玫瑰烟 | `linear-gradient(135deg, #2d1b2e, #8b3a62, #c67b8a)` |
+| 钴蓝银 | `linear-gradient(135deg, #0d2137, #1565c0, #4fc3f7)` |
+| 暗红焰 | `linear-gradient(135deg, #1a0000, #7b0000, #c62828)` |
+
+### 26.7 视觉设计（VideoSlide 组件）
+
+竖版 1080×1920，30fps，每页分镜包含：
+- SVG 装饰圆圈 + 线条（半透明，随 fadeIn 出现）
+- 序号徽章（01/02/03…），弹性缩放动画
+- 标题区：上下装饰横线 + 文字 shadow 层次，从上方滑入
+- 字幕区："旁白"标签胶囊 + 文字，从下方滑入（比标题延迟约 4 帧）
+- 底部进度条（当前分镜 / 总分镜数）
+
+### 26.8 外部依赖
+
+| 工具 | 用途 | 安装方式 |
+|------|------|---------|
+| `edge-tts` | 中文 TTS，生成 mp3 | `pip install edge-tts`（或 `uv tool install edge-tts`）|
+| `ffprobe` | 读取 mp3 时长 | 随 ffmpeg 安装（`brew install ffmpeg`）|
+| Remotion 4.0.456 | 渲染 React 组件为 MP4 | `bun add remotion @remotion/renderer @remotion/bundler` |
+| Chromium | Remotion 渲染引擎 | 首次调用 `ensureBrowser()` 自动下载（约 170MB，存 `~/.cache/puppeteer`）|
+
+### 26.9 关键约束
+
+| 约束 | 说明 |
+|------|------|
+| `staticFile()` 访问路径 | 音频必须在 `bundle()` 前复制到 `video-renderer/public/`，否则 Chromium 找不到文件 |
+| Worker `detached: true` | 必须设置，否则 Vite SIGTERM 会通过进程组广播杀死 Worker |
+| `res.on("close")` 检测断开 | 不能用 `req.on("close")`，POST body 读完后 req 就触发 close |
+| Remotion `Sequence` 帧计数 | `useCurrentFrame()` 在 Sequence 内已自动归零，**不能再减 globalStartFrame** |
+| `RenderInternals.serveStatic` | `bundle()` 返回文件系统路径，必须转为 HTTP URL 再传给 `renderMedia()` |
+| `optimizeDeps.exclude` | `@remotion/renderer`、`@remotion/bundler`、`remotion` 须加入 Vite `optimizeDeps.exclude`，否则 Vite 预构建这些 Node.js 专用包会报错 |
+
+---
+
 ## 验证方式
 
 ```bash
