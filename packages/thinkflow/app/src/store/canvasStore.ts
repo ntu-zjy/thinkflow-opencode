@@ -65,15 +65,32 @@ function getPlatformInstruction(platform: string, contentFormat: string): string
     : ""
 
   if (platform === "video") {
-    return `请将内容转化为短视频脚本，以 JSON 格式输出（不要 markdown 代码块，直接输出纯 JSON）：
+    return `请将内容转化为竖版短视频脚本（抖音/TikTok 风格），严格输出纯 JSON，不要包含任何 markdown 代码块或额外说明：
 {
   "title": "视频总标题",
   "slides": [
-    { "title": "分镜标题（10字以内）", "voiceover": "旁白文字（20字以内，口语化）", "background": "linear-gradient(135deg, #667eea, #764ba2)" },
-    ...（3-6个分镜）
+    {
+      "title": "分镜标题（8字以内，精练有力）",
+      "voiceover": "旁白文字（15-25字，口语化，有感染力，适合 TTS 朗读）",
+      "background": "linear-gradient(135deg, #1a1a2e, #16213e)"
+    }
   ]
 }
-要求：background 使用 CSS linear-gradient 深色渐变，每页颜色不同以体现视觉层次。旁白简洁有力，适合 TikTok/抖音风格。`
+
+配色参考（从中为每个分镜选择不同的深色渐变，禁止重复）：
+- 深夜蓝："linear-gradient(135deg, #0f0c29, #302b63, #24243e)"
+- 紫罗兰："linear-gradient(135deg, #4a1942, #c74b50)"
+- 暗金橙："linear-gradient(135deg, #1a0a00, #7b2d00, #c45c00)"
+- 深海绿："linear-gradient(135deg, #004d2e, #00b09b)"
+- 玫瑰烟："linear-gradient(135deg, #2d1b2e, #8b3a62, #c67b8a)"
+- 钴蓝银："linear-gradient(135deg, #0d2137, #1565c0, #4fc3f7)"
+- 暗红焰："linear-gradient(135deg, #1a0000, #7b0000, #c62828)"
+
+要求：
+- 分镜数量 4-6 个（开头+核心内容+结尾）
+- 每个分镜标题点明核心观点
+- 旁白节奏明快，避免文绉绉的书面语
+- 背景色调随内容情绪变化（开场可用中性色，高潮用暖色/亮色，结尾用沉稳色）`
   }
 
   const base: Record<string, string> = {
