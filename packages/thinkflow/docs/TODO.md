@@ -99,10 +99,14 @@
 - [x] 输出卡片需要从UI上能够区分平台和内容格式，目前这两部分的内容是都在一个卡片上面。
   OutputNode header 右侧新增平台 badge（知乎/公众号/日记/笔记/小红书/视频，各有独立颜色）+ 内容格式小标签（纯文本/图文/自主），一眼看清当前配置。
 - [x] 目前的生成视频的模板过于简单，导致生成的视频都是一个简单的背景+标题+字幕这样两行字体，应该给予Agent更多的自由度，渲染出来更加复杂的视频。
-  视频渲染服务迁移至 `packages/thinkflow/video-nextjs/`（独立 Next.js 子项目，port 3001）；新增 8 种布局变体：bold/default/split/quote/list/cinematic（电影感 letterbox）/neon（赛博朋克霓虹发光）/minimal（极简白底）；新增 `accentColor`（霓虹色）和 `emoji` 可选字段；AI Prompt 更新要求输出 5-7 分镜，充分利用所有布局；Vite 插件自动启动 Next.js dev server 并代理 `/api/generate-video` + `/api/video-file/:id`；分镜预览卡片显示 emoji、标题和布局标签。
+  视频渲染服务迁移至 `packages/thinkflow/video-nextjs/`（Remotion 子项目）；Agent 可自由设计任意视觉风格（多布局、渐变背景、霓虹效果等）；Remotion Skill 提供最佳实践知识；Agent 完成渲染后 OutputNode 自动检测并展示 `<video>` 播放器；视频含 edge-tts 中文配音。
 
+- [x] 视频生成架构重构：从预设模板 → Agent 自由写代码+CLI 渲染
+  OpenCode Agent 直接修改 `video-nextjs/src/remotion/VideoComposition.tsx`，调用 `npx remotion render` CLI 渲染；Vite 改为 `videoServePlugin` 只做静态文件服务；OutputNode 通过 `useEffect` 自动检测 `/api/video-serve` 文件，Agent 完成后无需手动点击即可播放视频；视频 Prompt 新增 edge-tts TTS 配音步骤（`zh-CN-XiaoxiaoNeural`）+ ffprobe 时长计算。
+- [x] 安装 Remotion Agent Skill，让 Agent 能用最佳实践写 Remotion 代码
+  安装命令：`git clone --depth 1 https://github.com/remotion-dev/skills.git /tmp/remotion-skills && cp -r /tmp/remotion-skills/skills/remotion ~/.config/opencode/skills/`；Skill 为 Agent 提供 Remotion 最佳实践（包括 `<Sequence>` 局部帧归零、`staticFile()` 约束等），绕过了 Chromium 下载问题。
 - [ ] 切换画布后，正在跑的画布的进程就停止了
-- [ ] 我没有chromium，不想依赖这个组件
+- [ ] 我没有chromium，不想依赖这个组件（当前方案：通过 `--browser-executable` 指向系统 Chrome，但仍需用户安装 Chrome）
 
 ### 🟢 锦上添花
 - [ ] **Desktop（Tauri）验证**（已在本地验证 arm64，CI 构建待跑）
