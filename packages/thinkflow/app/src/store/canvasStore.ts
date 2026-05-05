@@ -102,10 +102,32 @@ import { AbsoluteFill, Audio, Sequence, useCurrentFrame, interpolate, Easing, st
 ### 第四步：修改 Root.tsx
 设置总 durationInFrames = 所有分镜帧数之和。
 
-### 第五步：渲染视频
+### 第五步：确认浏览器并渲染视频
+**重要**：Remotion 渲染需要浏览器，按以下顺序检测：
+
 \`\`\`bash
 cd packages/thinkflow/video-nextjs
-npx remotion render VideoComposition out/video.mp4 --browser-executable="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+
+# 1. 检测 node_modules/.remotion 是否已有缓存的 chrome-headless-shell
+if [ -d "node_modules/.remotion/chrome-headless-shell" ]; then
+  echo "使用已缓存的 chrome-headless-shell 渲染"
+  npx remotion render VideoComposition out/video.mp4
+else
+  # 2. 尝试自动下载 chrome-headless-shell（需要网络）
+  echo "尝试下载 chrome-headless-shell..."
+  npx remotion browser ensure 2>&1
+  if [ -d "node_modules/.remotion/chrome-headless-shell" ]; then
+    echo "下载成功，开始渲染"
+    npx remotion render VideoComposition out/video.mp4
+  elif [ -f "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" ]; then
+    # 3. 使用系统 Chrome 作为备选
+    echo "使用系统 Chrome 渲染"
+    npx remotion render VideoComposition out/video.mp4 --browser-executable="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+  else
+    echo "错误：未找到可用浏览器，请运行 'npx remotion browser ensure' 下载 chrome-headless-shell，或安装 Chrome"
+    exit 1
+  fi
+fi
 \`\`\`
 
 ### 第六步：完成
@@ -116,7 +138,7 @@ npx remotion render VideoComposition out/video.mp4 --browser-executable="/Applic
 - 视频必须有配音，每个分镜对应一段 TTS 音频
 - 音频文件放在 packages/thinkflow/video-nextjs/public/ 目录下
 - 动画只用 interpolate() + useCurrentFrame()，不用 CSS transitions/animations
-- 使用系统 Chrome 渲染，路径：/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`
+- 渲染时优先使用 Remotion 自带的 chrome-headless-shell（自动缓存在 node_modules/.remotion/），无需用户安装 Chrome`
   }
 
   const base: Record<string, string> = {
@@ -313,11 +335,9 @@ export const useCanvasStore = create<CanvasStore>()(
   },
 
   switchWorkflow: (id) => {
-    const { activeWorkflowId, workflows, nodes, _saveCurrentWorkflow } = get()
+    const { activeWorkflowId, workflows, _saveCurrentWorkflow } = get()
     if (id === activeWorkflowId) return
-    // abort 正在运行的 agent
-    nodes.filter((n) => n.type === "agent" && (n.data as AgentNodeData).status === "running")
-      .forEach((n) => get().abortWorkflow(n.id))
+    // 不中止正在运行的 Agent，让后台 session 继续运行并更新工作流状态
     _saveCurrentWorkflow()
     const wf = workflows[id]
     if (!wf) return
@@ -466,9 +486,32 @@ export const useCanvasStore = create<CanvasStore>()(
     })),
 
   runWorkflow: async (agentNodeId) => {
-    const { nodes, edges, updateNodeData, _unsubscribe } = get()
+    const { nodes, edges, _unsubscribe } = get()
 
     _unsubscribe?.()
+
+    // 捕获运行时所属的工作流 id，支持切换画布后后台继续更新
+    const runWorkflowId = get().activeWorkflowId
+
+    // 工作流感知的节点更新：优先更新后台工作流的节点，若是当前活跃则同步更新 nodes
+    const updateWorkflowNodeData = <T extends Record<string, unknown>>(nodeId: string, data: Partial<T>) => {
+      set((s): Partial<CanvasStore> => {
+        const patchNode = (n: FlowNode): FlowNode =>
+          n.id === nodeId ? ({ ...n, data: { ...n.data, ...(data as Record<string, unknown>) } } as FlowNode) : n
+        const wf = s.workflows[runWorkflowId]
+        const updatedWorkflows: Record<string, WorkflowRecord> = wf
+          ? {
+              ...s.workflows,
+              [runWorkflowId]: { ...wf, nodes: wf.nodes.map(patchNode) },
+            }
+          : s.workflows
+        // 若当前活跃画布就是运行画布，同步更新 nodes（UI 即时反映）
+        const updatedNodes = s.activeWorkflowId === runWorkflowId
+          ? s.nodes.map(patchNode)
+          : s.nodes
+        return { workflows: updatedWorkflows, nodes: updatedNodes }
+      })
+    }
 
     const agentNode = nodes.find((n) => n.id === agentNodeId && n.type === "agent") as
       | AgentNodeType
@@ -488,32 +531,42 @@ export const useCanvasStore = create<CanvasStore>()(
     const outputNodes = nodes.filter((n) => outputIds.includes(n.id) && n.type === "output") as OutputNodeType[]
 
     const appendLog = (text: string, type: AgentLog["type"] = "info") => {
-      updateNodeData<AgentNodeData>(agentNodeId, {
-        logs: [
-          ...((get().nodes.find((n) => n.id === agentNodeId) as AgentNodeType | undefined)?.data.logs ?? []),
-          { id: nanoid(), timestamp: Date.now(), text, type },
-        ],
+      const wf = get().workflows[runWorkflowId]
+      const currentLogs = wf
+        ? (wf.nodes.find((n) => n.id === agentNodeId) as AgentNodeType | undefined)?.data.logs ?? []
+        : (get().nodes.find((n) => n.id === agentNodeId) as AgentNodeType | undefined)?.data.logs ?? []
+      updateWorkflowNodeData<AgentNodeData>(agentNodeId, {
+        logs: [...currentLogs, { id: nanoid(), timestamp: Date.now(), text, type }],
       })
     }
 
-    updateNodeData<AgentNodeData>(agentNodeId, { status: "running", logs: [] })
-    outputNodes.forEach((o) => updateNodeData<OutputNodeData>(o.id, { content: "" }))
-    // 运行时将相关 edges 设为 animated
-    set((s) => ({
-      edges: s.edges.map((e) =>
-        e.source === agentNodeId || e.target === agentNodeId
-          ? { ...e, animated: true }
-          : e
-      ),
-    }))
+    updateWorkflowNodeData<AgentNodeData>(agentNodeId, { status: "running", logs: [] })
+    outputNodes.forEach((o) => updateWorkflowNodeData<OutputNodeData>(o.id, { content: "" }))
+    // 运行时将相关 edges 设为 animated（工作流感知）
+    const setEdgesAnimated = (animated: boolean) => {
+      set((s): Partial<CanvasStore> => {
+        const patchEdge = (e: FlowEdge) =>
+          e.source === agentNodeId || e.target === agentNodeId ? { ...e, animated } : e
+        const wf = s.workflows[runWorkflowId]
+        const updatedWorkflows = wf
+          ? { ...s.workflows, [runWorkflowId]: { ...wf, edges: wf.edges.map(patchEdge) } }
+          : s.workflows
+        const updatedEdges = s.activeWorkflowId === runWorkflowId
+          ? s.edges.map(patchEdge)
+          : s.edges
+        return { workflows: updatedWorkflows, edges: updatedEdges }
+      })
+    }
+    setEdgesAnimated(true)
     set({ _sessionIds: [] })
     appendLog("开始运行工作流...")
 
     const dryRun = agentNode.data.dryRun
 
-    // 运行完成后自动存入「作品」记忆
+    // 运行完成后自动存入「作品」记忆（从工作流中读取节点数据）
     const autoSaveToMemory = (outputNodeId: string, platform: string, persona?: string) => {
-      const cur = get().nodes.find((n) => n.id === outputNodeId) as OutputNodeType | undefined
+      const wf = get().workflows[runWorkflowId]
+      const cur = (wf?.nodes ?? get().nodes).find((n) => n.id === outputNodeId) as OutputNodeType | undefined
       if (!cur?.data.content) return
       const platformLabel = PLATFORM_LABELS[platform] ?? "输出"
       const personaSuffix = persona ? ` · ${persona}` : ""
@@ -530,13 +583,15 @@ export const useCanvasStore = create<CanvasStore>()(
         o.data.platform,
         agentNode.data.idea,
         (chunk) => {
-          const cur = (get().nodes.find((n) => n.id === o.id) as OutputNodeType | undefined)?.data.content ?? ""
-          updateNodeData<OutputNodeData>(o.id, { content: cur + chunk })
+          const wf = get().workflows[runWorkflowId]
+          const cur = ((wf?.nodes ?? get().nodes).find((n) => n.id === o.id) as OutputNodeType | undefined)?.data.content ?? ""
+          updateWorkflowNodeData<OutputNodeData>(o.id, { content: cur + chunk })
         },
         () => {},
         (imageUrl) => {
-          const existing = (get().nodes.find((n) => n.id === o.id) as OutputNodeType | undefined)?.data.images ?? []
-          updateNodeData<OutputNodeData>(o.id, {
+          const wf = get().workflows[runWorkflowId]
+          const existing = ((wf?.nodes ?? get().nodes).find((n) => n.id === o.id) as OutputNodeType | undefined)?.data.images ?? []
+          updateWorkflowNodeData<OutputNodeData>(o.id, {
             images: [...existing, { id: nanoid(), url: imageUrl, generatedAt: Date.now() }],
             contentType: "image",
           })
@@ -575,25 +630,27 @@ export const useCanvasStore = create<CanvasStore>()(
 
       if (dryMatrixMode && dryMatrixSlots.length > 0) {
         // 运行前清空旧矩阵结果
-        outputNodes.forEach((o) => updateNodeData<OutputNodeData>(o.id, { matrixResults: [], content: "", images: undefined, contentType: undefined }))
+        outputNodes.forEach((o) => updateWorkflowNodeData<OutputNodeData>(o.id, { matrixResults: [], content: "", images: undefined, contentType: undefined }))
         for (let i = 0; i < dryMatrixSlots.length; i++) {
           const slot = dryMatrixSlots[i]
           const persona = dryBuildPersona(slot)
           const label = dryGetLabel(slot)
           appendLog(`[矩阵 ${i + 1}/${dryMatrixSlots.length}] 开始（人设: ${label}）`)
-          outputNodes.forEach((o) => updateNodeData<OutputNodeData>(o.id, { content: "", images: undefined, contentType: undefined }))
+          outputNodes.forEach((o) => updateWorkflowNodeData<OutputNodeData>(o.id, { content: "", images: undefined, contentType: undefined }))
           for (const o of outputNodes) {
             await runMockWorkflow(
               o.data.platform,
               agentNode.data.idea,
               (chunk) => {
-                const cur = (get().nodes.find((n) => n.id === o.id) as OutputNodeType | undefined)?.data.content ?? ""
-                updateNodeData<OutputNodeData>(o.id, { content: cur + chunk })
+                const wf = get().workflows[runWorkflowId]
+                const cur = ((wf?.nodes ?? get().nodes).find((n) => n.id === o.id) as OutputNodeType | undefined)?.data.content ?? ""
+                updateWorkflowNodeData<OutputNodeData>(o.id, { content: cur + chunk })
               },
               () => {},
               (imageUrl) => {
-                const existing = (get().nodes.find((n) => n.id === o.id) as OutputNodeType | undefined)?.data.images ?? []
-                updateNodeData<OutputNodeData>(o.id, {
+                const wf = get().workflows[runWorkflowId]
+                const existing = ((wf?.nodes ?? get().nodes).find((n) => n.id === o.id) as OutputNodeType | undefined)?.data.images ?? []
+                updateWorkflowNodeData<OutputNodeData>(o.id, {
                   images: [...existing, { id: nanoid(), url: imageUrl, generatedAt: Date.now() }],
                   contentType: "image",
                 })
@@ -603,10 +660,11 @@ export const useCanvasStore = create<CanvasStore>()(
           }
           // 本 slot 完成：追加到 matrixResults
           outputNodes.forEach((o) => {
-            const cur = get().nodes.find((n) => n.id === o.id) as OutputNodeType | undefined
+            const wf = get().workflows[runWorkflowId]
+            const cur = ((wf?.nodes ?? get().nodes).find((n) => n.id === o.id)) as OutputNodeType | undefined
             if (!cur) return
             const existing = (cur.data.matrixResults ?? []) as import("../types").MatrixResult[]
-            updateNodeData<OutputNodeData>(o.id, {
+            updateWorkflowNodeData<OutputNodeData>(o.id, {
               matrixResults: [
                 ...existing,
                 {
@@ -625,38 +683,27 @@ export const useCanvasStore = create<CanvasStore>()(
         }
         // 全部完成：显示第一个 slot 结果
         outputNodes.forEach((o) => {
-          const cur = get().nodes.find((n) => n.id === o.id) as OutputNodeType | undefined
+          const wf = get().workflows[runWorkflowId]
+          const cur = ((wf?.nodes ?? get().nodes).find((n) => n.id === o.id)) as OutputNodeType | undefined
           const first = cur?.data.matrixResults?.[0]
           if (!first) return
-          updateNodeData<OutputNodeData>(o.id, {
+          updateWorkflowNodeData<OutputNodeData>(o.id, {
             content: first.content,
             images: first.images,
             contentType: first.contentType,
           })
         })
-        updateNodeData<AgentNodeData>(agentNodeId, { status: "done" })
+        updateWorkflowNodeData<AgentNodeData>(agentNodeId, { status: "done" })
         appendLog(`dry-run 矩阵完成，共 ${dryMatrixSlots.length} 个人设`)
-        set((s) => ({
-          edges: s.edges.map((e) =>
-            e.source === agentNodeId || e.target === agentNodeId
-              ? { ...e, animated: false }
-              : e
-          ),
-        }))
+        setEdgesAnimated(false)
         return
       }
 
       for (const o of outputNodes) await runMock(o)
       outputNodes.forEach((o) => autoSaveToMemory(o.id, o.data.platform))
-      updateNodeData<AgentNodeData>(agentNodeId, { status: "done" })
+      updateWorkflowNodeData<AgentNodeData>(agentNodeId, { status: "done" })
       appendLog("dry-run 完成")
-      set((s) => ({
-        edges: s.edges.map((e) =>
-          e.source === agentNodeId || e.target === agentNodeId
-            ? { ...e, animated: false }
-            : e
-        ),
-      }))
+      setEdgesAnimated(false)
       return
     }
 
@@ -665,7 +712,7 @@ export const useCanvasStore = create<CanvasStore>()(
     if (!available) {
       appendLog("OpenCode 服务未启动，切换到演示模式", "info")
       for (const o of outputNodes) await runMock(o)
-      updateNodeData<AgentNodeData>(agentNodeId, { status: "done" })
+      updateWorkflowNodeData<AgentNodeData>(agentNodeId, { status: "done" })
       appendLog("演示完成（真实运行需启动 OpenCode）")
       return
     }
@@ -700,7 +747,7 @@ export const useCanvasStore = create<CanvasStore>()(
 
     if (!baseParts.length) {
       appendLog("请先填写输入内容", "error")
-      updateNodeData<AgentNodeData>(agentNodeId, { status: "idle" })
+      updateWorkflowNodeData<AgentNodeData>(agentNodeId, { status: "idle" })
       return
     }
 
@@ -732,13 +779,14 @@ export const useCanvasStore = create<CanvasStore>()(
               if (part?.sessionID && part.sessionID !== sessionId) return
               if (part?.type === "text" && props.delta) {
                 outputBuffer += props.delta
-                updateNodeData<OutputNodeData>(outputNode.id, { content: outputBuffer })
+                updateWorkflowNodeData<OutputNodeData>(outputNode.id, { content: outputBuffer })
               }
               if (part?.type === "file") {
                 const fp = part as { mime?: string; url?: string; id?: string }
                 if (fp.mime?.startsWith("image/") && fp.url) {
-                  const existing = (get().nodes.find((n) => n.id === outputNode.id) as OutputNodeType | undefined)?.data.images ?? []
-                  updateNodeData<OutputNodeData>(outputNode.id, {
+                  const wf = get().workflows[runWorkflowId]
+                  const existing = ((wf?.nodes ?? get().nodes).find((n) => n.id === outputNode.id) as OutputNodeType | undefined)?.data.images ?? []
+                  updateWorkflowNodeData<OutputNodeData>(outputNode.id, {
                     images: [...existing, { id: fp.id ?? nanoid(), url: fp.url, generatedAt: Date.now() }],
                     contentType: "image",
                   })
@@ -781,14 +829,14 @@ export const useCanvasStore = create<CanvasStore>()(
         if (match) {
           const imagePrompt = match[1].trim()
           const caption = outputBuffer.replace(/\[IMG_PROMPT:[\s\S]+?\]\n?/, "").trim()
-          updateNodeData<OutputNodeData>(outputNode.id, { content: caption })
+          updateWorkflowNodeData<OutputNodeData>(outputNode.id, { content: caption })
           appendLog(`[小红书] 解析到图片描述，开始生图...`, "info")
           const imageUrl = await generateImage(imagePrompt).catch((err: Error) => {
             appendLog(`[小红书] 所有图片生成通道失败: ${(err.message ?? "").slice(0, 60)}，使用占位图`, "info")
             const label = encodeURIComponent(imagePrompt.slice(0, 40))
             return `data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300"><rect width="400" height="300" fill="%23ff2b54" opacity="0.1" rx="12"/><text x="50%" y="40%" font-family="sans-serif" font-size="16" fill="%23ff2b54" text-anchor="middle">图片生成失败，使用占位图</text><text x="50%" y="56%" font-family="sans-serif" font-size="12" fill="%23888" text-anchor="middle">${label}</text></svg>`
           })
-          updateNodeData<OutputNodeData>(outputNode.id, {
+          updateWorkflowNodeData<OutputNodeData>(outputNode.id, {
             images: [{ id: nanoid(), url: imageUrl, generatedAt: Date.now() }],
             contentType: "image",
           })
@@ -826,7 +874,7 @@ export const useCanvasStore = create<CanvasStore>()(
 
     if (matrixMode && matrixSlots.length > 0) {
       // 运行前清空各输出节点的旧矩阵结果
-      outputNodes.forEach((o) => updateNodeData<OutputNodeData>(o.id, { matrixResults: [], content: "", images: undefined, contentType: undefined }))
+      outputNodes.forEach((o) => updateWorkflowNodeData<OutputNodeData>(o.id, { matrixResults: [], content: "", images: undefined, contentType: undefined }))
       try {
         for (let i = 0; i < matrixSlots.length; i++) {
           const slot = matrixSlots[i]
@@ -837,14 +885,15 @@ export const useCanvasStore = create<CanvasStore>()(
             ? [...baseParts, { type: "text" as const, text: `【账号人设】\n${personaText}` }]
             : baseParts
           // 清空本轮 content，流式写入当前 slot
-          outputNodes.forEach((o) => updateNodeData<OutputNodeData>(o.id, { content: "", images: undefined, contentType: undefined }))
+          outputNodes.forEach((o) => updateWorkflowNodeData<OutputNodeData>(o.id, { content: "", images: undefined, contentType: undefined }))
           await Promise.all(outputNodes.map((o, idx) => runOneOutput(o, idx, matrixParts)))
           // 本 slot 完成：把结果追加进 matrixResults
           outputNodes.forEach((o) => {
-            const cur = get().nodes.find((n) => n.id === o.id) as OutputNodeType | undefined
+            const wf = get().workflows[runWorkflowId]
+            const cur = ((wf?.nodes ?? get().nodes).find((n) => n.id === o.id)) as OutputNodeType | undefined
             if (!cur) return
             const existing = (cur.data.matrixResults ?? []) as import("../types").MatrixResult[]
-            updateNodeData<OutputNodeData>(o.id, {
+            updateWorkflowNodeData<OutputNodeData>(o.id, {
               matrixResults: [
                 ...existing,
                 {
@@ -863,28 +912,23 @@ export const useCanvasStore = create<CanvasStore>()(
         }
         // 全部完成：把第一个 slot 结果写入 content（默认展示）
         outputNodes.forEach((o) => {
-          const cur = get().nodes.find((n) => n.id === o.id) as OutputNodeType | undefined
+          const wf = get().workflows[runWorkflowId]
+          const cur = ((wf?.nodes ?? get().nodes).find((n) => n.id === o.id)) as OutputNodeType | undefined
           const first = cur?.data.matrixResults?.[0]
           if (!first) return
-          updateNodeData<OutputNodeData>(o.id, {
+          updateWorkflowNodeData<OutputNodeData>(o.id, {
             content: first.content,
             images: first.images,
             contentType: first.contentType,
           })
         })
-        updateNodeData<AgentNodeData>(agentNodeId, { status: "done" })
+        updateWorkflowNodeData<AgentNodeData>(agentNodeId, { status: "done" })
         appendLog(`矩阵运行完成，共 ${matrixSlots.length} 个人设`)
       } catch (err) {
         appendLog(`矩阵运行失败: ${(err as Error).message}`, "error")
-        updateNodeData<AgentNodeData>(agentNodeId, { status: "error" })
+        updateWorkflowNodeData<AgentNodeData>(agentNodeId, { status: "error" })
       } finally {
-        set((s) => ({
-          edges: s.edges.map((e) =>
-            e.source === agentNodeId || e.target === agentNodeId
-              ? { ...e, animated: false }
-              : e
-          ),
-        }))
+        setEdgesAnimated(false)
       }
       return
     }
@@ -893,20 +937,13 @@ export const useCanvasStore = create<CanvasStore>()(
       appendLog(`并行启动 ${outputNodes.length} 个输出节点...`)
       await Promise.all(outputNodes.map((o, i) => runOneOutput(o, i)))
       outputNodes.forEach((o) => autoSaveToMemory(o.id, o.data.platform))
-      updateNodeData<AgentNodeData>(agentNodeId, { status: "done" })
+      updateWorkflowNodeData<AgentNodeData>(agentNodeId, { status: "done" })
       appendLog(`全部 ${outputNodes.length} 个输出节点生成完成`)
     } catch (err) {
       appendLog(`运行失败: ${(err as Error).message}`, "error")
-      updateNodeData<AgentNodeData>(agentNodeId, { status: "error" })
+      updateWorkflowNodeData<AgentNodeData>(agentNodeId, { status: "error" })
     } finally {
-      // 完成/失败后恢复 edges 静止
-      set((s) => ({
-        edges: s.edges.map((e) =>
-          e.source === agentNodeId || e.target === agentNodeId
-            ? { ...e, animated: false }
-            : e
-        ),
-      }))
+      setEdgesAnimated(false)
     }
   },
 
