@@ -105,8 +105,10 @@
   OpenCode Agent 直接修改 `video-nextjs/src/remotion/VideoComposition.tsx`，调用 `npx remotion render` CLI 渲染；Vite 改为 `videoServePlugin` 只做静态文件服务；OutputNode 通过 `useEffect` 自动检测 `/api/video-serve` 文件，Agent 完成后无需手动点击即可播放视频；视频 Prompt 新增 edge-tts TTS 配音步骤（`zh-CN-XiaoxiaoNeural`）+ ffprobe 时长计算。
 - [x] 安装 Remotion Agent Skill，让 Agent 能用最佳实践写 Remotion 代码
   安装命令：`git clone --depth 1 https://github.com/remotion-dev/skills.git /tmp/remotion-skills && cp -r /tmp/remotion-skills/skills/remotion ~/.config/opencode/skills/`；Skill 为 Agent 提供 Remotion 最佳实践（包括 `<Sequence>` 局部帧归零、`staticFile()` 约束等），绕过了 Chromium 下载问题。
-- [ ] 切换画布后，正在跑的画布的进程就停止了
-- [ ] 我没有chromium，不想依赖这个组件（当前方案：通过 `--browser-executable` 指向系统 Chrome，但仍需用户安装 Chrome）
+- [x] 切换画布后，正在跑的画布的进程就停止了
+  `switchWorkflow` 移除了 `abortWorkflow` 调用；`runWorkflow` 在启动时捕获 `runWorkflowId`，新增工作流感知的 `updateWorkflowNodeData`（同时更新 `workflows[runWorkflowId].nodes` 和当前活跃 `nodes`），切换画布后后台 session 继续运行并写入对应工作流的节点，切回时即可看到完整结果。
+- [x] 我没有chromium，不想依赖这个组件
+  Remotion 自带 `chrome-headless-shell`（约 193MB，缓存在 `video-nextjs/node_modules/.remotion/`），不需要用户安装 Chrome。Agent 视频提示词已更新为智能浏览器检测逻辑：优先用已缓存的 `chrome-headless-shell`（`npx remotion render` 自动使用），其次运行 `npx remotion browser ensure` 自动下载，最后才回退到系统 Chrome。
 
 ### 🟢 锦上添花
 - [ ] **Desktop（Tauri）验证**（已在本地验证 arm64，CI 构建待跑）
