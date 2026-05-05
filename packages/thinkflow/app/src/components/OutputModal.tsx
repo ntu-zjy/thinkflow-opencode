@@ -60,12 +60,11 @@ export function OutputModal({ content, images, contentType, platform, onClose, d
   // 视频脚本 JSON 解析（兼容 AI 用 ```json 包裹的情况）
   const videoScript: VideoScript | null = platform === "video" && content
     ? (() => {
+        const firstBrace = content.indexOf("{")
+        const lastBrace = content.lastIndexOf("}")
+        if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) return null
         try {
-          const cleaned = content
-            .replace(/^```(?:json)?\s*/i, "")
-            .replace(/\s*```\s*$/, "")
-            .trim()
-          return JSON.parse(cleaned) as VideoScript
+          return JSON.parse(content.slice(firstBrace, lastBrace + 1)) as VideoScript
         } catch { return null }
       })()
     : null
@@ -172,21 +171,27 @@ export function OutputModal({ content, images, contentType, platform, onClose, d
               <div style={{ fontSize: 18, fontWeight: 700, color: "var(--text-primary)", marginBottom: 4 }}>
                 {videoScript.title}
               </div>
-              {videoScript.slides.map((s, idx) => (
+              {(videoScript.slides ?? []).map((s, idx) => (
                 <div key={idx} style={{ borderRadius: 8, overflow: "hidden", border: "1px solid var(--border)" }}>
                   <div style={{
-                    background: s.background,
-                    height: 72,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
+                    background: "var(--bg-surface-2)",
+                    padding: "8px 14px",
+                    display: "flex", alignItems: "center", gap: 8,
                   }}>
-                    <span style={{ color: "white", fontSize: 20, fontWeight: 800, textShadow: "0 2px 8px rgba(0,0,0,0.4)" }}>
-                      {s.title}
+                    <span style={{
+                      width: 22, height: 22, borderRadius: "50%",
+                      background: "var(--accent)", color: "white",
+                      fontSize: 11, fontWeight: 700,
+                      display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                    }}>
+                      {idx + 1}
+                    </span>
+                    <span style={{ color: "var(--text-secondary)", fontSize: 14 }}>
+                      {s.voiceover}
                     </span>
                   </div>
-                  <div style={{ padding: "10px 14px", fontSize: 13, color: "var(--text-secondary)" }}>
-                    {s.voiceover}
+                  <div style={{ padding: "8px 14px", fontFamily: "var(--font-code)", fontSize: 11, color: "var(--text-muted)", whiteSpace: "pre", overflow: "hidden", maxHeight: 40, background: "var(--bg-input)" }}>
+                    {(s.slideCode ?? "").split("\n").slice(0, 2).join("\n")}
                   </div>
                 </div>
               ))}
@@ -212,7 +217,7 @@ export function OutputModal({ content, images, contentType, platform, onClose, d
         {/* 页脚 */}
         <div className="tf-modal__footer">
           <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
-            {videoScript ? `${videoScript.slides.length} 个分镜` : charCount > 0 ? `${charCount} 字` : ""}
+            {videoScript ? `${videoScript.slides?.length ?? 0} 个分镜` : charCount > 0 ? `${charCount} 字` : ""}
           </span>
           <span style={{ fontSize: 11, color: "var(--text-muted)" }}>按 ESC 关闭</span>
         </div>
