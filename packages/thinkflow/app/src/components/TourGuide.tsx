@@ -83,9 +83,37 @@ const CARD_W = 320
 const CARD_H_EST = 380  // 偏大估算，保证 clampT 给足底部余量
 const GAP = 14
 
+const EXAMPLE_SCENARIOS = [
+  {
+    icon: "📰",
+    title: "公众号运营",
+    desc: "添加链接输入节点，粘贴文章或网页 URL，Agent 自动读取内容后，生成适配移动端的图文推送。",
+    flow: "链接输入 → Agent → 公众号",
+  },
+  {
+    icon: "🧬",
+    title: "矩阵运营",
+    desc: "开启矩阵模式，一个 Agent 读取记忆库中多个人设，并发生成差异化内容，适合多账号同时运营。",
+    flow: "文本输入 → Agent（矩阵）→ 小红书 × N",
+  },
+  {
+    icon: "📅",
+    title: "定时日报",
+    desc: "信息流输入接入 MCP 工具（GitHub/RSS），开启 Agent 定时运行，每天自动抓取并生成日记或笔记。",
+    flow: "信息流输入 → Agent（定时）→ 日记输出",
+  },
+  {
+    icon: "🎬",
+    title: "视频脚本生成",
+    desc: "输入主题或文章链接，Agent 将内容转化为竖版短视频分镜脚本，自动分配布局，一键渲染 MP4。",
+    flow: "文本/链接 → Agent → 视频输出 → 生成 MP4",
+  },
+]
+
 export function TourGuide({ onClose }: TourGuideProps) {
   const [step, setStep] = useState(0)
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null)
+  const [showExampleModal, setShowExampleModal] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -182,6 +210,7 @@ export function TourGuide({ onClose }: TourGuideProps) {
 
         <div className="tf-tour-card__actions">
           <button className="tf-btn tf-btn-ghost" onClick={onClose}>跳过</button>
+          <button className="tf-btn tf-btn-ghost" onClick={() => setShowExampleModal(true)}>查看示例</button>
           {isLast ? (
             <button className="tf-btn tf-btn-primary" onClick={onClose}>开始创作</button>
           ) : (
@@ -189,6 +218,62 @@ export function TourGuide({ onClose }: TourGuideProps) {
           )}
         </div>
       </div>
+      {showExampleModal && (
+        <div
+          className="tf-modal-overlay"
+          style={{ zIndex: 10000 }}
+          onClick={() => setShowExampleModal(false)}
+        >
+          <div
+            className="tf-modal"
+            style={{ maxWidth: 560 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="tf-modal__header">
+              <span style={{ fontWeight: 700, fontSize: 15 }}>使用场景示例</span>
+              <button
+                className="tf-btn tf-btn-ghost"
+                style={{ padding: "2px 8px", fontSize: 11 }}
+                onClick={() => setShowExampleModal(false)}
+              >
+                关闭
+              </button>
+            </div>
+            <div className="tf-modal__body" style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
+              {EXAMPLE_SCENARIOS.map((s) => (
+                <div
+                  key={s.title}
+                  style={{
+                    background: "var(--bg-surface)",
+                    border: "1px solid var(--border)",
+                    borderRadius: "var(--radius-md)",
+                    padding: "var(--space-4)",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-2)" }}>
+                    <span style={{ fontSize: 20 }}>{s.icon}</span>
+                    <span style={{ fontWeight: 700, fontSize: 14, color: "var(--text-primary)" }}>{s.title}</span>
+                  </div>
+                  <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.7, marginBottom: "var(--space-2)", margin: "0 0 var(--space-2) 0" }}>
+                    {s.desc}
+                  </p>
+                  <div style={{
+                    background: "var(--bg-input)",
+                    border: "1px solid var(--border)",
+                    borderRadius: "var(--radius-sm)",
+                    padding: "4px 10px",
+                    fontFamily: "var(--font-code)",
+                    fontSize: 11,
+                    color: "var(--accent)",
+                  }}>
+                    {s.flow}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </>,
     document.body,
   )

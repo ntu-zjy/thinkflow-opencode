@@ -125,7 +125,7 @@
 - 支持 5 个平台：知乎 / 公众号 / 日记·笔记 / 小红书 / **视频**
 - 支持 3 种创作形式（独立于平台）：**纯文本** / **图文**（强制触发图片生成）/ **自主**（Agent 自行决定）
 - 图文生成：Agent 输出 `[IMG_PROMPT:...]` 标记，前端解析后调用图片生成模型
-- **视频生成**：AI 输出 slides JSON → edge-tts 生成 TTS 音频 → Remotion 渲染竖版 1080×1920 MP4，OutputNode 展示分镜预览卡片 + 进度条 + 下载按钮
+- **视频生成**：Agent 在 `video-nextjs/` 目录自由写 Remotion React 组件代码 → edge-tts 生成配音 → CLI 渲染竖版 1080×1920 MP4，OutputNode 自动检测产出文件并内嵌 `<video>` 播放器
 - 卡片预览（最大高度 200px），点放大按钮弹出全屏详情（带背景虚化）
 - 一键复制 + 存为记忆 + 下载图片
 - **矩阵结果查看**：矩阵运行完成后，节点顶部出现人设选择器（下拉 + ‹/› 箭头 + n/total 计数），切换即可查看任意人设的输出；复制/存为记忆操作均针对当前选中人设
@@ -227,22 +227,37 @@ OpenRouter → AI 模型（Kimi K2.6 等）
 - **节点Node**：节点组件直接基于 @xyflow/react 的原生能力，不再额外套壳
 - **节点宽度声明**：每个节点对象必须在 `style.width` 中声明与 CSS `minWidth` 一致的宽度（input: 280, agent: 300, output: 320），否则 `fitView` 无法正确感知节点真实尺寸，导致节点超出视口
 - **富文本编辑器**：TipTap v3（@tiptap/react + starter-kit + extension-table + extension-bubble-menu 等），用于记忆笔记区，支持 Toolbar / Bubble Menu / Slash Menu（输入 `/` 触发）/ 表格
-- **视频渲染子项目**：`packages/thinkflow/video-renderer/`，独立 Remotion 4.0.456 子项目，通过 `render-worker.mjs`（独立 Node.js 进程）完成 TTS+渲染，不与 Vite 主进程耦合
+- **视频渲染子项目**：`packages/thinkflow/video-nextjs/`，Remotion 4.0.456 子项目，**由 OpenCode Agent 直接在此目录写 React 代码并用 CLI 渲染**，不通过程序化 API
 
-## 视频生成（Remotion + edge-tts）
+## 视频生成（Agent + Remotion CLI + edge-tts）
 
-- **Remotion 4.0.456**：React 组件渲染为视频帧，子项目位于 `packages/thinkflow/video-renderer/`
-- **edge-tts**：微软 TTS，中文语音合成（`pip install edge-tts`）
-- **ffprobe**：读取 mp3 音频时长（随 `brew install ffmpeg` 一起安装）
-- **渲染架构**：Vite 内嵌 `/api/generate-video` SSE 端点 → spawn 独立 `render-worker.mjs` 进程（`detached: true`）→ Worker 输出 JSON 进度行 → 转发为 SSE 事件
+### 架构
+ThinkFlow 视频生成采用"Agent 写代码 + CLI 渲染"模式：
+- **OpenCode Agent** 读取 Remotion skill（`~/.config/opencode/skills/remotion/`），直接修改 `video-nextjs/src/remotion/VideoComposition.tsx` 和 `Root.tsx`，然后执行 `npx remotion render` 渲染
+- **edge-tts**：Agent 调用生成中文 TTS mp3（`pip install edge-tts`），放入 `video-nextjs/public/`
+- **ffprobe**：Agent 用于读取音频时长，计算每个分镜的 durationInFrames（随 `brew install ffmpeg` 安装）
+- **系统 Chrome**：渲染时通过 `--browser-executable` 指向已安装的 Chrome，避免下载 Chromium
 
-**必知约束**（踩坑总结）：
-1. **`staticFile()` 文件访问**：Remotion 的 `staticFile()` 只能访问打包进 bundle 的 `publicDir` 下的文件。TTS 音频必须在 `bundle()` 调用前 `copyFileSync` 到 `video-renderer/public/`，渲染完成后手动清理
-2. **`bundle()` 返回文件路径**，不是 HTTP URL。必须调用 `RenderInternals.serveStatic(bundlePath)` 将其转为 `http://localhost:PORT`，再传给 `renderMedia()`，否则 Chromium 无法访问
-3. **Sequence 内帧计数自动归零**：`<Sequence from={N}>` 内部的 `useCurrentFrame()` 从 0 开始（不是全局帧 N）。**绝对不能再减 globalStartFrame**，否则 localFrame 变负数，所有 interpolate 动画全程 clamp 到初始值（透明/偏移状态），画面大量空白
-4. **Worker `detached: true`**：Vite 的 `opencodePlugin` 注册了 `process.on("SIGTERM", cleanup)`，`spawn` 默认 `detached: false` 时 Worker 和 Vite 同进程组，Vite 收到 SIGTERM 就会广播给 Worker 导致立即终止。必须设 `detached: true` + `worker.unref()` 让 Worker 独立运行
-5. **客户端断开检测用 `res.on("close")`**：`req.on("close")` 在 POST body 读完后就触发（不代表 SSE 客户端断开），必须改用 `res.on("close")`
-6. **Vite `optimizeDeps.exclude`**：`@remotion/renderer`、`@remotion/bundler`、`remotion` 是 Node.js 专用包，必须加入 `optimizeDeps.exclude`，否则 Vite 预构建时会报错（504 Outdated Optimize Dep）
+### Remotion Skill 安装（必须）
+```bash
+# 安装后 OpenCode Agent 自动读取，获得 Remotion 最佳实践知识
+git clone --depth 1 https://github.com/remotion-dev/skills.git /tmp/remotion-skills
+cp -r /tmp/remotion-skills/skills/remotion ~/.config/opencode/skills/
+```
+
+### 视频生成交互流程
+1. 用户选择视频平台，运行 Agent
+2. Agent 写 Remotion 代码、调 edge-tts 生成配音、执行 CLI 渲染
+3. 渲染产出 `video-nextjs/out/video.mp4`
+4. OutputNode 自动检测（`HEAD /api/video-serve`），文件存在则直接显示 `<video>` 播放器
+
+### 必知约束
+1. **`Sequence` 内帧计数自动归零**：`<Sequence from={N}>` 内 `useCurrentFrame()` 从 0 开始，**绝对不能再减偏移量**，否则 localFrame 为负数，所有动画全程 clamp 到初始值（画面空白）
+2. **音频文件必须在 `public/`**：`staticFile()` 只能访问 `publicDir` 下文件，TTS mp3 须放到 `video-nextjs/public/`
+3. **系统 Chrome 路径**：macOS 为 `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`，通过 `--browser-executable` 传入 CLI，否则尝试联网下载 Chromium（国内被墙）
+4. **Vite 配置文件禁用 `require()`**：`vite.config.ts` 是 ESM，必须用顶层 `import { createConnection } from "net"` 而不是 `require("net")`
+5. **`configureServer` vs `buildStart`**：Vite 插件的 `buildStart` 只在 `vite build` 时触发，dev server 启动时须用 `configureServer` 钩子
+6. **OutputNode 无 `status` 字段**：无法从 Agent 运行状态直接感知视频完成，用 `useEffect` 监听 `videoScript` 解析成功后自动 `HEAD /api/video-serve` 检测文件
 
 ## 后端
 - **Agent 内核**：OpenCode（作为独立后端进程运行，ThinkFlow 通过 HTTP API 调用，默认 localhost:4096）
@@ -325,7 +340,7 @@ OpenRouter → AI 模型（Kimi K2.6 等）
 - 基础画布：输入 → Agent → 输出 单节点，多个输入和多个输出（并行执行）
 - 多画布支持：创建/切换/关闭/重命名工作流，localStorage 持久化
 - 5 种输入类型：文本、文件（markitdown 自动转 Markdown，支持 PDF/Word/PPT/HTML/图片）、URL、记忆、信息流（MCP）
-- 5 种输出平台：知乎、公众号、日记/笔记、小红书（含图文生成）、**视频**（AI 生成 slides JSON → edge-tts TTS → Remotion 渲染 1080×1920 竖版 MP4）
+- 5 种输出平台：知乎、公众号、日记/笔记、小红书（含图文生成）、**视频**（Agent 写 Remotion 代码自由发挥 → edge-tts TTS 配音 → CLI 渲染 1080×1920 竖版 MP4，OutputNode 内嵌 `<video>` 播放器）
 - 3 种创作形式：纯文本 / 图文 / 自主
 - 记忆库：全屏 Notion 风格两栏面板，5 类默认分类 + 用户自定义分类，TipTap 富文本编辑（Toolbar / Bubble Menu / Slash Menu / 表格）
 - 定时任务：AgentNode 每天固定时间自动执行

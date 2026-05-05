@@ -184,140 +184,31 @@ function markitdownPlugin() {
   }
 }
 
-// ─── 视频生成插件 ─────────────────────────────────────────────────────────────
+// ─── 视频文件服务插件 ────────────────────────────────────────────────────────
+// Agent 渲染完成后，文件保存在 video-nextjs/out/video.mp4
+// 前端通过 /api/video-serve 直接读取并播放
 
-const VIDEO_RENDERER_DIR = resolve(
+const VIDEO_OUT_PATH = resolve(
   fileURLToPath(new URL(".", import.meta.url)),
-  "../video-renderer",
+  "../video-nextjs/out/video.mp4",
 )
 
-interface VideoSlideInput {
-  title: string
-  voiceover: string
-  background: string
-  duration?: number
-}
-
-interface VideoGenRequest {
-  videoId: string
-  title: string
-  slides: VideoSlideInput[]
-}
-
-function sseWrite(res: ServerResponse, data: Record<string, unknown>): void {
-  res.write(`data: ${JSON.stringify(data)}\n\n`)
-}
-
-const WORKER_SCRIPT = resolve(VIDEO_RENDERER_DIR, "render-worker.mjs")
-
-function videoGeneratorPlugin() {
-  // 存储已生成视频的临时目录
-  const videoTmpDirs = new Map<string, string>()
-
+function videoServePlugin() {
   return {
-    name: "vite-plugin-video-generator",
+    name: "vite-plugin-video-serve",
     configureServer(server: { middlewares: { use: (path: string, handler: (req: IncomingMessage, res: ServerResponse) => void) => void } }) {
-
-      // ─── POST /api/generate-video ─────────────────────────────────────────
-      server.middlewares.use("/api/generate-video", (req: IncomingMessage, res: ServerResponse) => {
-        if (req.method !== "POST") { res.statusCode = 405; res.end(); return }
-
-        res.setHeader("Content-Type", "text/event-stream")
-        res.setHeader("Cache-Control", "no-cache")
-        res.setHeader("Connection", "keep-alive")
-        res.setHeader("Access-Control-Allow-Origin", "*")
-
-        const chunks: Buffer[] = []
-        req.on("data", (chunk: Buffer) => chunks.push(chunk))
-        req.on("end", () => {
-          let body: VideoGenRequest
-          try {
-            body = JSON.parse(Buffer.concat(chunks).toString()) as VideoGenRequest
-          } catch {
-            sseWrite(res, { type: "error", message: "invalid JSON" })
-            res.end()
-            return
-          }
-
-          const { videoId } = body
-          const tmpDir = resolve(tmpdir(), `thinkflow-video-${videoId}`)
-          mkdirSync(tmpDir, { recursive: true })
-          videoTmpDirs.set(videoId, tmpDir)
-
-          // spawn 独立 worker：detached=true 让 worker 有独立进程组
-          // 这样 Vite/Shell 的 SIGTERM 不会通过进程组广播给 worker
-          const nodeBin = process.execPath  // 用当前 Node.js 的完整路径，避免 PATH 问题
-          const workerConfig = JSON.stringify({ ...body, tmpDir })
-          const worker = spawn(nodeBin, [WORKER_SCRIPT, workerConfig], {
-            stdio: ["ignore", "pipe", "pipe"],
-            cwd: VIDEO_RENDERER_DIR,
-            detached: true,  // 独立进程组，不受 Vite 进程的信号影响
-          })
-          worker.unref()  // 不阻止 Vite 主进程退出
-
-          let lineBuf = ""
-          worker.stdout.on("data", (chunk: Buffer) => {
-            lineBuf += chunk.toString()
-            const lines = lineBuf.split("\n")
-            lineBuf = lines.pop() ?? ""
-            for (const line of lines) {
-              if (!line.trim()) continue
-              try {
-                const evt = JSON.parse(line) as Record<string, unknown>
-                if (evt.type === "done") {
-                  // 注入 videoUrl
-                  sseWrite(res, { ...evt, videoUrl: `/api/video-file/${videoId}` })
-                } else {
-                  sseWrite(res, evt)
-                }
-              } catch { /* 忽略非 JSON 行 */ }
-            }
-          })
-
-          worker.stderr.on("data", (chunk: Buffer) => {
-            // worker stderr 直接打印到 Vite 终端（用于调试）
-            process.stderr.write(`[video-worker] ${chunk.toString()}`)
-          })
-
-          worker.on("close", (code, signal) => {
-            if (code !== 0) {
-              if (signal) {
-                sseWrite(res, { type: "error", message: `Worker 被信号 ${signal} 终止` })
-              } else {
-                sseWrite(res, { type: "error", message: `Worker 退出码 ${code}` })
-              }
-            }
-            res.end()
-          })
-
-          worker.on("error", (err) => {
-            sseWrite(res, { type: "error", message: err.message })
-            res.end()
-          })
-
-          // 客户端主动断开时 kill worker 进程组（监听 res close 更可靠）
-          res.on("close", () => {
-            if (!res.writableEnded && !worker.killed) {
-              try {
-                process.kill(-(worker.pid as number), "SIGKILL")
-              } catch { worker.kill("SIGKILL") }
-            }
-          })
-        })
-      })
-
-      // ─── GET /api/video-file/:videoId ─────────────────────────────────────
-      server.middlewares.use("/api/video-file", (req: IncomingMessage, res: ServerResponse) => {
-        if (req.method !== "GET") { res.statusCode = 405; res.end(); return }
-        const videoId = (req.url ?? "").replace(/^\//, "").split("?")[0]
-        const tmpDir = videoTmpDirs.get(videoId)
-        if (!tmpDir) { res.statusCode = 404; res.end(); return }
-        const videoPath = join(tmpDir, "output.mp4")
-        if (!existsSync(videoPath)) { res.statusCode = 404; res.end(); return }
-
+      server.middlewares.use("/api/video-serve", (req: IncomingMessage, res: ServerResponse) => {
+        if (req.method !== "GET" && req.method !== "HEAD") { res.statusCode = 405; res.end(); return }
+        if (!existsSync(VIDEO_OUT_PATH)) {
+          res.statusCode = 404
+          res.end()
+          return
+        }
         res.setHeader("Content-Type", "video/mp4")
-        res.setHeader("Content-Disposition", `attachment; filename="thinkflow-video.mp4"`)
-        createReadStream(videoPath).pipe(res)
+        res.setHeader("Content-Disposition", `inline; filename="thinkflow-video.mp4"`)
+        res.setHeader("Accept-Ranges", "bytes")
+        if (req.method === "HEAD") { res.end(); return }
+        createReadStream(VIDEO_OUT_PATH).pipe(res)
       })
     },
   }
@@ -327,7 +218,7 @@ const OPENROUTER_KEY = readAuthKey("openrouter", "OPENROUTER_API_KEY")
 const LOCAL_PROXY = readLocalProxy()
 
 export default defineConfig({
-  plugins: [react(), opencodePlugin(), markitdownPlugin(), videoGeneratorPlugin()],
+  plugins: [react(), opencodePlugin(), markitdownPlugin(), videoServePlugin()],
   define: {
     "import.meta.env.VITE_OPENCODE_WORKDIR": JSON.stringify(OPENCODE_DIR),
   },

@@ -54,16 +54,12 @@ export type ContentFormat = "text" | "image_text" | "auto"
 
 // ─── 视频脚本 ─────────────────────────────────────────────────────────────────
 
-export interface VideoSlide {
-  title: string
-  voiceover: string
-  background: string
-  duration?: number
-}
-
+// Agent 运行后输出的视频脚本（仅用于预览摘要）
+// 实际渲染由 Agent 在 video-nextjs/ 目录调用 Remotion CLI 完成
 export interface VideoScript {
   title: string
-  slides: VideoSlide[]
+  description?: string  // 内容摘要（可选）
+  slides?: Array<{ voiceover?: string; slideCode?: string }> // 兼容旧格式
 }
 
 export interface ImageAsset {

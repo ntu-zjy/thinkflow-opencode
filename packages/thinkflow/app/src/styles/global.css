@@ -923,6 +923,44 @@ html {
   border: 1px solid rgba(255, 107, 138, 0.3);
 }
 
+/* ─── 平台徽章 — 笔记 / 视频 ──────────────────────────────────────────────── */
+
+.tf-platform-badge.note {
+  background: rgba(99, 102, 241, 0.1);
+  color: #6366f1;
+  border: 1px solid rgba(99, 102, 241, 0.25);
+}
+.tf-platform-badge.video {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+}
+[data-theme="dark"] .tf-platform-badge.note {
+  background: rgba(129, 140, 248, 0.15);
+  color: #818cf8;
+  border: 1px solid rgba(129, 140, 248, 0.3);
+}
+[data-theme="dark"] .tf-platform-badge.video {
+  background: rgba(252, 165, 165, 0.15);
+  color: #fca5a5;
+  border: 1px solid rgba(252, 165, 165, 0.3);
+}
+
+/* ─── 内容格式小标签 ─────────────────────────────────────────────────────── */
+
+.tf-format-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: 99px;
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  background: var(--bg-surface-2);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
 /* ─── 输出详情弹窗 ───────────────────────────────────────────────────────── */
 
 .tf-modal-overlay {

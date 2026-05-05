@@ -65,32 +65,58 @@ function getPlatformInstruction(platform: string, contentFormat: string): string
     : ""
 
   if (platform === "video") {
-    return `请将内容转化为竖版短视频脚本（抖音/TikTok 风格），严格输出纯 JSON，不要包含任何 markdown 代码块或额外说明：
-{
-  "title": "视频总标题",
-  "slides": [
-    {
-      "title": "分镜标题（8字以内，精练有力）",
-      "voiceover": "旁白文字（15-25字，口语化，有感染力，适合 TTS 朗读）",
-      "background": "linear-gradient(135deg, #1a1a2e, #16213e)"
-    }
-  ]
-}
+    return `你是一个视频创作专家。请根据输入内容，在 packages/thinkflow/video-nextjs/ 目录下创作并渲染一段有配音的竖版短视频（1080×1920，30fps）。
 
-配色参考（从中为每个分镜选择不同的深色渐变，禁止重复）：
-- 深夜蓝："linear-gradient(135deg, #0f0c29, #302b63, #24243e)"
-- 紫罗兰："linear-gradient(135deg, #4a1942, #c74b50)"
-- 暗金橙："linear-gradient(135deg, #1a0a00, #7b2d00, #c45c00)"
-- 深海绿："linear-gradient(135deg, #004d2e, #00b09b)"
-- 玫瑰烟："linear-gradient(135deg, #2d1b2e, #8b3a62, #c67b8a)"
-- 钴蓝银："linear-gradient(135deg, #0d2137, #1565c0, #4fc3f7)"
-- 暗红焰："linear-gradient(135deg, #1a0000, #7b0000, #c62828)"
+## 完整工作流程
 
-要求：
-- 分镜数量 4-6 个（开头+核心内容+结尾）
-- 每个分镜标题点明核心观点
-- 旁白节奏明快，避免文绉绉的书面语
-- 背景色调随内容情绪变化（开场可用中性色，高潮用暖色/亮色，结尾用沉稳色）`
+### 第一步：规划分镜
+为内容规划 5-7 个分镜，每个分镜包含：
+- 旁白文字（10-20字，口语化，适合 TTS）
+- 视觉风格描述
+
+### 第二步：生成 TTS 配音
+为每个分镜用 edge-tts 生成 mp3，保存到 packages/thinkflow/video-nextjs/public/ 目录：
+\`\`\`bash
+cd packages/thinkflow/video-nextjs
+mkdir -p public out
+edge-tts --voice zh-CN-XiaoxiaoNeural --text "分镜1旁白文字" --write-media public/audio-0.mp3
+edge-tts --voice zh-CN-XiaoxiaoNeural --text "分镜2旁白文字" --write-media public/audio-1.mp3
+# ... 每个分镜都生成一个 mp3
+\`\`\`
+
+用 ffprobe 获取每段音频的时长（秒），分镜帧数 = ceil((时长 + 0.3) * 30)：
+\`\`\`bash
+ffprobe -v quiet -print_format json -show_format public/audio-0.mp3
+\`\`\`
+
+### 第三步：修改 VideoComposition.tsx
+在 packages/thinkflow/video-nextjs/src/remotion/VideoComposition.tsx 中，为每个分镜添加 Audio 组件播放对应的 mp3：
+\`\`\`tsx
+import { AbsoluteFill, Audio, Sequence, useCurrentFrame, interpolate, Easing, staticFile } from "remotion"
+
+// 每个分镜组件内部加：
+<Audio src={staticFile("audio-0.mp3")} />
+\`\`\`
+每个分镜的 durationInFrames 要和对应音频时长匹配。
+
+### 第四步：修改 Root.tsx
+设置总 durationInFrames = 所有分镜帧数之和。
+
+### 第五步：渲染视频
+\`\`\`bash
+cd packages/thinkflow/video-nextjs
+npx remotion render VideoComposition out/video.mp4 --browser-executable="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+\`\`\`
+
+### 第六步：完成
+输出以下 JSON（不加 markdown 代码块）：
+{"title":"视频标题","outputPath":"packages/thinkflow/video-nextjs/out/video.mp4"}
+
+## 重要约束
+- 视频必须有配音，每个分镜对应一段 TTS 音频
+- 音频文件放在 packages/thinkflow/video-nextjs/public/ 目录下
+- 动画只用 interpolate() + useCurrentFrame()，不用 CSS transitions/animations
+- 使用系统 Chrome 渲染，路径：/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`
   }
 
   const base: Record<string, string> = {
