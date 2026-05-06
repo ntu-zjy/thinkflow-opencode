@@ -99,6 +99,7 @@
 ### 多画布
 - 左侧边栏支持多个画布（工作流），可新建/切换/关闭/双击重命名
 - 每个画布独立 nodes/edges/历史记录，localStorage 持久化
+- **切换画布时不中止后台进程**：`switchWorkflow` 不调用 `abortWorkflow`；`runWorkflow` 在启动时捕获 `runWorkflowId`，所有 SSE 回调通过工作流感知的 `updateWorkflowNodeData` 写入 `workflows[runWorkflowId].nodes`（后台工作流）和 `nodes`（当前活跃时），切回该画布时可看到完整结果
 
 ### 节点类型
 1. **输入节点**（右键菜单直接添加，节点内切换类型）
@@ -213,8 +214,10 @@ OpenRouter → AI 模型（Kimi K2.6 等）
 ### 桌面版（Tauri + Sidecar）
 
 - sidecar 二进制放在 `packages/thinkflow/desktop/src-tauri/sidecars/`
-- 已构建：`ThinkFlow_0.1.0_aarch64.dmg`（macOS ARM，约 38MB）
+- 已构建：`ThinkFlow_0.1.0_aarch64.dmg`（macOS ARM，约 44MB）
 - 用户安装后直接运行，无需安装 OpenCode
+- **发布流程**：使用 `bun tauri build --no-bundle` 编译 `.app`，再用 `hdiutil create` 手动打包 DMG（绕开 `bundle_dmg.sh` 残留文件导致的失败），最后通过 `gh release create` 上传到 GitHub Releases；完整步骤见 `docs/RELEASE.md`
+- **DMG 安装提示**：若 macOS 提示"已损坏，无法打开"，运行 `xattr -cr /Applications/ThinkFlow.app` 清除隔离属性
 
 ---
 
@@ -236,7 +239,7 @@ ThinkFlow 视频生成采用"Agent 写代码 + CLI 渲染"模式：
 - **OpenCode Agent** 读取 Remotion skill（`~/.config/opencode/skills/remotion/`），直接修改 `video-nextjs/src/remotion/VideoComposition.tsx` 和 `Root.tsx`，然后执行 `npx remotion render` 渲染
 - **edge-tts**：Agent 调用生成中文 TTS mp3（`pip install edge-tts`），放入 `video-nextjs/public/`
 - **ffprobe**：Agent 用于读取音频时长，计算每个分镜的 durationInFrames（随 `brew install ffmpeg` 安装）
-- **系统 Chrome**：渲染时通过 `--browser-executable` 指向已安装的 Chrome，避免下载 Chromium
+- **chrome-headless-shell**：Remotion CLI 自带浏览器缓存机制，`npx remotion browser ensure` 下载约 193MB 的 `chrome-headless-shell` 到 `node_modules/.remotion/`，渲染时自动使用，**无需用户安装 Chrome**；仅在缓存不存在且无网络时才需 `--browser-executable` 指向系统 Chrome 作为备选
 
 ### Remotion Skill 安装（必须）
 ```bash
@@ -254,7 +257,7 @@ cp -r /tmp/remotion-skills/skills/remotion ~/.config/opencode/skills/
 ### 必知约束
 1. **`Sequence` 内帧计数自动归零**：`<Sequence from={N}>` 内 `useCurrentFrame()` 从 0 开始，**绝对不能再减偏移量**，否则 localFrame 为负数，所有动画全程 clamp 到初始值（画面空白）
 2. **音频文件必须在 `public/`**：`staticFile()` 只能访问 `publicDir` 下文件，TTS mp3 须放到 `video-nextjs/public/`
-3. **系统 Chrome 路径**：macOS 为 `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`，通过 `--browser-executable` 传入 CLI，否则尝试联网下载 Chromium（国内被墙）
+3. **浏览器无需手动安装**：Remotion CLI 优先使用缓存在 `node_modules/.remotion/chrome-headless-shell/` 的无头浏览器（通过 `npx remotion browser ensure` 下载，约 193MB）。Agent Prompt 设计为先检测缓存是否存在，有则直接 `npx remotion render`；缓存缺失才运行 `npx remotion browser ensure` 下载；下载失败时才通过 `--browser-executable` 回退到系统 Chrome。macOS 系统 Chrome 路径：`/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`
 4. **Vite 配置文件禁用 `require()`**：`vite.config.ts` 是 ESM，必须用顶层 `import { createConnection } from "net"` 而不是 `require("net")`
 5. **`configureServer` vs `buildStart`**：Vite 插件的 `buildStart` 只在 `vite build` 时触发，dev server 启动时须用 `configureServer` 钩子
 6. **OutputNode 无 `status` 字段**：无法从 Agent 运行状态直接感知视频完成，用 `useEffect` 监听 `videoScript` 解析成功后自动 `HEAD /api/video-serve` 检测文件
