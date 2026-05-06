@@ -90,18 +90,30 @@ export function InputNode({ id, data, selected }: NodeProps<InputNodeType>) {
         {data.value?.trim() && (
           <button
             className="tf-node__delete"
-            style={{ color: savedFlash ? "var(--status-done)" : undefined, opacity: savedFlash ? 1 : undefined }}
+            style={{
+              display: "flex", alignItems: "center", gap: 3,
+              color: savedFlash ? "var(--status-done)" : "var(--text-muted)",
+              opacity: 1, fontSize: 10, whiteSpace: "nowrap",
+              padding: "2px 5px", borderRadius: 4,
+              background: savedFlash ? "rgba(34,197,94,0.1)" : undefined,
+            }}
             onClick={handleSaveToMemory}
             title="加入灵感"
           >
             {savedFlash ? (
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
+              <>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                <span>已加入</span>
+              </>
             ) : (
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z" />
-              </svg>
+              <>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z" />
+                </svg>
+                <span>加入灵感</span>
+              </>
             )}
           </button>
         )}
