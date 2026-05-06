@@ -12,6 +12,27 @@ import "@xyflow/react/dist/style.css"
 import { useCanvasStore } from "../store/canvasStore"
 import { nodeTypes } from "../nodes"
 import type { AgentNodeData } from "../types"
+import { getAllCards, ZhihuLogo, WechatLogo, DiaryLogo, NoteLogo, XiaohongshuLogo, VideoLogo } from "../cards"
+import { getAllInputCards, TextLogo, LinkLogo, FileLogo, MemoryLogo, FeedLogo } from "../input-cards"
+
+// 输入类型到 Logo 组件的映射
+const INPUT_LOGO_MAP: Record<string, React.ComponentType<{ size?: number }>> = {
+  text: TextLogo,
+  url: LinkLogo,
+  file: FileLogo,
+  memory: MemoryLogo,
+  feed: FeedLogo,
+}
+
+// 输出类型到 Logo 组件的映射
+const OUTPUT_LOGO_MAP: Record<string, React.ComponentType<{ size?: number }>> = {
+  zhihu: ZhihuLogo,
+  wechat: WechatLogo,
+  diary: DiaryLogo,
+  note: NoteLogo,
+  xiaohongshu: XiaohongshuLogo,
+  video: VideoLogo,
+}
 
 interface ContextMenu {
   x: number
@@ -179,13 +200,41 @@ export function Canvas() {
           style={{ left: contextMenu.x, top: contextMenu.y }}
           onMouseLeave={() => setContextMenu(null)}
         >
-          <div className="tf-context-menu-item" onClick={() => addNodeAtPos("input")}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-              <polyline points="17 8 12 3 7 8" />
-              <line x1="12" y1="3" x2="12" y2="15" />
+          {/* 输入节点 - 带子菜单 */}
+          <div className="tf-context-menu-item tf-context-menu-item--has-sub">
+            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" y1="3" x2="12" y2="15" />
+              </svg>
+              输入节点
+            </div>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="9 18 15 12 9 6" />
             </svg>
-            输入节点
+            <div className="tf-context-submenu">
+              <div className="tf-context-submenu__inner">
+                {getAllInputCards().map((card) => {
+                  const LogoComponent = INPUT_LOGO_MAP[card.key]
+                  return (
+                    <div
+                      key={card.key}
+                      className="tf-context-menu-item"
+                      style={{ gap: "var(--space-2)", padding: "6px 10px" }}
+                      onClick={() => addNodeAtPos("input", { inputType: card.key, label: card.shortLabel })}
+                    >
+                      {LogoComponent && (
+                        <span style={{ color: "var(--text-muted)", display: "flex", alignItems: "center" }}>
+                          <LogoComponent size={14} />
+                        </span>
+                      )}
+                      {card.label}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
           </div>
 
           <div className="tf-context-menu-item" onClick={() => addNodeAtPos("agent")}>
@@ -196,13 +245,40 @@ export function Canvas() {
             Agent 节点
           </div>
 
-          <div className="tf-context-menu-item" onClick={() => addNodeAtPos("output")}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-              <polyline points="7 10 12 15 17 10" />
-              <line x1="12" y1="15" x2="12" y2="3" />
+          <div className="tf-context-menu-item tf-context-menu-item--has-sub">
+            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              输出节点
+            </div>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="9 18 15 12 9 6" />
             </svg>
-            输出节点
+            <div className="tf-context-submenu">
+              <div className="tf-context-submenu__inner">
+                {getAllCards().map((card) => {
+                  const LogoComponent = OUTPUT_LOGO_MAP[card.key]
+                  return (
+                    <div
+                      key={card.key}
+                      className="tf-context-menu-item"
+                      style={{ gap: "var(--space-2)", padding: "6px 10px" }}
+                      onClick={() => addNodeAtPos("output", { platform: card.key, label: card.label })}
+                    >
+                      {LogoComponent && (
+                        <span style={{ display: "flex", alignItems: "center" }}>
+                          <LogoComponent size={16} />
+                        </span>
+                      )}
+                      {card.label}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
           </div>
         </div>
       )}

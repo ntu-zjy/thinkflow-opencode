@@ -28,6 +28,16 @@ packages/thinkflow/
 │       ├── App.tsx
 │       ├── types/index.ts
 │       ├── styles/global.css
+│       ├── cards/                    ← 输出卡片注册式架构
+│       │   ├── registry.ts           ← CardDef 接口 + CARD_REGISTRY Map
+│       │   ├── logos.tsx             ← 各平台品牌 Logo SVG 组件
+│       │   ├── zhihu.ts
+│       │   ├── wechat.ts
+│       │   ├── diary.ts
+│       │   ├── note.ts
+│       │   ├── xiaohongshu.ts
+│       │   ├── video.ts
+│       │   └── index.ts             ← 导入所有卡片触发注册副作用
 │       ├── services/
 │       │   └── opencodeClient.ts
 │       ├── store/
@@ -44,7 +54,9 @@ packages/thinkflow/
 │       │   ├── MemoryPanel.tsx       ← 全屏记忆面板（Notion 风格两栏）
 │       │   ├── MemoryEditor.tsx      ← TipTap 富文本编辑器组件
 │       │   ├── MemorySidebar.tsx     ← 保留备用，不再主动使用
-│       │   └── OutputModal.tsx
+│       │   ├── OutputModal.tsx
+│       │   └── previews/
+│       │       └── XhsPreview.tsx   ← 小红书专属预览组件
 │       ├── pages/
 │       │   └── Canvas.tsx
 │       └── __tests__/
@@ -79,7 +91,8 @@ packages/thinkflow/
 - `InputNodeData`: `inputType, value, label, mcpTool, memoryEntryId?, fileConverted?`
 - `AgentNodeData`: `idea, model, status, logs[], sessionId, dryRun, scheduleEnabled, scheduleTime, matrixMode, matrixSlots[]`
 - `MatrixSlot`: `id, folderId, memoryEntryId?, customPersona?`
-- `OutputNodeData`: `platform, content, label, images?, contentType?, contentFormat?`
+- `OutputNodeData`: `platform, content, label, images?, contentType?, contentFormat?, customInstruction?`
+  - `customInstruction`：用户自定义的平台提示词，覆盖卡片注册表的默认指令
 - `ContentFormat`: `"text" | "image_text" | "auto"`
 - `ImageAsset`: `id, url, title?, generatedAt?`
 - `MemoryFolderType`: `"persona"|"material"|"preference"|"output"|"other"|string`
@@ -853,6 +866,266 @@ gh release create v<VERSION> \
 
 ---
 
+## Phase 30：输入卡片注册式架构 + 信息流重构
+
+### 30.1 输入卡片注册式架构（类比输出卡片）
+
+**问题**：早期 InputNode 内用 `INPUT_TABS` 数组硬编码 5 种输入类型，每次新增类型需要修改 InputNode.tsx，且所有输入类型共用相同的 header 样式，视觉上无法区分。
+
+**解决方案**：复制输出卡片的注册式架构到输入节点：
+
+```
+src/input-cards/
+├── registry.ts           ← InputCardDef 接口 + INPUT_CARD_REGISTRY Map
+├── logos.tsx             ← 5 种输入类型 SVG Logo（文本📄/链接🔗/文件📁/记忆🔖/信息流📡）
+├── text.ts
+├── url.ts
+├── file.ts
+├── memory.ts
+├── feed.ts
+└── index.ts              ← 导入所有卡片触发注册副作用
+```
+
+**InputCardDef 接口**：
+```typescript
+export interface InputCardDef {
+  key: InputType                    // "text" | "url" | "file" | "memory" | "feed"
+  label: string                     // 菜单显示名称（如"文本输入"）
+  shortLabel: string                // 节点标题（如"文本"）
+  LogoComponent: React.ComponentType<{ size?: number }>
+  color: string                     // 主色 hex
+  darkColor: string
+  bgColor: string                   // header 背景 rgba
+  borderColor: string               // 边框 rgba
+  darkBgColor: string
+  darkBorderColor: string
+  placeholder?: string
+  description?: string
+}
+```
+
+**关键经验**：
+- 输入卡片与输出卡片架构保持一致，降低心智负担
+- 统一使用思流暖棕色 #b47828，与产品 Logo 一致
+- 节点 `style.width` 保持 280px，与重构前一致
+
+### 30.2 信息流输入重构（从静态到动态聚合）
+
+**问题**：早期"信息流"只是简单的 MCP 工具选择（fetch/GitHub），用户无法配置源 URL、刷新频率、内容过滤，本质上是静态配置而非真正的信息聚合流程。
+
+**解决方案**：重构为完整的可配置信息源系统。
+
+**新增文件**：`src/services/feedService.ts`
+```typescript
+export interface FeedConfig {
+  url: string
+  type: "rss" | "api" | "webhook" | "github"
+  refreshInterval: "5min" | "15min" | "1hour" | "6hours" | "1day"
+  filters?: {
+    keywords?: string[]      // 关键词白名单过滤
+    exclude?: string[]       // 排除词
+    maxItems?: number        // 最大条目数
+  }
+}
+```
+
+**InputNode UI 改造**：
+- 顶部：3 种源类型选择按钮（RSS 📰 / GitHub 🐙 / API 🔌）
+- URL 输入框（RSS 或 API 地址）
+- 关键词过滤输入（逗号分隔）
+- 刷新频率下拉（5分钟/15分钟/1小时/6小时/1天）
+- **立即获取**按钮（带加载状态 ⟳）
+- 内容预览区（格式化展示条目列表）
+- 状态显示：最后更新时间、字数统计
+
+**自动刷新机制**：
+```typescript
+// InputNode.tsx
+useEffect(() => {
+  if (data.inputType !== "feed" || !data.feedUrl) return
+  const ms = intervalToMs(data.refreshInterval)
+  feedTimerRef.current = setInterval(() => handleFetchFeed(), ms)
+  return () => clearInterval(feedTimerRef.current)
+}, [data.inputType, data.feedUrl, data.refreshInterval])
+```
+
+**数据存储**：
+- `InputNodeData.feedUrl?: string` - 源地址
+- `InputNodeData.feedType?: "rss" | "github" | "api"` - 源类型
+- `InputNodeData.feedKeywords?: string` - 过滤关键词
+- `InputNodeData.refreshInterval?: string` - 刷新周期
+- `InputNodeData.feedLastFetch?: string` - 最后更新时间（ISO 字符串）
+
+### 30.3 右键菜单图标化改造
+
+**问题**：子菜单条目使用彩色圆点（`.tf-submenu-dot`）标识平台/类型，颜色过多导致视觉混乱，且平台识别度不高。
+
+**改造方案**：
+
+**Canvas.tsx 导入各平台 Logo**：
+```typescript
+import { ZhihuLogo, WechatLogo, ... } from "../cards"
+import { TextLogo, LinkLogo, ... } from "../input-cards"
+
+const OUTPUT_LOGO_MAP: Record<string, React.ComponentType> = {
+  zhihu: ZhihuLogo, wechat: WechatLogo, ...
+}
+const INPUT_LOGO_MAP: Record<string, React.ComponentType> = {
+  text: TextLogo, url: LinkLogo, ...
+}
+```
+
+**子菜单渲染**：
+```tsx
+{getAllInputCards().map((card) => {
+  const LogoComponent = INPUT_LOGO_MAP[card.key]
+  return (
+    <div className="tf-context-menu-item" ...>
+      <span style={{ color: "var(--text-muted)" }}>
+        <LogoComponent size={14} />
+      </span>
+      {card.label}
+    </div>
+  )
+})}
+```
+
+**效果**：
+- 输入节点子菜单：📄 文本输入 / 🔗 链接输入 / 📁 文件输入 / 🔖 记忆输入 / 📡 信息流
+- 输出节点子菜单：各平台品牌 Logo（知/公众号/日记/笔记/小红书/视频）
+
+### 30.4 输出卡片颜色降饱和
+
+**问题**：早期配色过于鲜艳，在浅色画布上刺眼：
+- 知乎 #0070d2（亮蓝）/ 公众号 #07c160（亮绿）/ 小红书 #ff2b54（亮粉）
+
+**调整方案**：统一降饱和约 40%，使用柔和灰调：
+
+| 平台 | 调整前 | 调整后 |
+|------|--------|--------|
+| 知乎 | #0070d2 | #5a7a96（灰蓝） |
+| 公众号 | #07c160 | #6b9b7a（灰绿） |
+| 日记 | #b47828 | #a08060（保持暖棕，微调） |
+| 笔记 | #6366f1 | #7a7a9a（灰紫） |
+| 小红书 | #ff2b54 | #c06070（灰粉） |
+| 视频 | #ef4444 | #b06060（灰红） |
+
+**CSS 变量同步更新**：`tf-platform-badge.*` 类的背景色、文字色、边框色全部对应调整。
+
+---
+
+## Phase 29：输出卡片注册式架构
+
+### 29.1 为什么要注册式架构
+
+早期 OutputNode 内硬编码所有平台逻辑（PLATFORMS 数组、getPlatformInstruction 中的 if-else 链、CSS 平台类名），每次新增平台需要修改 5+ 个文件，容易遗漏。
+
+注册式架构将每个平台的所有定义（样式、Logo、指令、预览组件）集中在一个文件里，新增平台只需：
+1. 在 `src/cards/` 新建一个 `.ts` 文件
+2. 在 `src/cards/index.ts` 加一行 import
+
+OutputNode、Canvas.tsx、canvasStore 均无需修改。
+
+### 29.2 CardDef 接口设计
+
+```typescript
+// src/cards/registry.ts
+export interface CardDef {
+  key: OutputPlatform
+  label: string
+  LogoComponent: React.ComponentType<{ size?: number }>  // 品牌 logo
+  color: string                   // 主色 hex（浅色主题）
+  darkColor: string               // 主色 hex（深色主题）
+  bgColor: string                 // header 背景色 rgba
+  borderColor: string             // 边框色 rgba
+  darkBgColor: string
+  darkBorderColor: string
+  defaultInstruction: (contentFormat: ContentFormat) => string
+  supportedFormats: ContentFormat[]
+  PreviewComponent?: React.ComponentType<PreviewProps>  // 平台专属预览（可选）
+}
+```
+
+**关键约束**：
+- `defaultInstruction` 是函数，入参是 `contentFormat`，允许同一平台在图文/纯文本模式下返回不同指令
+- `PreviewComponent` 可选；不提供时 OutputNode 使用默认的 ReactMarkdown 预览
+- 注册顺序即右键菜单顺序（`getAllCards()` 按插入顺序返回）
+
+### 29.3 用户自定义提示词
+
+`OutputNodeData.customInstruction?: string` 覆盖卡片默认指令：
+
+```typescript
+// canvasStore.ts — getPlatformInstruction
+function getPlatformInstruction(platform, contentFormat, customInstruction?) {
+  const baseInstruction = customInstruction?.trim()
+    || getCard(platform).defaultInstruction(contentFormat)
+  return baseInstruction + imgFormatNote  // 图文后缀照旧追加
+}
+```
+
+OutputNode 内的"提示词设置"折叠区：
+- 展开后显示当前生效的提示词（自定义值 ?? 卡片默认值）
+- 编辑后写入 `customInstruction`
+- "恢复默认"按钮将 `customInstruction` 设为 `undefined`，下次渲染自动读取卡片默认值
+
+### 29.4 CSS 平台主题系统
+
+每个平台通过 `.tf-node--{platform}` class 设置 3 个 CSS 变量，统一应用到边框、阴影、header 背景：
+
+```css
+.tf-node--xiaohongshu {
+  --tf-platform-color: #ff2b54;
+  --tf-platform-bg: rgba(255,43,84,0.06);
+  --tf-platform-border: rgba(255,43,84,0.28);
+  --tf-platform-shadow: rgba(255,43,84,0.14);
+}
+```
+
+hover/selected 状态通过 `box-shadow` 叠加实现光晕效果，不修改 `border-width`（避免布局抖动）。
+
+### 29.5 CSS 子菜单 hover gap 问题
+
+**症状**：右键菜单"输出节点"悬停展开子菜单，鼠标从父项向右移动时子菜单闪消。
+
+**根因**：`left: calc(100% + 4px)` 在父项和子菜单之间留了 4px 空白，鼠标穿过空白时 hover 短暂丢失，子菜单立即隐藏。
+
+**修复**：
+```css
+.tf-context-submenu {
+  left: 100%;           /* 紧贴父项右边，无间隙 */
+  padding-left: 8px;    /* 不可见热区，防止 hover 丢失 */
+  background: transparent;  /* 外层透明 */
+}
+.tf-context-submenu__inner {
+  /* 实际可见菜单样式放内层 */
+}
+```
+
+### 29.6 SVG Logo 设计经验
+
+**复杂 path 不可靠**：用复杂 SVG path 绘制汉字笔画，在 size=20 的缩放下很容易变形或渲染失败。
+
+**最可靠方案**：用 `<text>` 元素直接渲染品牌汉字，依赖系统字体：
+
+```tsx
+<svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+  <rect width="24" height="24" rx="5" fill="#ff2b54" />
+  <text x="12" y="15.5" textAnchor="middle" dominantBaseline="middle"
+    fill="white" fontSize="7" fontWeight="900"
+    fontFamily="'PingFang SC','Microsoft YaHei',sans-serif"
+    letterSpacing="0.5">小红书</text>
+</svg>
+```
+
+**原则**：
+- 品牌文字用 `<text>`，几何图形（气泡、矩形、三角）用 `<rect>/<ellipse>/<polygon>`
+- 统一 `viewBox="0 0 24 24"`，不用宽矩形 viewBox（会使 size prop 失效）
+- `dominantBaseline="middle"` + `textAnchor="middle"` 实现真正居中
+- `fontFamily` 列出多个备选字体，先 PingFang SC（macOS），再 Microsoft YaHei（Windows）
+
+---
+
 ## 验证方式
 
 ```bash
@@ -861,7 +1134,7 @@ cd packages/thinkflow/app && bun dev
 # 访问 http://localhost:1421
 
 # 单元测试
-bunx vitest run        # 38 个用例全部通过
+bunx vitest run        # 50 个用例全部通过
 
 # 类型检查
 bun run typecheck      # 零 TS 错误

@@ -13,6 +13,12 @@ export interface InputNodeData extends Record<string, unknown> {
   mcpTool?: McpTool
   memoryEntryId?: string
   fileConverted?: boolean
+  // 信息流配置
+  feedUrl?: string
+  feedType?: "rss" | "github" | "api"
+  feedKeywords?: string
+  refreshInterval?: string  // "5min" | "15min" | "1hour" | "6hours" | "1day"
+  feedLastFetch?: string
 }
 
 // ─── Agent 节点 ─────────────────────────────────────────────────────────────
@@ -85,6 +91,7 @@ export interface OutputNodeData extends Record<string, unknown> {
   contentType?: "text" | "image"
   contentFormat?: ContentFormat
   matrixResults?: MatrixResult[]   // 矩阵模式下各人设的输出结果
+  customInstruction?: string       // 用户自定义的平台提示词（覆盖默认值）
 }
 
 // ─── 节点联合类型 ─────────────────────────────────────────────────────────────
