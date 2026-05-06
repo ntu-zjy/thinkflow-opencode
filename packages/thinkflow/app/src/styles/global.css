@@ -614,13 +614,13 @@ html, body, #root {
   text-transform: uppercase;
 }
 
-.tf-platform-badge.zhihu { background: rgba(0, 112, 210, 0.1); color: #0070d2; border: 1px solid rgba(0, 112, 210, 0.25); }
-.tf-platform-badge.wechat { background: rgba(7, 193, 96, 0.1); color: #07c160; border: 1px solid rgba(7, 193, 96, 0.25); }
-.tf-platform-badge.diary { background: rgba(180, 120, 40, 0.1); color: #b47828; border: 1px solid rgba(180, 120, 40, 0.25); }
+.tf-platform-badge.zhihu { background: rgba(90, 122, 150, 0.08); color: #5a7a96; border: 1px solid rgba(90, 122, 150, 0.2); }
+.tf-platform-badge.wechat { background: rgba(107, 155, 122, 0.08); color: #6b9b7a; border: 1px solid rgba(107, 155, 122, 0.2); }
+.tf-platform-badge.diary { background: rgba(160, 128, 96, 0.08); color: #a08060; border: 1px solid rgba(160, 128, 96, 0.2); }
 
-[data-theme="dark"] .tf-platform-badge.zhihu { background: rgba(0, 150, 255, 0.15); color: #60a5fa; border: 1px solid rgba(96, 165, 250, 0.3); }
-[data-theme="dark"] .tf-platform-badge.wechat { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.3); }
-[data-theme="dark"] .tf-platform-badge.diary { background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); }
+[data-theme="dark"] .tf-platform-badge.zhihu { background: rgba(122, 154, 182, 0.1); color: #7a9ab6; border: 1px solid rgba(122, 154, 182, 0.25); }
+[data-theme="dark"] .tf-platform-badge.wechat { background: rgba(139, 185, 154, 0.1); color: #8bb99a; border: 1px solid rgba(139, 185, 154, 0.25); }
+[data-theme="dark"] .tf-platform-badge.diary { background: rgba(192, 160, 128, 0.1); color: #c0a080; border: 1px solid rgba(192, 160, 128, 0.25); }
 
 /* ─── 工具栏 ─────────────────────────────────────────────────────────────── */
 
@@ -753,15 +753,21 @@ html, body, #root {
 .tf-context-submenu {
   display: none;
   position: absolute;
-  left: calc(100% + 4px);
+  left: 100%;
   top: -4px;
+  /* 左侧 8px padding 作为不可见热区，防止鼠标移向子菜单时 hover 丢失 */
+  padding-left: 8px;
+  background: transparent;
+  z-index: 201;
+}
+
+.tf-context-submenu__inner {
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-panel);
   padding: var(--space-1);
   min-width: 148px;
-  z-index: 201;
 }
 
 .tf-context-menu-item--has-sub:hover .tf-context-submenu {
@@ -918,38 +924,38 @@ html {
 /* ─── 平台徽章 — 小红书 ──────────────────────────────────────────────────── */
 
 .tf-platform-badge.xiaohongshu {
-  background: rgba(255, 43, 84, 0.1);
-  color: #ff2b54;
-  border: 1px solid rgba(255, 43, 84, 0.25);
+  background: rgba(192, 96, 112, 0.08);
+  color: #c06070;
+  border: 1px solid rgba(192, 96, 112, 0.2);
 }
 
 [data-theme="dark"] .tf-platform-badge.xiaohongshu {
-  background: rgba(255, 43, 84, 0.15);
-  color: #ff6b8a;
-  border: 1px solid rgba(255, 107, 138, 0.3);
+  background: rgba(208, 128, 144, 0.1);
+  color: #d08090;
+  border: 1px solid rgba(208, 128, 144, 0.25);
 }
 
 /* ─── 平台徽章 — 笔记 / 视频 ──────────────────────────────────────────────── */
 
 .tf-platform-badge.note {
-  background: rgba(99, 102, 241, 0.1);
-  color: #6366f1;
-  border: 1px solid rgba(99, 102, 241, 0.25);
+  background: rgba(122, 122, 154, 0.08);
+  color: #7a7a9a;
+  border: 1px solid rgba(122, 122, 154, 0.2);
 }
 .tf-platform-badge.video {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
-  border: 1px solid rgba(239, 68, 68, 0.25);
+  background: rgba(176, 96, 96, 0.08);
+  color: #b06060;
+  border: 1px solid rgba(176, 96, 96, 0.2);
 }
 [data-theme="dark"] .tf-platform-badge.note {
-  background: rgba(129, 140, 248, 0.15);
-  color: #818cf8;
-  border: 1px solid rgba(129, 140, 248, 0.3);
+  background: rgba(154, 154, 186, 0.1);
+  color: #9a9aba;
+  border: 1px solid rgba(154, 154, 186, 0.25);
 }
 [data-theme="dark"] .tf-platform-badge.video {
-  background: rgba(252, 165, 165, 0.15);
-  color: #fca5a5;
-  border: 1px solid rgba(252, 165, 165, 0.3);
+  background: rgba(192, 128, 128, 0.1);
+  color: #c08080;
+  border: 1px solid rgba(192, 128, 128, 0.25);
 }
 
 /* ─── 内容格式小标签 ─────────────────────────────────────────────────────── */
@@ -2153,4 +2159,295 @@ html {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* ─── 平台化节点主题 ─────────────────────────────────────────────────────── */
+
+.tf-node--zhihu       { --tf-platform-color: #0070d2; --tf-platform-bg: rgba(0,112,210,0.06); --tf-platform-border: rgba(0,112,210,0.28); --tf-platform-shadow: rgba(0,112,210,0.14); }
+.tf-node--wechat      { --tf-platform-color: #07c160; --tf-platform-bg: rgba(7,193,96,0.06); --tf-platform-border: rgba(7,193,96,0.28); --tf-platform-shadow: rgba(7,193,96,0.14); }
+.tf-node--diary       { --tf-platform-color: #b47828; --tf-platform-bg: rgba(180,120,40,0.06); --tf-platform-border: rgba(180,120,40,0.28); --tf-platform-shadow: rgba(180,120,40,0.14); }
+.tf-node--note        { --tf-platform-color: #6366f1; --tf-platform-bg: rgba(99,102,241,0.06); --tf-platform-border: rgba(99,102,241,0.28); --tf-platform-shadow: rgba(99,102,241,0.14); }
+.tf-node--xiaohongshu { --tf-platform-color: #ff2b54; --tf-platform-bg: rgba(255,43,84,0.06); --tf-platform-border: rgba(255,43,84,0.28); --tf-platform-shadow: rgba(255,43,84,0.14); }
+.tf-node--video       { --tf-platform-color: #ef4444; --tf-platform-bg: rgba(239,68,68,0.06); --tf-platform-border: rgba(239,68,68,0.28); --tf-platform-shadow: rgba(239,68,68,0.14); }
+
+[data-theme="dark"] .tf-node--zhihu       { --tf-platform-color: #60a5fa; --tf-platform-bg: rgba(96,165,250,0.09); --tf-platform-border: rgba(96,165,250,0.32); --tf-platform-shadow: rgba(96,165,250,0.12); }
+[data-theme="dark"] .tf-node--wechat      { --tf-platform-color: #34d399; --tf-platform-bg: rgba(52,211,153,0.09); --tf-platform-border: rgba(52,211,153,0.32); --tf-platform-shadow: rgba(52,211,153,0.12); }
+[data-theme="dark"] .tf-node--diary       { --tf-platform-color: #fbbf24; --tf-platform-bg: rgba(251,191,36,0.09); --tf-platform-border: rgba(251,191,36,0.32); --tf-platform-shadow: rgba(251,191,36,0.12); }
+[data-theme="dark"] .tf-node--note        { --tf-platform-color: #818cf8; --tf-platform-bg: rgba(129,140,248,0.09); --tf-platform-border: rgba(129,140,248,0.32); --tf-platform-shadow: rgba(129,140,248,0.12); }
+[data-theme="dark"] .tf-node--xiaohongshu { --tf-platform-color: #ff6b8a; --tf-platform-bg: rgba(255,107,138,0.09); --tf-platform-border: rgba(255,107,138,0.32); --tf-platform-shadow: rgba(255,107,138,0.12); }
+[data-theme="dark"] .tf-node--video       { --tf-platform-color: #fca5a5; --tf-platform-bg: rgba(252,165,165,0.09); --tf-platform-border: rgba(252,165,165,0.32); --tf-platform-shadow: rgba(252,165,165,0.12); }
+
+/* 平台节点边框 + 专属阴影（增强质感） */
+.tf-node--zhihu,
+.tf-node--wechat,
+.tf-node--diary,
+.tf-node--note,
+.tf-node--xiaohongshu,
+.tf-node--video {
+  border-color: var(--tf-platform-border);
+  box-shadow:
+    var(--shadow-node),
+    0 0 0 0 var(--tf-platform-shadow);
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+
+.tf-node--zhihu:hover,
+.tf-node--wechat:hover,
+.tf-node--diary:hover,
+.tf-node--note:hover,
+.tf-node--xiaohongshu:hover,
+.tf-node--video:hover {
+  border-color: var(--tf-platform-color);
+  box-shadow:
+    var(--shadow-node),
+    0 0 0 2px var(--tf-platform-shadow),
+    0 4px 20px var(--tf-platform-shadow);
+}
+
+.tf-node--zhihu.selected,
+.tf-node--wechat.selected,
+.tf-node--diary.selected,
+.tf-node--note.selected,
+.tf-node--xiaohongshu.selected,
+.tf-node--video.selected {
+  border-color: var(--tf-platform-color);
+  box-shadow:
+    0 0 0 2px var(--tf-platform-color),
+    0 6px 24px var(--tf-platform-shadow);
+}
+
+/* 平台节点 header — 渐变背景增加层次感 */
+.tf-node__platform-header {
+  background: linear-gradient(
+    135deg,
+    var(--tf-platform-bg) 0%,
+    transparent 100%
+  );
+  border-bottom: 1px solid var(--tf-platform-border);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  padding: 10px 14px;
+}
+
+/* 平台标题字重和间距 */
+.tf-node__platform-header .tf-node__title {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+/* 提示词设置区域 */
+.tf-settings-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: 5px var(--space-2);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: left;
+}
+
+.tf-settings-toggle:hover {
+  background: var(--bg-surface-2);
+  color: var(--text-secondary);
+  border-color: var(--tf-platform-border, var(--border-hover));
+}
+
+.tf-settings-panel {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  animation: tf-fade-in 0.15s ease-out;
+}
+
+/* 小红书卡片预览 */
+.tf-xhs-card {
+  background: linear-gradient(135deg, #fff8f9 0%, #fff2f4 100%);
+  border: 1px solid rgba(255,43,84,0.15);
+  border-radius: 8px;
+  padding: var(--space-3);
+  font-family: -apple-system, "PingFang SC", sans-serif;
+  font-size: 13px;
+  line-height: 1.75;
+  color: #1a1a1a;
+}
+
+[data-theme="dark"] .tf-xhs-card {
+  background: linear-gradient(135deg, rgba(255,43,84,0.08) 0%, rgba(255,43,84,0.04) 100%);
+  border-color: rgba(255,107,138,0.2);
+  color: var(--text-primary);
+}
+
+.tf-xhs-card__body {
+  margin-bottom: var(--space-2);
+}
+
+.tf-xhs-card__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid rgba(255,43,84,0.1);
+}
+
+.tf-xhs-tag {
+  color: #ff2b54;
+  font-size: 12px;
+  font-weight: 600;
+  background: rgba(255,43,84,0.08);
+  padding: 1px 7px;
+  border-radius: 99px;
+}
+
+[data-theme="dark"] .tf-xhs-tag {
+  color: #ff6b8a;
+  background: rgba(255,107,138,0.12);
+}
+
+/* 知乎预览：衬线字体，带左侧色条 */
+.tf-preview--zhihu {
+  font-family: "Georgia", "STSong", "SimSun", serif;
+  line-height: 1.85;
+  font-size: 13px;
+  padding-left: 10px;
+  border-left: 2px solid rgba(0,112,210,0.3);
+}
+
+/* 公众号预览：移动端风格，圆润感 */
+.tf-preview--wechat {
+  font-family: -apple-system, "PingFang SC", sans-serif;
+  line-height: 1.8;
+  font-size: 13px;
+}
+
+/* 日记预览：暖色背景+行间距宽 */
+.tf-preview--diary {
+  font-family: "Georgia", "STKaiti", "KaiTi", serif;
+  line-height: 1.9;
+  font-size: 13px;
+  color: var(--text-secondary);
+  background: rgba(180,120,40,0.03);
+  border-radius: 4px;
+  padding: 6px 8px;
+}
+
+/* 笔记预览：结构清晰 */
+.tf-preview--note {
+  line-height: 1.75;
+  font-size: 13px;
+}
+
+/* 右键菜单子菜单条目中的平台颜色圆点 */
+.tf-submenu-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+/* ─── 旋转动画 ───────────────────────────────────────────────────────────── */
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ─── 信息流节点样式增强 ─────────────────────────────────────────────────── */
+
+.tf-node--input-feed {
+  min-width: 300px;
+}
+
+.tf-feed-source-tabs {
+  display: flex;
+  gap: var(--space-1);
+  padding: 4px;
+  background: var(--bg-elevated, var(--bg-surface));
+  border-radius: var(--radius-md);
+}
+
+.tf-feed-source-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 5px 8px;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.tf-feed-source-tab:hover {
+  background: var(--bg-surface-2);
+  color: var(--text-primary);
+}
+
+.tf-feed-source-tab.active {
+  background: var(--btn-primary-bg, var(--accent));
+  color: var(--btn-primary-text, var(--accent-text));
+}
+
+/* 信息流预览区域 */
+.tf-feed-preview {
+  background: var(--bg-elevated, var(--bg-surface));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  font-size: 11px;
+  color: var(--text-secondary);
+  max-height: 100px;
+  overflow: auto;
+}
+
+.tf-feed-preview__header {
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tf-feed-preview__content {
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.5;
+}
+
+/* 输入卡片统一配色 */
+.tf-node[data-type="input"] {
+  --input-accent: #b47828;
+  --input-bg: rgba(180,120,40,0.06);
+  --input-border: rgba(180,120,40,0.25);
+}
+
+[data-theme="dark"] .tf-node[data-type="input"] {
+  --input-accent: #f59e0b;
+  --input-bg: rgba(245,158,11,0.08);
+  --input-border: rgba(245,158,11,0.35);
+}
+
+/* 输入节点选中状态边框 */
+.tf-node[data-type="input"].selected {
+  border-color: var(--input-accent);
+  box-shadow: 0 0 0 2px var(--input-accent), 0 4px 16px var(--input-bg);
 }

@@ -21,6 +21,8 @@ import type {
   OutputNodeData,
   AgentLog,
   MatrixSlot,
+  OutputPlatform,
+  ContentFormat,
 } from "../types"
 import {
   createSession,
@@ -33,6 +35,7 @@ import {
 } from "../services/opencodeClient"
 import { useMemoryStore } from "./memoryStore"
 import { markdownToHtml } from "../utils/markdownToHtml"
+import { getCard } from "../cards"
 
 // ─── 平台标签（用于自动存记忆标题） ───────────────────────────────────────────
 
@@ -47,107 +50,31 @@ const PLATFORM_LABELS: Record<string, string> = {
 
 // ─── 创作形式 → 平台指令 ────────────────────────────────────────────────────
 
-function getPlatformInstruction(platform: string, contentFormat: string): string {
+function getPlatformInstruction(platform: string, contentFormat: string, customInstruction?: string): string {
   const isText = contentFormat === "text"
   const isImageText = contentFormat === "image_text"
 
-  if (platform === "xiaohongshu") {
-    if (isText) {
-      return "请为小红书平台生成活泼种草风格的文案，含话题标签 #xxx，不需要图片。"
-    }
-    return `请为小红书平台生成内容，必须严格按以下格式输出：\n\n第一行：[IMG_PROMPT: <详细的英文图片描述，包含风格、色调、主体、构图，约 20 个单词>]\n空一行\n然后是中文正文文案（活泼种草风格，含话题标签 #xxx）\n\n示例：\n[IMG_PROMPT: Fresh pink cherry blossoms, soft bokeh background, morning light, aesthetic minimalist style, vertical composition]\n\n清晨遇见这朵花，治愈了整个春天 🌸\n\n#花卉 #春日 #小确幸`
-  }
-
-  const imgFormatNote = isText
+  // 视频和小红书不追加图文格式说明后缀（已内嵌在指令中）
+  const noSuffix = platform === "video" || platform === "xiaohongshu"
+  const imgFormatNote = noSuffix ? "" : isText
     ? "\n\n请只输出文字内容，不需要配图或图片描述。"
     : isImageText
     ? "\n\n请在文案开头输出 [IMG_PROMPT: <详细英文图片描述，包含风格、色调、主体、构图，约 20 个单词>]，换行后输出正文。"
     : ""
 
-  if (platform === "video") {
-    return `你是一个视频创作专家。请根据输入内容，在 packages/thinkflow/video-nextjs/ 目录下创作并渲染一段有配音的竖版短视频（1080×1920，30fps）。
-
-## 完整工作流程
-
-### 第一步：规划分镜
-为内容规划 5-7 个分镜，每个分镜包含：
-- 旁白文字（10-20字，口语化，适合 TTS）
-- 视觉风格描述
-
-### 第二步：生成 TTS 配音
-为每个分镜用 edge-tts 生成 mp3，保存到 packages/thinkflow/video-nextjs/public/ 目录：
-\`\`\`bash
-cd packages/thinkflow/video-nextjs
-mkdir -p public out
-edge-tts --voice zh-CN-XiaoxiaoNeural --text "分镜1旁白文字" --write-media public/audio-0.mp3
-edge-tts --voice zh-CN-XiaoxiaoNeural --text "分镜2旁白文字" --write-media public/audio-1.mp3
-# ... 每个分镜都生成一个 mp3
-\`\`\`
-
-用 ffprobe 获取每段音频的时长（秒），分镜帧数 = ceil((时长 + 0.3) * 30)：
-\`\`\`bash
-ffprobe -v quiet -print_format json -show_format public/audio-0.mp3
-\`\`\`
-
-### 第三步：修改 VideoComposition.tsx
-在 packages/thinkflow/video-nextjs/src/remotion/VideoComposition.tsx 中，为每个分镜添加 Audio 组件播放对应的 mp3：
-\`\`\`tsx
-import { AbsoluteFill, Audio, Sequence, useCurrentFrame, interpolate, Easing, staticFile } from "remotion"
-
-// 每个分镜组件内部加：
-<Audio src={staticFile("audio-0.mp3")} />
-\`\`\`
-每个分镜的 durationInFrames 要和对应音频时长匹配。
-
-### 第四步：修改 Root.tsx
-设置总 durationInFrames = 所有分镜帧数之和。
-
-### 第五步：确认浏览器并渲染视频
-**重要**：Remotion 渲染需要浏览器，按以下顺序检测：
-
-\`\`\`bash
-cd packages/thinkflow/video-nextjs
-
-# 1. 检测 node_modules/.remotion 是否已有缓存的 chrome-headless-shell
-if [ -d "node_modules/.remotion/chrome-headless-shell" ]; then
-  echo "使用已缓存的 chrome-headless-shell 渲染"
-  npx remotion render VideoComposition out/video.mp4
-else
-  # 2. 尝试自动下载 chrome-headless-shell（需要网络）
-  echo "尝试下载 chrome-headless-shell..."
-  npx remotion browser ensure 2>&1
-  if [ -d "node_modules/.remotion/chrome-headless-shell" ]; then
-    echo "下载成功，开始渲染"
-    npx remotion render VideoComposition out/video.mp4
-  elif [ -f "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" ]; then
-    # 3. 使用系统 Chrome 作为备选
-    echo "使用系统 Chrome 渲染"
-    npx remotion render VideoComposition out/video.mp4 --browser-executable="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-  else
-    echo "错误：未找到可用浏览器，请运行 'npx remotion browser ensure' 下载 chrome-headless-shell，或安装 Chrome"
-    exit 1
-  fi
-fi
-\`\`\`
-
-### 第六步：完成
-输出以下 JSON（不加 markdown 代码块）：
-{"title":"视频标题","outputPath":"packages/thinkflow/video-nextjs/out/video.mp4"}
-
-## 重要约束
-- 视频必须有配音，每个分镜对应一段 TTS 音频
-- 音频文件放在 packages/thinkflow/video-nextjs/public/ 目录下
-- 动画只用 interpolate() + useCurrentFrame()，不用 CSS transitions/animations
-- 渲染时优先使用 Remotion 自带的 chrome-headless-shell（自动缓存在 node_modules/.remotion/），无需用户安装 Chrome`
+  // 用户自定义指令优先，否则从卡片注册表获取默认指令
+  let baseInstruction: string
+  if (customInstruction?.trim()) {
+    baseInstruction = customInstruction.trim()
+  } else {
+    try {
+      baseInstruction = getCard(platform as OutputPlatform).defaultInstruction(contentFormat as ContentFormat)
+    } catch {
+      baseInstruction = "请根据输入内容生成高质量的文章。"
+    }
   }
 
-  const base: Record<string, string> = {
-    zhihu: "请生成适合知乎平台的长文章，包含标题、引言和正文结构，内容深度且有洞察力。",
-    wechat: "请生成适合微信公众号的图文推送，标题吸引人，排版适合移动端阅读，语言亲切。",
-    diary: "请以第一人称口语化方式写日记，就像在和朋友聊天一样，记录今天发生的事情和感受，口吻随意自然，不追求逻辑结构，真实生动。",
-    note: "请生成一篇正式的结构化笔记，包含标题、摘要、主要内容（分点或分节）和总结，语言精准简洁，信息全面，适合日后查阅和复习。",
-  }
-  return (base[platform] ?? base.note) + imgFormatNote
+  return baseInstruction + imgFormatNote
 }
 
 // ─── 初始示例节点（扇形布局） ───────────────────────────────────────────────
@@ -758,7 +685,7 @@ export const useCanvasStore = create<CanvasStore>()(
       overrideParts?: { type: "text"; text: string }[],
     ) => {
       const cf = outputNode.data.contentFormat ?? "auto"
-      const platformInstr = getPlatformInstruction(outputNode.data.platform, cf)
+      const platformInstr = getPlatformInstruction(outputNode.data.platform, cf, outputNode.data.customInstruction)
       const parts = [...(overrideParts ?? baseParts), { type: "text" as const, text: platformInstr }]
 
       appendLog(`[${idx + 1}/${outputNodes.length}] 创建 ${outputNode.data.platform} 会话...`)

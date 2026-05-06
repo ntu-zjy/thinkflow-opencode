@@ -102,12 +102,17 @@
 - **切换画布时不中止后台进程**：`switchWorkflow` 不调用 `abortWorkflow`；`runWorkflow` 在启动时捕获 `runWorkflowId`，所有 SSE 回调通过工作流感知的 `updateWorkflowNodeData` 写入 `workflows[runWorkflowId].nodes`（后台工作流）和 `nodes`（当前活跃时），切回该画布时可看到完整结果
 
 ### 节点类型
-1. **输入节点**（右键菜单直接添加，节点内切换类型）
-- 文本输入：直接输入文字
-- 链接输入：粘贴 URL，Agent 自动读取内容
-- 文件输入：拖拽/点击上传，通过 markitdown 自动转换为 Markdown（支持 PDF、Word、PPT、HTML、图片等格式）；markitdown 不可用时降级为纯文本读取；节点显示「已转为 MD」或「原始文本」徽章
-- 记忆输入：从记忆库选择条目（`value` 存 `stripHtml(entry.content)` 的纯文本）
-- 信息流输入：通过 MCP 工具（fetch / GitHub）获取实时数据
+1. **输入节点**（右键菜单"输入节点"子菜单直接选类型创建，每种类型对应独立样式卡片）
+- **注册式架构**：`src/input-cards/` 目录，`InputCardDef` 接口定义类型 logo、主色、placeholder，`INPUT_CARD_REGISTRY` Map 统一管理；新增输入类型只需新建文件 + 在 `input-cards/index.ts` 加一行 import
+- 文本输入：直接输入文字（📄 文档图标）
+- 链接输入：粘贴 URL，Agent 自动读取内容（🔗 链接图标）
+- 文件输入：拖拽/点击上传，通过 markitdown 自动转换为 Markdown（支持 PDF、Word、PPT、HTML、图片等格式）；markitdown 不可用时降级为纯文本读取；节点显示「已转为 MD」或「原始文本」徽章（📁 文件图标）
+- 记忆输入：从记忆库选择条目（`value` 存 `stripHtml(entry.content)` 的纯文本）（🔖 书签图标）
+- **信息流输入**：配置化信息聚合流程（📡 RSS图标）
+  - 支持 3 种源类型：RSS / GitHub Trending / API
+  - 可配置：源 URL、关键词过滤、刷新频率（5分钟~1天）
+  - 自动刷新机制：根据配置定时拉取新内容
+  - 内容聚合预览：格式化展示多条信息条目（标题、作者、时间、摘要）
 
 2. **想法**
 - 想法是 Agent 节点的属性，在 Agent 节点上有一个文本输入框，不是独立节点
@@ -122,13 +127,16 @@
 - **定时任务**：每天固定时间自动执行
 - **矩阵模式**：多 slot 绑定不同人设，串行执行
 
-4. **输出节点**（右键菜单直接添加，节点内选平台和创作形式）
-- 支持 5 个平台：知乎 / 公众号 / 日记·笔记 / 小红书 / **视频**
+4. **输出节点**（右键菜单"输出节点"子菜单直接选平台创建，每种平台对应独立样式卡片）
+- 支持 6 个平台：知乎 / 公众号 / 日记 / 笔记 / 小红书 / **视频**
+- **注册式架构**：每个平台定义在 `src/cards/{platform}.ts`，通过 `registerCard()` 注册到 `CARD_REGISTRY`；新增平台只需新建文件 + 在 `cards/index.ts` 加一行 import，无需修改 OutputNode 或 canvasStore
+- 每张卡片有独立品牌 logo（SVG text 元素）、平台主色边框/header 渐变背景、专属预览样式（小红书红白配色、知乎衬线字体等）
 - 支持 3 种创作形式（独立于平台）：**纯文本** / **图文**（强制触发图片生成）/ **自主**（Agent 自行决定）
 - 图文生成：Agent 输出 `[IMG_PROMPT:...]` 标记，前端解析后调用图片生成模型
 - **视频生成**：Agent 在 `video-nextjs/` 目录自由写 Remotion React 组件代码 → edge-tts 生成配音 → CLI 渲染竖版 1080×1920 MP4，OutputNode 自动检测产出文件并内嵌 `<video>` 播放器
 - 卡片预览（最大高度 200px），点放大按钮弹出全屏详情（带背景虚化）
-- 一键复制 + 存为记忆 + 下载图片
+- 一键复制 + 存为记忆 + 下载
+- **用户可定制提示词**：每张卡片内折叠"提示词设置"，可修改发给 Agent 的平台指令，支持一键恢复默认（`OutputNodeData.customInstruction` 字段）
 - **矩阵结果查看**：矩阵运行完成后，节点顶部出现人设选择器（下拉 + ‹/› 箭头 + n/total 计数），切换即可查看任意人设的输出；复制/存为记忆操作均针对当前选中人设
 
 ### 连线规则
@@ -141,7 +149,10 @@
 - 滚轮缩放
 - 拖拽画布
 - 框选多节点
-- 右键菜单（复制/删除/运行至此）
+- **右键菜单**：带子菜单的多级结构
+  - "输入节点"悬停展开 5 种输入类型（显示对应 Logo 图标）
+  - "输出节点"悬停展开 6 个平台（显示对应品牌 Logo）
+  - Agent 节点直接点击创建
 - 快捷键：⌘Z 撤销 / ⌘⇧Z 重做 / ⌘A 全选 / ⌘Enter 运行 / Space 归位
 
 # 适配生态
@@ -168,6 +179,16 @@ Readme支持中英双语。
 **禁止**使用表情包作为图标和组件，所有图标必须下载自互联网知名图标库（如Iconfinder、Flaticon、Ant design）
 详细的风格设计原则必须参照DESIGN.md
 产品的logo icon采用艺术字体设计，独特且具有美感，禁止AI味。
+
+## 配色经验
+**避免过度饱和**：早期输出卡片使用高饱和度颜色（如知乎亮蓝 #0070d2、小红书亮粉 #ff2b54），在画布上过于刺眼。调整后统一降饱和约 40%，使用柔和色调：
+- 知乎：灰蓝 #5a7a96（原亮蓝 #0070d2）
+- 公众号：灰绿 #6b9b7a（原亮绿 #07c160）
+- 小红书：灰粉 #c06070（原亮粉 #ff2b54）
+- 视频：灰红 #b06060（原亮红 #ef4444）
+- **输入卡片**：统一使用思流暖棕色 #b47828（与产品 Logo 一致），保持视觉统一性
+
+**右键菜单图标化**：子菜单条目从彩色圆点改为各平台/类型的品牌 Logo，提升识别度且避免色彩混乱。
 
 # 设计原则
 <frontend_aesthetics>
@@ -229,6 +250,9 @@ OpenRouter → AI 模型（Kimi K2.6 等）
 - **图标**：Chakra UI v3（仅此一个，不同时使用 Ant Design）
 - **节点Node**：节点组件直接基于 @xyflow/react 的原生能力，不再额外套壳
 - **节点宽度声明**：每个节点对象必须在 `style.width` 中声明与 CSS `minWidth` 一致的宽度（input: 280, agent: 300, output: 320），否则 `fitView` 无法正确感知节点真实尺寸，导致节点超出视口
+- **输出卡片注册式架构**：`src/cards/` 目录，`CardDef` 接口定义平台 logo、主色、默认指令、预览组件，`CARD_REGISTRY` Map 统一管理；`canvasStore.getPlatformInstruction` 从注册表读取默认指令，`customInstruction` 可覆盖；右键菜单通过 `getAllCards()` 动态生成子菜单，无需硬编码平台列表
+- **SVG Logo 设计原则**：品牌汉字用 `<text>` 元素（`fontFamily: 'PingFang SC', 'Microsoft YaHei'`）而非复杂 path，统一 `viewBox="0 0 24 24"`；`dominantBaseline="middle"` + `textAnchor="middle"` 实现真正居中；几何形状用 `<rect>/<ellipse>/<polygon>`
+- **CSS 子菜单 hover gap**：父项与子菜单之间有像素间隙时，鼠标穿越间隙会导致 hover 丢失、子菜单闪消；解决方案：外层 `left: 100%`（无间隙）+ `padding-left: 8px`（不可见热区）+ `background: transparent`，内容放在 `__inner` 子元素
 - **富文本编辑器**：TipTap v3（@tiptap/react + starter-kit + extension-table + extension-bubble-menu 等），用于记忆笔记区，支持 Toolbar / Bubble Menu / Slash Menu（输入 `/` 触发）/ 表格
 - **视频渲染子项目**：`packages/thinkflow/video-nextjs/`，Remotion 4.0.456 子项目，**由 OpenCode Agent 直接在此目录写 React 代码并用 CLI 渲染**，不通过程序化 API
 
@@ -343,8 +367,9 @@ cp -r /tmp/remotion-skills/skills/remotion ~/.config/opencode/skills/
 - 基础画布：输入 → Agent → 输出 单节点，多个输入和多个输出（并行执行）
 - 多画布支持：创建/切换/关闭/重命名工作流，localStorage 持久化
 - 5 种输入类型：文本、文件（markitdown 自动转 Markdown，支持 PDF/Word/PPT/HTML/图片）、URL、记忆、信息流（MCP）
-- 5 种输出平台：知乎、公众号、日记/笔记、小红书（含图文生成）、**视频**（Agent 写 Remotion 代码自由发挥 → edge-tts TTS 配音 → CLI 渲染 1080×1920 竖版 MP4，OutputNode 内嵌 `<video>` 播放器）
+- 6 种输出平台（注册式架构，可扩展）：知乎、公众号、日记、笔记、小红书（含图文生成）、**视频**（Agent 写 Remotion 代码自由发挥 → edge-tts TTS 配音 → CLI 渲染 1080×1920 竖版 MP4，OutputNode 内嵌 `<video>` 播放器）；每种平台有独立品牌 logo + 主色边框/背景 + 专属预览样式
 - 3 种创作形式：纯文本 / 图文 / 自主
+- **用户可定制平台提示词**：每张输出卡片内置折叠式"提示词设置"，可修改默认指令，一键恢复默认
 - 记忆库：全屏 Notion 风格两栏面板，5 类默认分类 + 用户自定义分类，TipTap 富文本编辑（Toolbar / Bubble Menu / Slash Menu / 表格）
 - 定时任务：AgentNode 每天固定时间自动执行
 - 矩阵模式：AgentNode 多 slot 绑定不同人设，串行执行

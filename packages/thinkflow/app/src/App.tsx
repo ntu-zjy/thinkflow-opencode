@@ -5,6 +5,8 @@ import { Toolbar } from "./components/Toolbar"
 import { MemoryPanel } from "./components/MemoryPanel"
 import { WorkflowSidebar } from "./components/WorkflowSidebar"
 import { TourGuide } from "./components/TourGuide"
+// 触发输入卡片注册（副作用）
+import "./input-cards"
 
 export type Theme = "light" | "dark"
 
