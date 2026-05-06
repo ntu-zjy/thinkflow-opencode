@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { ReactFlowProvider } from "@xyflow/react"
 import { Canvas } from "./pages/Canvas"
+import { Landing } from "./pages/Landing"
 import { Toolbar } from "./components/Toolbar"
 import { MemoryPanel } from "./components/MemoryPanel"
 import { WorkflowSidebar } from "./components/WorkflowSidebar"
@@ -16,15 +17,36 @@ function getInitialTheme(): Theme {
   return "light"
 }
 
+// 判断是否进入主应用：路径为 /app 或 /app/ 或带 ?app 参数
+function isAppRoute(): boolean {
+  const { pathname, search } = window.location
+  return pathname.startsWith("/app") || search.includes("app")
+}
+
 export default function App() {
   const [memoryOpen, setMemoryOpen] = useState(false)
   const [theme, setTheme] = useState<Theme>(getInitialTheme)
   const [showTour, setShowTour] = useState(() => !localStorage.getItem("thinkflow-tour-done"))
+  const [inApp] = useState(isAppRoute)
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme)
     localStorage.setItem("thinkflow-theme", theme)
   }, [theme])
+
+  // Landing 页时 body 可滚动
+  useEffect(() => {
+    if (!inApp) {
+      document.documentElement.style.overflow = "auto"
+      document.body.style.overflow = "auto"
+      document.body.style.height = "auto"
+    }
+    return () => {
+      document.documentElement.style.overflow = ""
+      document.body.style.overflow = ""
+      document.body.style.height = ""
+    }
+  }, [inApp])
 
   const toggleTheme = () => setTheme((t) => (t === "light" ? "dark" : "light"))
 
@@ -37,6 +59,11 @@ export default function App() {
     localStorage.removeItem("thinkflow-tour-done")
     setShowTour(true)
   }, [])
+
+  // Landing 页路由
+  if (!inApp) {
+    return <Landing />
+  }
 
   return (
     <ReactFlowProvider>
