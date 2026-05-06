@@ -197,6 +197,8 @@ interface CanvasStore {
   _scheduleTimers: Record<string, ReturnType<typeof setInterval>>
   setScheduleTimer: (agentNodeId: string, timer: ReturnType<typeof setInterval>) => void
   clearScheduleTimer: (agentNodeId: string) => void
+  // 示例画布加载
+  loadExampleWorkflow: (name: string, nodes: FlowNode[], edges: FlowEdge[]) => void
 }
 
 // ─── Store 实现 ───────────────────────────────────────────────────────────────
@@ -301,6 +303,27 @@ export const useCanvasStore = create<CanvasStore>()(
         [id]: { ...s.workflows[id], name },
       },
     }))
+  },
+
+  loadExampleWorkflow: (name, nodes, edges) => {
+    const { workflows, _saveCurrentWorkflow } = get()
+    _saveCurrentWorkflow()
+    const wf: WorkflowRecord = {
+      id: nanoid(8),
+      name,
+      nodes,
+      edges,
+      history: [],
+      historyIndex: -1,
+    }
+    set({
+      workflows: { ...workflows, [wf.id]: wf },
+      activeWorkflowId: wf.id,
+      nodes: wf.nodes,
+      edges: wf.edges,
+      _history: [],
+      _historyIndex: -1,
+    })
   },
 
   // ─── 历史管理 ────────────────────────────────────────────────────────────
