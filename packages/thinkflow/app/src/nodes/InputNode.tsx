@@ -92,7 +92,7 @@ export function InputNode({ id, data, selected }: NodeProps<InputNodeType>) {
             className="tf-node__delete"
             style={{ color: savedFlash ? "var(--status-done)" : undefined, opacity: savedFlash ? 1 : undefined }}
             onClick={handleSaveToMemory}
-            title="存为灵感记忆"
+            title="加入灵感"
           >
             {savedFlash ? (
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

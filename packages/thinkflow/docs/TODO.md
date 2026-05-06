@@ -109,13 +109,19 @@
   `switchWorkflow` 移除了 `abortWorkflow` 调用；`runWorkflow` 在启动时捕获 `runWorkflowId`，新增工作流感知的 `updateWorkflowNodeData`（同时更新 `workflows[runWorkflowId].nodes` 和当前活跃 `nodes`），切换画布后后台 session 继续运行并写入对应工作流的节点，切回时即可看到完整结果。
 - [x] 我没有chromium，不想依赖这个组件
   Remotion 自带 `chrome-headless-shell`（约 193MB，缓存在 `video-nextjs/node_modules/.remotion/`），不需要用户安装 Chrome。Agent 视频提示词已更新为智能浏览器检测逻辑：优先用已缓存的 `chrome-headless-shell`（`npx remotion render` 自动使用），其次运行 `npx remotion browser ensure` 自动下载，最后才回退到系统 Chrome。
+- [x] 卡片上的滑动条拖动非常不方便，太小了点不到，而且也没有办法和macos的快捷键联动
+  滚动条宽度从 4px 加宽至 8px，`min-height: 40px` 确保拇指可点击；新增画布键盘平移：↑↓←→ 移动 60px，Shift+方向键 200px，PageUp/Down 300px。
+- [x] 输入卡片上面的收藏按钮改成”加入灵感”
+  InputNode 收藏按钮 title 属性改为”加入灵感”，保存目标不变（”灵感”分类）。
+- [x] 模型这里默认使用kimi-k2.6，不再让用户能够选模型，也不让用户看到用的啥模型
+  AgentNode 移除模型选择下拉框；`canvasStore` 默认模型仍为 `moonshotai/kimi-k2.6`，用户不可见也不可更改。
 
 ### 🟢 锦上添花
 - [ ] **Desktop（Tauri）验证**（已在本地验证 arm64，CI 构建待跑）
   本地已成功构建 ThinkFlow.app + dmg；CI 构建需在 GitHub Actions 上运行一次验证。
 
 - [ ] **参考之前写好的thinkflow插件，对不同的输出进行精心调整，**
-- [ ] 卡片上的滑动条拖动非常不方便，太小了点不到，而且也没有办法和macos的快捷键联动
+
 
 
 

@@ -33,7 +33,7 @@ export function Canvas() {
   const setStoreNodes = useCanvasStore((s) => s.setNodes)
 
   const activeWorkflowId = useCanvasStore((s) => s.activeWorkflowId)
-  const { screenToFlowPosition, fitView } = useReactFlow()
+  const { screenToFlowPosition, fitView, getViewport, setViewport } = useReactFlow()
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null)
   const paneRef = useRef<HTMLDivElement>(null)
 
@@ -108,11 +108,21 @@ export function Canvas() {
       if (e.code === "Space" || e.key === "h" || e.key === "H") {
         e.preventDefault()
         fitView({ padding: 0.2 })
+        return
       }
+      // 方向键 / Page Up / Page Down → 平移画布
+      const PAN_STEP = e.shiftKey ? 200 : 60
+      const vp = getViewport()
+      if (e.key === "ArrowLeft") { e.preventDefault(); setViewport({ ...vp, x: vp.x + PAN_STEP }); return }
+      if (e.key === "ArrowRight") { e.preventDefault(); setViewport({ ...vp, x: vp.x - PAN_STEP }); return }
+      if (e.key === "ArrowUp") { e.preventDefault(); setViewport({ ...vp, y: vp.y + PAN_STEP }); return }
+      if (e.key === "ArrowDown") { e.preventDefault(); setViewport({ ...vp, y: vp.y - PAN_STEP }); return }
+      if (e.key === "PageUp") { e.preventDefault(); setViewport({ ...vp, y: vp.y + 300 }); return }
+      if (e.key === "PageDown") { e.preventDefault(); setViewport({ ...vp, y: vp.y - 300 }); return }
     }
     document.addEventListener("keydown", handler)
     return () => document.removeEventListener("keydown", handler)
-  }, [undo, redo, fitView, nodes, runWorkflow, setStoreNodes])
+  }, [undo, redo, fitView, getViewport, setViewport, nodes, runWorkflow, setStoreNodes])
 
   return (
     <div style={{ width: "100%", height: "100%", position: "relative" }} ref={paneRef}>
@@ -155,6 +165,8 @@ export function Canvas() {
               右键添加 · Del 删除 · Shift 多选 · 滚轮缩放
               <br />
               ⌘Z 撤销 · ⌘⇧Z 重做 · ⌘A 全选 · ⌘↵ 运行 · Space 归位
+              <br />
+              ↑↓←→ 平移画布 · Shift+方向键 大步移动
             </div>
           </div>
         </Panel>

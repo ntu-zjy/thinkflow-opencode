@@ -6,11 +6,6 @@ import { useCanvasStore } from "../store/canvasStore"
 import { useMemoryStore } from "../store/memoryStore"
 import { nanoid } from "nanoid"
 
-const MODELS = [
-  { id: "moonshotai/kimi-k2.6", label: "Kimi K2.6 (默认)" },
-  { id: "anthropic/claude-3-7-sonnet", label: "Claude 3.7 Sonnet" },
-  { id: "openai/gpt-4o", label: "GPT-4o" },
-]
 
 export function AgentNode({ id, data, selected }: NodeProps<AgentNodeType>) {
   const updateNodeData = useCanvasStore((s) => s.updateNodeData)
@@ -133,17 +128,6 @@ export function AgentNode({ id, data, selected }: NodeProps<AgentNodeType>) {
       </div>
 
       <div className="tf-node__body">
-        {/* 模型选择 */}
-        <select
-          className="tf-select"
-          value={data.model}
-          onChange={(e) => updateNodeData<AgentNodeData>(id, { model: e.target.value })}
-        >
-          {MODELS.map((m) => (
-            <option key={m.id} value={m.id}>{m.label}</option>
-          ))}
-        </select>
-
         {/* 想法输入框 */}
         <textarea
           className="tf-textarea"
