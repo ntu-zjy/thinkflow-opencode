@@ -303,6 +303,11 @@ html, body, #root {
   color: var(--status-error);
 }
 
+.tf-node__bookmark:hover {
+  background: rgba(34, 197, 94, 0.12);
+  color: var(--status-done);
+}
+
 .tf-node__body {
   padding: var(--space-4);
   display: flex;
