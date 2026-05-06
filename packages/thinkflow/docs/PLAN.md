@@ -609,7 +609,16 @@ packages/thinkflow/
 
 **为什么不用 `@remotion/renderer` 在 Node.js 里渲染？**
 
-`@remotion/renderer` 内部依赖 `ensureBrowser()` 在国内会尝试访问 `storage.googleapis.com` 下载 Chromium，被墙报 `getaddrinfo ENOTFOUND`。改为让 Agent 直接调用 `npx remotion render` CLI，传入 `--browser-executable` 指向系统已安装的 Chrome，完全绕开自动下载。
+`@remotion/renderer` 内部依赖 `ensureBrowser()` 在国内会尝试访问 `storage.googleapis.com` 下载 Chromium，被墙报 `getaddrinfo ENOTFOUND`。改为让 Agent 直接调用 `npx remotion render` CLI，Remotion CLI 自带 `chrome-headless-shell` 缓存机制，完全无需用户安装 Chrome。
+
+**Remotion 浏览器优先级（无需用户安装 Chrome）**
+
+Remotion CLI 按以下顺序查找浏览器：
+1. `node_modules/.remotion/chrome-headless-shell/`（`npx remotion browser ensure` 下载并缓存，约 193MB）
+2. 用户通过 `--browser-executable` 显式传入的路径
+3. 以上均无则自动尝试下载（国内可能超时）
+
+Agent Prompt 中的渲染命令设计为：先检查 `node_modules/.remotion/chrome-headless-shell/` 是否存在，有则直接 `npx remotion render`；没有则运行 `npx remotion browser ensure` 下载；下载失败才回退到系统 Chrome。这样大多数情况下用户无需任何额外安装。
 
 **为什么要安装 Remotion skill？**
 
@@ -646,7 +655,7 @@ Prompt 需明确告知 Agent：
 2. 用 `ffprobe -v quiet -print_format json -show_format` 获取时长
 3. 分镜 durationInFrames = `ceil((audioDuration + 0.3) * 30)`
 4. 每个分镜组件内用 `<Audio src={staticFile("audio-N.mp3")} />` 挂载音频
-5. 渲染命令必须带 `--browser-executable` 指向系统 Chrome
+5. 渲染时优先用已缓存的 `chrome-headless-shell`（`npx remotion render` 自动检测），无则运行 `npx remotion browser ensure` 下载，最后才回退到系统 Chrome（见 26.3）
 
 ### 26.6 Vite 插件简化
 
@@ -670,7 +679,7 @@ server.middlewares.use("/api/video-serve", (req, res) => {
 |------|------|---------|
 | `edge-tts` | 中文 TTS，生成 mp3 | `pip install edge-tts` |
 | `ffprobe` | 读取 mp3 时长 | 随 `brew install ffmpeg` 安装 |
-| Google Chrome | Remotion 渲染引擎 | 系统已安装（路径：`/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`）|
+| `chrome-headless-shell` | Remotion 渲染引擎 | `npx remotion browser ensure`（缓存在 `node_modules/.remotion/`，约 193MB，无需安装 Chrome）|
 | Remotion CLI | 渲染命令 | `video-nextjs/node_modules/.bin/remotion` |
 
 ### 26.8 关键约束
@@ -679,7 +688,7 @@ server.middlewares.use("/api/video-serve", (req, res) => {
 |------|------|
 | `Sequence` 内帧计数自动归零 | `<Sequence from={N}>` 内 `useCurrentFrame()` 从 0 开始，**不能再减偏移量** |
 | 音频放 `public/` | `staticFile("audio.mp3")` 只能访问 `publicDir` 下文件，Agent 必须把 mp3 放到 `video-nextjs/public/` |
-| 系统 Chrome 路径 | macOS：`/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`，必须用 `--browser-executable` 显式指定，否则 Remotion 尝试下载 Chromium |
+| 浏览器无需手动安装 | Remotion CLI 优先用 `node_modules/.remotion/chrome-headless-shell`（`npx remotion browser ensure` 缓存），无需安装 Chrome；只有缓存不存在且网络不通时才需要通过 `--browser-executable` 指向系统 Chrome |
 | `vite.config.ts` 中禁用 `require()` | Vite 配置文件是 ESM，不能用 `require("net")` 等，须改为顶层 `import { createConnection } from "net"` |
 | `buildStart` 不触发于 dev | Vite 插件的 `buildStart` 钩子只在 `vite build` 时调用，dev server 启动时用 `configureServer` |
 | `VideoScript` 类型精简 | 不再含 `slides[]`（结构化 JSON），只含 `title` 和可选 `description`，实际视觉由 Agent 在 `.tsx` 文件中自由实现 |
@@ -698,8 +707,149 @@ server.middlewares.use("/api/video-serve", (req, res) => {
 
 **阶段 3（当前）**：Agent 直接写代码
 - 完全移除 `@remotion/renderer` 程序化渲染，改由 CLI 渲染
-- 系统 Chrome 替代自动下载 Chromium，解决国内网络问题
+- Remotion 自带 `chrome-headless-shell` 缓存，无需用户安装 Chrome
 - `VideoScript` 类型精简，`slides[]` 废弃，只保留标题作为预览摘要
+
+---
+
+## Phase 27：多画布后台运行架构
+
+### 27.1 问题背景
+
+早期 `switchWorkflow` 在切换画布时会调用 `abortWorkflow` 终止正在运行的 Agent session，导致用户切换画布后正在生成的内容丢失。
+
+### 27.2 解决思路
+
+`runWorkflow` 本质上是一个异步函数，它的所有回调（SSE 事件、节点更新）在函数启动后独立运行。问题在于这些回调通过 `updateNodeData` 操作的是 **当前激活画布的 nodes**，切换后节点 id 不再存在于 `nodes` 数组中，更新静默失效。
+
+解决方案：在 `runWorkflow` 启动时捕获 `runWorkflowId`，所有后续更新通过工作流感知函数写入 `workflows[runWorkflowId]`。
+
+### 27.3 核心实现：`updateWorkflowNodeData`
+
+```typescript
+// runWorkflow 启动时捕获所属工作流 id
+const runWorkflowId = get().activeWorkflowId
+
+const updateWorkflowNodeData = <T extends Record<string, unknown>>(nodeId: string, data: Partial<T>) => {
+  set((s): Partial<CanvasStore> => {
+    const patchNode = (n: FlowNode): FlowNode =>
+      n.id === nodeId ? ({ ...n, data: { ...n.data, ...(data as Record<string, unknown>) } } as FlowNode) : n
+
+    const wf = s.workflows[runWorkflowId]
+    const updatedWorkflows: Record<string, WorkflowRecord> = wf
+      ? { ...s.workflows, [runWorkflowId]: { ...wf, nodes: wf.nodes.map(patchNode) } }
+      : s.workflows
+
+    // 若当前活跃画布就是运行画布，同时更新 nodes 以即时反映到 UI
+    const updatedNodes = s.activeWorkflowId === runWorkflowId
+      ? s.nodes.map(patchNode)
+      : s.nodes
+
+    return { workflows: updatedWorkflows, nodes: updatedNodes }
+  })
+}
+```
+
+**关键点**：同时写 `workflows[runWorkflowId].nodes`（持久）和 `nodes`（UI 即时），两者通过 `activeWorkflowId === runWorkflowId` 判断是否需要同步。
+
+### 27.4 `switchWorkflow` 的修改
+
+```typescript
+// 修改前（会中止后台进程）
+switchWorkflow: (id) => {
+  nodes.filter(n => n.type === "agent" && n.data.status === "running")
+    .forEach(n => get().abortWorkflow(n.id))  // ← 删除这两行
+  ...
+}
+
+// 修改后（后台继续运行）
+switchWorkflow: (id) => {
+  // 不中止 Agent，让后台 session 继续写入 workflows[runWorkflowId]
+  _saveCurrentWorkflow()
+  ...
+}
+```
+
+### 27.5 切换后再切回的行为
+
+1. 用户在画布 A 运行 Agent → 切换到画布 B
+2. Agent session 继续运行，SSE 事件通过 `updateWorkflowNodeData` 写入 `workflows[A].nodes`
+3. 用户切回画布 A → `switchWorkflow` 加载 `workflows[A].nodes`，看到完整结果
+4. 若 Agent 在后台已完成，切回时节点状态为 `done`，内容已填充
+
+### 27.6 `edges` 动画的工作流感知
+
+节点更新需要感知工作流，边的动画恢复也一样：
+
+```typescript
+const setEdgesAnimated = (animated: boolean) => {
+  set((s): Partial<CanvasStore> => {
+    const patchEdge = (e: FlowEdge) =>
+      e.source === agentNodeId || e.target === agentNodeId ? { ...e, animated } : e
+    const wf = s.workflows[runWorkflowId]
+    return {
+      workflows: wf ? { ...s.workflows, [runWorkflowId]: { ...wf, edges: wf.edges.map(patchEdge) } } : s.workflows,
+      edges: s.activeWorkflowId === runWorkflowId ? s.edges.map(patchEdge) : s.edges,
+    }
+  })
+}
+```
+
+---
+
+## Phase 28：版本发布（GitHub Releases + gh CLI）
+
+### 28.1 发布工具
+
+使用 `gh` CLI（GitHub 官方命令行工具）管理发布：
+
+```bash
+brew install gh
+gh auth login   # 选择 HTTPS → Login with a web browser
+```
+
+### 28.2 发布流程
+
+完整流程见 `packages/thinkflow/docs/RELEASE.md`，核心命令：
+
+```bash
+# 1. 更新版本号（tauri.conf.json 中的 version 字段）
+
+# 2. 构建前端 + 桌面 .app（不触发 Tauri 的 DMG 脚本，避免残留文件干扰）
+cd packages/thinkflow/desktop
+bun tauri build --no-bundle
+
+# 3. 手动打包 DMG（绕过 bundle_dmg.sh 的已知问题）
+APP="...target/release/bundle/macos/ThinkFlow.app"
+DMG="...bundle/dmg/ThinkFlow_<VERSION>_aarch64.dmg"
+TMPDIR=$(mktemp -d)
+cp -R "$APP" "$TMPDIR/"
+hdiutil create -volname "ThinkFlow" -srcfolder "$TMPDIR" -ov -format UDZO "$DMG"
+rm -rf "$TMPDIR"
+
+# 4. 创建 Release 并上传 DMG
+gh release create v<VERSION> \
+  --title "ThinkFlow v<VERSION>" \
+  --notes "更新内容..." \
+  --target thinkflow-mvp1 \
+  "$DMG"
+```
+
+### 28.3 已知问题：`bundle_dmg.sh` 失败
+
+**症状**：`bun tauri build` 在最后 DMG 打包步骤报 `failed to run bundle_dmg.sh`。
+
+**根因**：上次构建产生的临时文件 `rw.*.ThinkFlow*.dmg` 残留在 bundle 目录，`bundle_dmg.sh` 中的 `set -e` 使其在遇到已存在文件时中止。
+
+**解决方案**：改用 `--no-bundle` 仅编译 `.app`，然后用 `hdiutil create` 手动打包 DMG，完全绕开 Tauri 的打包脚本。
+
+### 28.4 DMG 安装常见问题
+
+| 问题 | 原因 | 解决方式 |
+|------|------|---------|
+| "已损坏，无法打开" | macOS Gatekeeper 拦截未签名应用 | `xattr -cr /Applications/ThinkFlow.app` |
+| 安装后打不开 | 安全性设置 | 系统设置 → 隐私与安全性 → 仍要打开 |
+| 验证 DMG 完整性 | — | `hdiutil verify ThinkFlow_*.dmg` |
 
 ---
 
