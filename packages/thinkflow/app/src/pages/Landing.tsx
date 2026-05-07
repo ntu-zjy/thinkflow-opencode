@@ -148,19 +148,18 @@ export function Landing() {
               <span className="lp-canvas-preview__label">工作流示例：内容矩阵运营</span>
             </div>
             <div className="lp-canvas-preview__body">
-              {/* 输入层 */}
-              <div className="lp-flow-row">
+              {/* 输入层：5种 */}
+              <div className="lp-flow-row lp-flow-row--inputs">
                 {[
-                  { color: "#3b82f6", emoji: "📝", label: "文本输入", sub: "今天分享一个早起习惯…" },
-                  { color: "#10b981", emoji: "🔗", label: "链接输入", sub: "https://example.com/…" },
-                  { color: "#8b5cf6", emoji: "🧠", label: "记忆", sub: "账号人设 · 写作风格" },
+                  { color: "#3b82f6", emoji: "📝", label: "文本" },
+                  { color: "#10b981", emoji: "🔗", label: "链接" },
+                  { color: "#8b5cf6", emoji: "🧠", label: "记忆" },
+                  { color: "#ec4899", emoji: "📁", label: "文件" },
+                  { color: "#f59e0b", emoji: "📡", label: "信息流" },
                 ].map((n) => (
-                  <div className="lp-node lp-node--input" key={n.label} style={{ borderColor: n.color + "55" }}>
-                    <div className="lp-node__head">
-                      <span className="lp-node__dot" style={{ background: n.color }} />
-                      <span className="lp-node__name">{n.emoji} {n.label}</span>
-                    </div>
-                    <div className="lp-node__sub">{n.sub}</div>
+                  <div className="lp-node lp-node--input lp-node--compact" key={n.label} style={{ borderColor: n.color + "55" }}>
+                    <span className="lp-node__dot" style={{ background: n.color }} />
+                    <span className="lp-node__name">{n.emoji} {n.label}</span>
                   </div>
                 ))}
               </div>
@@ -194,7 +193,6 @@ export function Landing() {
                   <div className="lp-node lp-node--output" key={o.label}>
                     <span className="lp-node__dot" style={{ background: o.color }} />
                     <span className="lp-node__name">{o.label}</span>
-                    <span className="lp-node__fmt">{o.fmt}</span>
                     <span className="lp-node__check">✓</span>
                   </div>
                 ))}
@@ -311,10 +309,10 @@ export function Landing() {
             <div className="lp-eyebrow">案例研究 / 多元媒介运营</div>
             <h2 className={`lp-section-title lp-section-title--left lp-reveal${usecasesTitle.visible ? " lp-reveal-visible" : ""}`}
               ref={usecasesTitle.ref as React.RefObject<HTMLHeadingElement>}>
-              <span className="lp-reveal-line">为每一种</span>
-              <span className="lp-reveal-line lp-uc-bold">人设定制.</span>
+              <span className="lp-reveal-line">服务每一位</span>
+              <span className="lp-reveal-line lp-uc-bold">内容创作者和运营工作者.</span>
             </h2>
-            <p className="lp-usecases__intro">不同的创作者有不同的工作方式，ThinkFlow 的节点化设计让你按自己的习惯搭建工作流，一次配置，反复复用。</p>
+            <p className="lp-usecases__intro">不同的创作者有不同的工作方式，ThinkFlow 的画布式设计让你按自己的创作习惯方便的搭建工作流，一次配置，反复使用。</p>
           </div>
           <div className="lp-usecases__right">
             {USECASES.map((u) => (
@@ -681,7 +679,10 @@ const STYLES = `
   background: rgba(0,0,0,0.2);
 }
 .lp-flow-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.lp-flow-row--inputs { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; width: 100%; }
 .lp-flow-row--outputs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; }
+.lp-node--compact { flex-direction: row; align-items: center; padding: 7px 12px; }
+.lp-node--compact .lp-node__dot { margin-right: 6px; flex-shrink: 0; }
 .lp-flow-arrow { color: rgba(255,255,255,0.25); display: flex; align-items: center; justify-content: center; }
 .lp-node {
   background: rgba(255,255,255,0.07);
