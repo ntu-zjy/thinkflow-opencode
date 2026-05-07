@@ -148,7 +148,7 @@ export function Landing() {
               <span className="lp-canvas-preview__label">ThinkFlow · 工作流</span>
             </div>
             {/* SVG 节点连线图 */}
-            <svg className="lp-flow-svg" viewBox="0 0 480 310" xmlns="http://www.w3.org/2000/svg">
+            <svg className="lp-flow-svg" viewBox="0 0 480 248" xmlns="http://www.w3.org/2000/svg">
               <defs>
                 {/* 流动粒子：每条线独立 dashoffset 动画 */}
                 {[
@@ -173,7 +173,7 @@ export function Landing() {
                 `}</style>
               </defs>
 
-              {/* ── 输入节点 (5个) ── */}
+              {/* ── 输入节点 (5个) h=28 ── */}
               {[
                 { x: 4,   label: "📝 文本",  color: "#3b82f6" },
                 { x: 100, label: "🔗 链接",  color: "#10b981" },
@@ -182,35 +182,27 @@ export function Landing() {
                 { x: 388, label: "📡 信息流", color: "#f59e0b" },
               ].map(({ x, label, color }, i) => (
                 <g key={label}>
-                  {/* 节点框 */}
-                  <rect x={x} y={14} width={88} height={34} rx={6}
+                  <rect x={x} y={14} width={88} height={28} rx={5}
                     fill="rgba(255,255,255,0.06)" stroke={color + "66"} strokeWidth={1} />
-                  {/* 文字居中 */}
-                  <text x={x + 44} y={35} fontSize={10.5} fontWeight={600} fill="rgba(255,255,255,0.85)" textAnchor="middle">{label}</text>
-                  {/* 连线到 agent（贝塞尔曲线） */}
+                  <text x={x + 44} y={32} fontSize={10.5} fontWeight={600} fill="rgba(255,255,255,0.85)" textAnchor="middle">{label}</text>
                   <path
-                    d={`M${x + 44},48 C${x + 44},85 240,95 240,112`}
+                    d={`M${x + 44},42 C${x + 44},78 240,88 240,104`}
                     fill="none" stroke={color + "55"} strokeWidth={1.2}
                   />
-                  {/* 流动粒子线 */}
                   <path
                     className={`flow${i}`}
-                    d={`M${x + 44},48 C${x + 44},85 240,95 240,112`}
+                    d={`M${x + 44},42 C${x + 44},78 240,88 240,104`}
                     fill="none" stroke={color} strokeWidth={1.5} opacity={0.7}
                   />
                 </g>
               ))}
 
-              {/* ── Agent 节点 ── */}
-              {/* 光晕 */}
-              <ellipse cx={240} cy={142} rx={110} ry={22} fill="rgba(245,158,11,0.08)" className="lp-agent-glow" />
-              <rect x={100} y={112} width={280} height={48} rx={8}
+              {/* ── Agent 节点 h=34 ── */}
+              <ellipse cx={240} cy={121} rx={110} ry={18} fill="rgba(245,158,11,0.08)" className="lp-agent-glow" />
+              <rect x={100} y={104} width={280} height={34} rx={7}
                 fill="rgba(255,255,255,0.07)" stroke="rgba(245,158,11,0.4)" strokeWidth={1} />
-              <circle cx={122} cy={136} r={5} fill="#f59e0b">
-                <animate attributeName="opacity" values="1;0.3;1" dur="1.4s" repeatCount="indefinite" />
-              </circle>
-              <text x={134} y={141} fontSize={12} fontWeight={700} fill="rgba(255,255,255,0.9)">✦ 智能体</text>
-              <text x={300} y={141} fontSize={10} fill="#34d399">
+              <text x={120} y={125} fontSize={12} fontWeight={700} fill="rgba(255,255,255,0.9)">✦ 智能体</text>
+              <text x={300} y={125} fontSize={10} fill="#34d399">
                 运行中…
                 <animate attributeName="opacity" values="1;0.3;1" dur="1.4s" repeatCount="indefinite" />
               </text>
@@ -224,18 +216,18 @@ export function Landing() {
               ].map(({ ox, color }, i) => (
                 <g key={i}>
                   <path
-                    d={`M240,160 C240,192 ${ox + 50},200 ${ox + 50},228`}
+                    d={`M240,138 C240,168 ${ox + 50},178 ${ox + 50},204`}
                     fill="none" stroke={color + "44"} strokeWidth={1.2}
                   />
                   <path
                     className={`flow-out${i}`}
-                    d={`M240,160 C240,192 ${ox + 50},200 ${ox + 50},228`}
+                    d={`M240,138 C240,168 ${ox + 50},178 ${ox + 50},204`}
                     fill="none" stroke={color} strokeWidth={1.5} opacity={0.7}
                   />
                 </g>
               ))}
 
-              {/* ── 输出节点 (4个)：总宽 4×100+3×14=442，两端各留 19 ── */}
+              {/* ── 输出节点 (4个) h=28 ── */}
               {[
                 { x: 19,  label: "公众号",  color: "#07c160" },
                 { x: 133, label: "小红书",  color: "#f43f5e" },
@@ -243,10 +235,10 @@ export function Landing() {
                 { x: 361, label: "视频脚本", color: "#f59e0b" },
               ].map(({ x, label, color }) => (
                 <g key={label}>
-                  <rect x={x} y={228} width={100} height={34} rx={6}
+                  <rect x={x} y={204} width={100} height={28} rx={5}
                     fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.12)" strokeWidth={1} />
-                  <text x={x + 40} y={249} fontSize={11} fontWeight={600} fill="rgba(255,255,255,0.85)">{label}</text>
-                  <text x={x + 84} y={249} fontSize={11} fontWeight={700} fill="#34d399">✓</text>
+                  <text x={x + 38} y={222} fontSize={11} fontWeight={600} fill="rgba(255,255,255,0.85)">{label}</text>
+                  <text x={x + 84} y={222} fontSize={11} fontWeight={700} fill="#34d399">✓</text>
                 </g>
               ))}
             </svg>
