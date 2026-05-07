@@ -115,7 +115,7 @@ export function Landing() {
             </span>
           </h1>
           <p className="lp-hero__desc">
-            把灵感、指令、记忆连成一张工作流图——搭好一次，以后每次点击运行，AI 就替你把想法变成多平台内容。
+            
           </p>
           <div className="lp-hero__stats">
             <div className="lp-hero__stat">
@@ -145,59 +145,114 @@ export function Landing() {
               <span className="lp-dot" style={{ background: "#ff5f57" }} />
               <span className="lp-dot" style={{ background: "#febc2e" }} />
               <span className="lp-dot" style={{ background: "#28c840" }} />
-              <span className="lp-canvas-preview__label">工作流示例：内容矩阵运营</span>
+              <span className="lp-canvas-preview__label">ThinkFlow · 工作流</span>
             </div>
-            <div className="lp-canvas-preview__body">
-              {/* 输入层：5种 */}
-              <div className="lp-flow-row lp-flow-row--inputs">
+            {/* SVG 节点连线图 */}
+            <svg className="lp-flow-svg" viewBox="0 0 460 340" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                {/* 流动粒子：每条线独立 dashoffset 动画 */}
                 {[
-                  { color: "#3b82f6", emoji: "📝", label: "文本" },
-                  { color: "#10b981", emoji: "🔗", label: "链接" },
-                  { color: "#8b5cf6", emoji: "🧠", label: "记忆" },
-                  { color: "#ec4899", emoji: "📁", label: "文件" },
-                  { color: "#f59e0b", emoji: "📡", label: "信息流" },
-                ].map((n) => (
-                  <div className="lp-node lp-node--input lp-node--compact" key={n.label} style={{ borderColor: n.color + "55" }}>
-                    <span className="lp-node__dot" style={{ background: n.color }} />
-                    <span className="lp-node__name">{n.emoji} {n.label}</span>
-                  </div>
+                  { id: "flow0", delay: "0s" },
+                  { id: "flow1", delay: "0.4s" },
+                  { id: "flow2", delay: "0.8s" },
+                  { id: "flow3", delay: "1.2s" },
+                  { id: "flow4", delay: "1.6s" },
+                  { id: "flow-out0", delay: "0s" },
+                  { id: "flow-out1", delay: "0.5s" },
+                  { id: "flow-out2", delay: "1.0s" },
+                  { id: "flow-out3", delay: "1.5s" },
+                ].map(({ id, delay }) => (
+                  <style key={id}>{`
+                    .${id} { stroke-dasharray: 6 12; stroke-dashoffset: 0; animation: dash-flow 1.8s linear infinite; animation-delay: ${delay}; }
+                  `}</style>
                 ))}
-              </div>
+                <style>{`
+                  @keyframes dash-flow { to { stroke-dashoffset: -54; } }
+                  .lp-agent-glow { animation: agent-pulse 2s ease-in-out infinite; }
+                  @keyframes agent-pulse { 0%,100%{opacity:0.15} 50%{opacity:0.35} }
+                `}</style>
+              </defs>
 
-              <div className="lp-flow-arrow">
-                <svg width="12" height="32" viewBox="0 0 12 32" fill="none"><path d="M6 0v26M1 20l5 6 5-6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-              </div>
+              {/* ── 输入节点 (5个) ── */}
+              {[
+                { x: 20,  label: "📝 文本",  color: "#3b82f6" },
+                { x: 100, label: "🔗 链接",  color: "#10b981" },
+                { x: 180, label: "🧠 记忆",  color: "#8b5cf6" },
+                { x: 260, label: "📁 文件",  color: "#ec4899" },
+                { x: 340, label: "📡 信息流", color: "#f59e0b" },
+              ].map(({ x, label, color }, i) => (
+                <g key={label}>
+                  {/* 节点框 */}
+                  <rect x={x} y={18} width={88} height={34} rx={6}
+                    fill="rgba(255,255,255,0.06)" stroke={color + "66"} strokeWidth={1} />
+                  {/* 彩色圆点 */}
+                  <circle cx={x + 14} cy={35} r={4} fill={color} />
+                  {/* 文字 */}
+                  <text x={x + 24} y={39} fontSize={10.5} fontWeight={600} fill="rgba(255,255,255,0.85)">{label}</text>
+                  {/* 连线到 agent（贝塞尔曲线） */}
+                  <path
+                    d={`M${x + 44},52 C${x + 44},90 230,100 230,118`}
+                    fill="none" stroke={color + "55"} strokeWidth={1.2}
+                  />
+                  {/* 流动粒子线 */}
+                  <path
+                    className={`flow${i}`}
+                    d={`M${x + 44},52 C${x + 44},90 230,100 230,118`}
+                    fill="none" stroke={color} strokeWidth={1.5} opacity={0.7}
+                  />
+                </g>
+              ))}
 
-              {/* Agent 节点 */}
-              <div className="lp-node lp-node--agent lp-node--center">
-                <div className="lp-node__head">
-                  <span className="lp-node__dot lp-node__dot--pulse" style={{ background: "var(--lp-accent)" }} />
-                  <span className="lp-node__name">✦ AI Agent</span>
-                  <span className="lp-node__running">运行中…</span>
-                </div>
-                <div className="lp-node__sub">矩阵模式 · 3 个账号人设</div>
-              </div>
+              {/* ── Agent 节点 ── */}
+              {/* 光晕 */}
+              <ellipse cx={230} cy={148} rx={100} ry={22} fill="rgba(245,158,11,0.08)" className="lp-agent-glow" />
+              <rect x={98} y={118} width={264} height={48} rx={8}
+                fill="rgba(255,255,255,0.07)" stroke="rgba(245,158,11,0.4)" strokeWidth={1} />
+              <circle cx={118} cy={142} r={5} fill="#f59e0b">
+                <animate attributeName="opacity" values="1;0.3;1" dur="1.4s" repeatCount="indefinite" />
+              </circle>
+              <text x={130} y={147} fontSize={12} fontWeight={700} fill="rgba(255,255,255,0.9)">✦ 智能体</text>
+              <text x={290} y={147} fontSize={10} fill="#34d399">
+                运行中…
+                <animate attributeName="opacity" values="1;0.3;1" dur="1.4s" repeatCount="indefinite" />
+              </text>
 
-              <div className="lp-flow-arrow">
-                <svg width="12" height="32" viewBox="0 0 12 32" fill="none"><path d="M6 0v26M1 20l5 6 5-6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-              </div>
+              {/* ── Agent → 输出连线 ── */}
+              {[
+                { ox: 38,  oy: 238, color: "#07c160" },
+                { ox: 148, oy: 238, color: "#f43f5e" },
+                { ox: 258, oy: 238, color: "#0084ff" },
+                { ox: 368, oy: 238, color: "#f59e0b" },
+              ].map(({ ox, oy, color }, i) => (
+                <g key={i}>
+                  <path
+                    d={`M230,166 C230,200 ${ox + 55},210 ${ox + 55},${oy}`}
+                    fill="none" stroke={color + "44"} strokeWidth={1.2}
+                  />
+                  <path
+                    className={`flow-out${i}`}
+                    d={`M230,166 C230,200 ${ox + 55},210 ${ox + 55},${oy}`}
+                    fill="none" stroke={color} strokeWidth={1.5} opacity={0.7}
+                  />
+                </g>
+              ))}
 
-              {/* 输出层 */}
-              <div className="lp-flow-row lp-flow-row--outputs">
-                {[
-                  { color: "#07c160", label: "公众号", fmt: "长文" },
-                  { color: "#f43f5e", label: "小红书", fmt: "图文" },
-                  { color: "#0084ff", label: "知乎", fmt: "长文" },
-                  { color: "#f59e0b", label: "视频脚本", fmt: "视频" },
-                ].map((o) => (
-                  <div className="lp-node lp-node--output" key={o.label}>
-                    <span className="lp-node__dot" style={{ background: o.color }} />
-                    <span className="lp-node__name">{o.label}</span>
-                    <span className="lp-node__check">✓</span>
-                  </div>
-                ))}
-              </div>
-            </div>
+              {/* ── 输出节点 (4个) ── */}
+              {[
+                { x: 38,  label: "公众号",  color: "#07c160" },
+                { x: 148, label: "小红书",  color: "#f43f5e" },
+                { x: 258, label: "知乎",    color: "#0084ff" },
+                { x: 368, label: "视频脚本", color: "#f59e0b" },
+              ].map(({ x, label, color }) => (
+                <g key={label}>
+                  <rect x={x} y={238} width={100} height={34} rx={6}
+                    fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.12)" strokeWidth={1} />
+                  <circle cx={x + 14} cy={255} r={4} fill={color} />
+                  <text x={x + 24} y={259} fontSize={11} fontWeight={600} fill="rgba(255,255,255,0.85)">{label}</text>
+                  <text x={x + 82} y={259} fontSize={11} fontWeight={700} fill="#34d399">✓</text>
+                </g>
+              ))}
+            </svg>
           </div>
         </div>
       </section>
@@ -233,9 +288,9 @@ export function Landing() {
                 <span className="lp-eyebrow">市面上大多数AI创作软件</span>
               </div>
               {[
-                { no: "01", title: "碎片化、孤立", desc: "每次开新对话，背景和风格都要从头解释，AI 没有记忆。" },
-                { no: "02", title: "手动改写适配", desc: "写完公众号，还要单独开一个对话，为小红书、知乎各自改写一遍。" },
-                { no: "03", title: "需要你盯着", desc: "AI 不会主动执行任何事，全靠你手动触发，停更就断更。" },
+                { no: "01", title: "", desc: "每次开新对话，背景和风格都要从头解释，AI 没有记忆。" },
+                { no: "02", title: "适配不同平台成本高", desc: "写完公众号，还要单独开一个对话，为小红书、知乎各自改写一遍。" },
+                { no: "03", title: "", desc: "AI 不会主动执行任何事，全靠你手动触发，停更就断更。" },
                 { no: "04", title: "多账号=重复劳动", desc: "每个账号都要单独操作，10 个账号就是 10 倍工时。" },
               ].map((r) => (
                 <div className="lp-comparison__item" key={r.no}>
@@ -256,13 +311,13 @@ export function Landing() {
             {/* 右列：ThinkFlow */}
             <div className="lp-comparison__col lp-comparison__col--after">
               <div className="lp-comparison__col-head">
-                <span className="lp-eyebrow lp-eyebrow--accent">ThinkFlow</span>
+                <span className="lp-eyebrow lp-eyebrow--accent">ThinkFlow 思流</span>
               </div>
               {[
-                { no: "01", title: "编排化记忆", desc: "把风格、人设、素材存进记忆库，每次运行自动带上，一次配置，永久生效。" },
-                { no: "02", title: "一键全平台出稿", desc: "节点连好后，点运行，公众号、小红书、知乎各自收到符合平台调性的版本。" },
-                { no: "03", title: "定时自动跑", desc: "接上信息源，设好时间，每天 AI 自动抓取、生成、存档，你可以去做别的事。" },
-                { no: "04", title: "矩阵模式批量生产", desc: "一次配置多个人设，矩阵运行一键打包，10 个账号的内容同时出。" },
+                { no: "01", title: "让记忆作为输入的一部分", desc: "把创作风格、人设、素材存进记忆库，每次运行时作为输入，让智能体更清楚你的背景，创作更适合你的内容。" },
+                { no: "02", title: "一键全平台出稿", desc: "节点连好后，点运行，公众号、小红书、知乎各自创作出符合平台调性的内容形式。" },
+                { no: "03", title: "定时模式", desc: "接上信息源，设好时间，每天 AI 自动抓取热点内容、生成素材，让你不错过内容创作热点。" },
+                { no: "04", title: "矩阵模式，助力多账号（矩阵）运营", desc: "一次配置多个人设，矩阵运行一键生成多个账号的内容矩阵。" },
               ].map((r) => (
                 <div className="lp-comparison__item lp-comparison__item--after" key={r.no}>
                   <span className="lp-comparison__no lp-comparison__no--accent">{r.no}</span>
@@ -675,38 +730,14 @@ const STYLES = `
   font-family: "JetBrains Mono", monospace;
 }
 .lp-canvas-preview__body {
-  padding: 24px 20px; display: flex; flex-direction: column; align-items: center; gap: 12px;
+  padding: 0;
   background: rgba(0,0,0,0.2);
 }
-.lp-flow-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
-.lp-flow-row--inputs { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; width: 100%; }
-.lp-flow-row--outputs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; }
-.lp-node--compact { flex-direction: row; align-items: center; padding: 7px 12px; }
-.lp-node--compact .lp-node__dot { margin-right: 6px; flex-shrink: 0; }
-.lp-flow-arrow { color: rgba(255,255,255,0.25); display: flex; align-items: center; justify-content: center; }
-.lp-node {
-  background: rgba(255,255,255,0.07);
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 6px; padding: 10px 14px;
+.lp-flow-svg {
+  width: 100%; display: block;
+  background: rgba(0,0,0,0.15);
+  font-family: -apple-system, "SF Pro Display", sans-serif;
 }
-.lp-node--center { width: 100%; max-width: 280px; }
-.lp-node--output {
-  display: flex; align-items: center; gap: 6px;
-  padding: 8px 12px;
-}
-.lp-node__head { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; }
-.lp-node__dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-.lp-node__dot--pulse { animation: lp-blink 1.4s ease-in-out infinite; }
-@keyframes lp-blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
-.lp-node__name { font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.85); }
-.lp-node__sub { font-size: 10.5px; color: rgba(255,255,255,0.45); }
-.lp-node__running { margin-left: auto; font-size: 10px; color: #34d399; animation: lp-blink 1.4s ease-in-out infinite; }
-.lp-node__fmt {
-  margin-left: auto; font-size: 9px; font-family: monospace;
-  background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
-  border-radius: 3px; padding: 1px 5px; color: rgba(255,255,255,0.5);
-}
-.lp-node__check { margin-left: auto; font-size: 11px; color: #34d399; font-weight: 700; }
 
 @media (max-width: 900px) {
   .lp-hero { grid-template-columns: 1fr; }
