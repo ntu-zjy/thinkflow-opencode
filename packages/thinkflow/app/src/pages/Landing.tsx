@@ -207,38 +207,38 @@ export function Landing() {
                 <animate attributeName="opacity" values="1;0.3;1" dur="1.4s" repeatCount="indefinite" />
               </text>
 
-              {/* ── Agent → 输出连线 ── */}
+              {/* ── Agent → 输出连线 (4个节点 w=80, x: 20,140,260,380) ── */}
               {[
-                { ox: 19,  color: "#07c160" },
-                { ox: 133, color: "#f43f5e" },
-                { ox: 247, color: "#0084ff" },
-                { ox: 361, color: "#f59e0b" },
+                { ox: 20,  color: "#07c160" },
+                { ox: 140, color: "#f43f5e" },
+                { ox: 260, color: "#0084ff" },
+                { ox: 380, color: "#f59e0b" },
               ].map(({ ox, color }, i) => (
                 <g key={i}>
                   <path
-                    d={`M240,138 C240,168 ${ox + 50},178 ${ox + 50},204`}
+                    d={`M240,138 C240,168 ${ox + 40},178 ${ox + 40},204`}
                     fill="none" stroke={color + "44"} strokeWidth={1.2}
                   />
                   <path
                     className={`flow-out${i}`}
-                    d={`M240,138 C240,168 ${ox + 50},178 ${ox + 50},204`}
+                    d={`M240,138 C240,168 ${ox + 40},178 ${ox + 40},204`}
                     fill="none" stroke={color} strokeWidth={1.5} opacity={0.7}
                   />
                 </g>
               ))}
 
-              {/* ── 输出节点 (4个) h=28 ── */}
+              {/* ── 输出节点 (4个) w=80 h=28，间距40，两端留20 ── */}
               {[
-                { x: 19,  label: "公众号",  color: "#07c160" },
-                { x: 133, label: "小红书",  color: "#f43f5e" },
-                { x: 247, label: "知乎",    color: "#0084ff" },
-                { x: 361, label: "视频脚本", color: "#f59e0b" },
+                { x: 20,  label: "公众号",  color: "#07c160" },
+                { x: 140, label: "小红书",  color: "#f43f5e" },
+                { x: 260, label: "知乎",    color: "#0084ff" },
+                { x: 380, label: "视频脚本", color: "#f59e0b" },
               ].map(({ x, label, color }) => (
                 <g key={label}>
-                  <rect x={x} y={204} width={100} height={28} rx={5}
+                  <rect x={x} y={204} width={80} height={28} rx={5}
                     fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.12)" strokeWidth={1} />
-                  <text x={x + 38} y={222} fontSize={11} fontWeight={600} fill="rgba(255,255,255,0.85)">{label}</text>
-                  <text x={x + 84} y={222} fontSize={11} fontWeight={700} fill="#34d399">✓</text>
+                  <text x={x + 28} y={222} fontSize={11} fontWeight={600} fill="rgba(255,255,255,0.85)">{label}</text>
+                  <text x={x + 64} y={222} fontSize={11} fontWeight={700} fill="#34d399">✓</text>
                 </g>
               ))}
             </svg>
