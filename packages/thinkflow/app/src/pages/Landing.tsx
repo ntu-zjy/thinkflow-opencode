@@ -75,7 +75,7 @@ export function Landing() {
         </div>
 
         <div className="lp-nav__center">
-          <a href="#how" className="lp-nav__link">工作流</a>
+          <a href="#how" className="lp-nav__link">竞品对比</a>
           <a href="#features" className="lp-nav__link">核心功能</a>
           <a href="#usecases" className="lp-nav__link">使用场景</a>
         </div>
@@ -108,7 +108,6 @@ export function Landing() {
       {/* ══ Hero ════════════════════════════════════════════════════════════════ */}
       <section className="lp-hero" ref={heroTitle.ref as React.RefObject<HTMLElement>}>
         <div className="lp-hero__left">
-          <div className="lp-eyebrow lp-hero__eyebrow">创意流转 / 2026</div>
           <h1 className={`lp-hero__title${heroTitle.visible ? " lp-reveal-visible" : ""}`}>
             <span className="lp-reveal-line">让思维流动，</span>
             <span className="lp-reveal-line lp-hero__accent">
@@ -120,25 +119,24 @@ export function Landing() {
           </p>
           <div className="lp-hero__stats">
             <div className="lp-hero__stat">
-              <span className="lp-hero__stat-num">5 种</span>
+              <span className="lp-hero__stat-num">5+ 种</span>
               <span className="lp-hero__stat-label">输入类型</span>
             </div>
             <div className="lp-hero__stat-divider" />
             <div className="lp-hero__stat">
-              <span className="lp-hero__stat-num">6 种</span>
-              <span className="lp-hero__stat-label">输出平台</span>
+              <span className="lp-hero__stat-num">6+ 种</span>
+              <span className="lp-hero__stat-label">输出格式</span>
             </div>
             <div className="lp-hero__stat-divider" />
             <div className="lp-hero__stat">
               <span className="lp-hero__stat-num">24/7</span>
-              <span className="lp-hero__stat-label">定时自动跑</span>
+              <span className="lp-hero__stat-label">定时任务</span>
             </div>
           </div>
           <div className="lp-hero__actions">
-            <a href="/app" className="lp-btn-primary">免费开始用</a>
+            <a href="/app" className="lp-btn-primary">试一试？</a>
             <a href="#how" className="lp-btn-ghost">看看怎么用 ↓</a>
           </div>
-          <p className="lp-hero__micro">无需注册 · 数据只存本地 · 永久免费</p>
         </div>
 
         <div className="lp-hero__right">
@@ -210,10 +208,10 @@ export function Landing() {
       <div className="lp-strip">
         <div className="lp-strip__track">
           {[
-            "📝 文本输入", "🔗 链接输入", "📁 文件上传", "🧠 记忆库", "📡 信息流",
-            "→", "公众号长文", "小红书图文", "知乎文章", "日记", "笔记", "短视频脚本",
-            "📝 文本输入", "🔗 链接输入", "📁 文件上传", "🧠 记忆库", "📡 信息流",
-            "→", "公众号长文", "小红书图文", "知乎文章", "日记", "笔记", "短视频脚本",
+            "文本输入", "网页链接输入", "文件输入", "记忆", "信息流",
+            "公众号长文", "小红书图文", "知乎文章", "日记", "笔记", "视频",
+            "文本输入", "网页链接输入", "文件输入", "记忆", "信息流",
+            "公众号长文", "小红书图文", "知乎文章", "日记", "笔记", "视频",
           ].map((t, i) => (
             <span key={i} className={`lp-strip__item${t === "→" ? " lp-strip__arrow" : ""}`}>{t}</span>
           ))}
@@ -227,14 +225,14 @@ export function Landing() {
           <h2 className={`lp-section-title lp-reveal${painTitle.visible ? " lp-reveal-visible" : ""}`}
             ref={painTitle.ref as React.RefObject<HTMLHeadingElement>}>
             <span className="lp-reveal-line">用 AI 写内容，</span>
-            <span className="lp-reveal-line">每次都要重头解释一遍</span>
+            <span className="lp-reveal-line">每次都要描述一遍背景</span>
           </h2>
 
           <div className="lp-comparison__grid">
             {/* 左列：旧方式 */}
             <div className="lp-comparison__col lp-comparison__col--before">
               <div className="lp-comparison__col-head">
-                <span className="lp-eyebrow" style={{ opacity: 0.35 }}>传统 AI 对话</span>
+                <span className="lp-eyebrow">市面上大多数AI创作软件</span>
               </div>
               {[
                 { no: "01", title: "碎片化、孤立", desc: "每次开新对话，背景和风格都要从头解释，AI 没有记忆。" },
@@ -260,7 +258,7 @@ export function Landing() {
             {/* 右列：ThinkFlow */}
             <div className="lp-comparison__col lp-comparison__col--after">
               <div className="lp-comparison__col-head">
-                <span className="lp-eyebrow lp-eyebrow--accent">ThinkFlow 标准</span>
+                <span className="lp-eyebrow lp-eyebrow--accent">ThinkFlow</span>
               </div>
               {[
                 { no: "01", title: "编排化记忆", desc: "把风格、人设、素材存进记忆库，每次运行自动带上，一次配置，永久生效。" },
@@ -339,12 +337,10 @@ export function Landing() {
         <div className="lp-cta__inner" ref={refCta}>
           <div className="lp-eyebrow lp-eyebrow--center lp-eyebrow--inv">立即体验</div>
           <h2 className="lp-cta__title">
-            加入您的<br />
-            <span className="lp-cta__title-bold">创作宣言.</span>
+            创造属于您的<br />
+            <span className="lp-cta__title-bold">智能体 MCN 团队.</span>
           </h2>
-          <p className="lp-cta__desc">五分钟搭好你的第一个工作流，不用安装，不用注册，打开浏览器就能用。</p>
-          <a href="/app" className="lp-btn-primary lp-btn-primary--inv">搭我的第一个工作流 →</a>
-          <p className="lp-cta__micro">永久免费 · 数据只存本地 · 随时导出</p>
+          <a href="/app" className="lp-btn-primary lp-btn-primary--inv">搭建第一个工作流 →</a>
         </div>
       </section>
 
@@ -400,12 +396,12 @@ function IcoRss() { return <svg width="20" height="20" viewBox="0 0 24 24" fill=
 
 // ── 数据 ─────────────────────────────────────────────────────────────────────
 const FEATURES: { icon: React.ReactNode; title: string; body: string; hook: string }[] = [
-  { icon: <IcoZap />, title: "一次运行，多平台同时出稿", body: "不需要写完公众号再开新对话改小红书。连好节点，点运行，公众号、小红书、知乎各自拿到符合平台风格的版本。", hook: "一篇变三篇，省 2 小时" },
-  { icon: <IcoBookmark />, title: "你说过的话，AI 不会忘", body: "把写作风格、常用素材、账号定位存进记忆库，以后每次运行都会自动带上，不用每次都重新解释「我是做什么的」。", hook: "背景说一次，永久生效" },
-  { icon: <IcoClock />, title: "定个时间，不用你盯着", body: "接上 RSS 或信息源，设好定时，每天早上 9 点 AI 自动抓取内容、自动生成日报。你睡着，它在干活。", hook: "配置一次，天天自动跑" },
-  { icon: <IcoGrid />, title: "10 个账号，1 个人也能撑", body: "把每个账号的人设存进去，点「矩阵运行」，AI 给每个账号写出各自不同风格的内容，一次打包下载。", hook: "1 小时搞定 10 个账号" },
-  { icon: <IcoVideo />, title: "输入文稿，直接出带配音视频", body: "不用学剪辑，不用录音。AI 帮你分镜、写旁白、配音，渲染成竖版 MP4，下载就能发。", hook: "文字直接变短视频" },
-  { icon: <IcoTrend />, title: "用得越久，越顺手", body: "每次创作自动存入作品库，素材和偏好慢慢积累，AI 对你的了解越来越深，输出越来越稳。", hook: "越用越贴合你的风格" },
+  { icon: <IcoZap />, title: "一个灵感，多平台创作", body: "不需要写完公众号再开新对话改小红书。连好节点，点运行，公众号、小红书、知乎各自拿到符合平台风格的版本。", hook: "一篇变三篇，省 2 小时" },
+  { icon: <IcoBookmark />, title: "记忆，让你不用重复说过的话", body: "把写作风格、常用素材、账号定位存进记忆库，以后每次运行都会自动带上，不用每次都重新解释「我是做什么的」。", hook: "背景说一次，永久生效" },
+  { icon: <IcoClock />, title: "定时任务，自动获取热点信息和素材", body: "接上 RSS 或信息源，设好定时，每天早上 9 点 AI 自动抓取内容、自动生成日报。你睡着，它在干活。", hook: "配置一次，天天自动跑" },
+  { icon: <IcoGrid />, title: "矩阵模式，一个人轻松运营10+账号", body: "把每个账号的人设存进去，点「矩阵运行」，AI 给每个账号写出各自不同风格的内容，一次打包下载。", hook: "1 小时搞定 10 个账号" },
+  { icon: <IcoVideo />, title: "输入灵感，AI直接制作带配音视频", body: "不用学剪辑，不用录音。AI 帮你分镜、写旁白、配音，渲染成竖版 MP4，下载就能发。", hook: "文字直接变短视频" },
+  { icon: <IcoTrend />, title: "自动进化，用得越久，越顺手", body: "每次创作自动存入作品库，素材和偏好慢慢积累，AI 对你的了解越来越深，输出越来越稳。", hook: "越用越贴合你的风格" },
 ]
 
 const USECASES: { icon: React.ReactNode; role: string; desc: string; result: string }[] = [
