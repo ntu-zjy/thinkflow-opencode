@@ -27,9 +27,9 @@ export function Toolbar({ theme, onToggleTheme, onRestartTour }: ToolbarProps) {
 
   return (
     <div className="tf-toolbar">
-      <div className="tf-toolbar__logo">
+      <a className="tf-toolbar__logo" href="/" style={{ textDecoration: "none", cursor: "pointer" }}>
         ThinkFlow<span className="tf-toolbar__logo-cn"> · 思流</span>
-      </div>
+      </a>
 
       <div className="tf-toolbar__spacer" />
 
