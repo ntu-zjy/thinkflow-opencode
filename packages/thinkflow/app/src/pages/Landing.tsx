@@ -115,7 +115,7 @@ export function Landing() {
             </span>
           </h1>
           <p className="lp-hero__desc">
-            
+            你只需要一点灵感。像水流一样，智能体会把它引向每一个平台，以每个平台最喜欢的方式，安静地抵达读者。
           </p>
           <div className="lp-hero__stats">
             <div className="lp-hero__stat">
@@ -276,9 +276,9 @@ export function Landing() {
                 <span className="lp-eyebrow">市面上大多数AI创作软件</span>
               </div>
               {[
-                { no: "01", title: "", desc: "每次开新对话，背景和风格都要从头解释，AI 没有记忆。" },
+                { no: "01", title: "每次对话都要从头解释", desc: "每次开新对话，背景和风格都要从头解释，AI 没有记忆。" },
                 { no: "02", title: "适配不同平台成本高", desc: "写完公众号，还要单独开一个对话，为小红书、知乎各自改写一遍。" },
-                { no: "03", title: "", desc: "AI 不会主动执行任何事，全靠你手动触发，停更就断更。" },
+                { no: "03", title: "停更就断更", desc: "AI 不会主动执行任何事，全靠你手动触发，停更就断更。" },
                 { no: "04", title: "多账号=重复劳动", desc: "每个账号都要单独操作，10 个账号就是 10 倍工时。" },
               ].map((r) => (
                 <div className="lp-comparison__item" key={r.no}>
