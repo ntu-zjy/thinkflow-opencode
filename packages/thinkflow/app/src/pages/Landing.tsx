@@ -71,11 +71,7 @@ export function Landing() {
       {/* ══ Navbar ══════════════════════════════════════════════════════════════ */}
       <nav className="lp-nav">
         <div className="lp-nav__logo">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
-          </svg>
-          <span className="lp-nav__name">THINKFLOW.AI</span>
-          <span className="lp-nav__beta">BETA</span>
+          ThinkFlow<span className="lp-nav__logo-cn"> · 思流</span>
         </div>
 
         <div className="lp-nav__center">
@@ -475,16 +471,16 @@ const STYLES = `
   gap: 40px;
 }
 .lp-nav__logo {
-  display: flex; align-items: center; gap: 8px;
-  font-size: 13px; font-weight: 800; letter-spacing: 0.15em; text-transform: uppercase;
+  display: flex; align-items: center;
+  font-size: 17px; font-weight: 800; letter-spacing: -0.03em;
   color: var(--lp-text); text-decoration: none; flex-shrink: 0;
 }
-.lp-nav__beta {
-  font-size: 9px; font-weight: 700; letter-spacing: 0.2em;
-  padding: 2px 6px;
-  border: 1px solid var(--lp-hairline);
-  color: var(--lp-muted);
-  border-radius: 3px;
+.lp-nav__logo-cn {
+  font-weight: 400;
+  color: #b47828;
+}
+[data-theme="dark"] .lp-nav__logo-cn {
+  color: rgba(245, 158, 11, 0.6);
 }
 .lp-nav__center {
   display: flex; align-items: center; gap: 32px;
