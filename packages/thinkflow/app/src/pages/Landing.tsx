@@ -185,10 +185,8 @@ export function Landing() {
                   {/* 节点框 */}
                   <rect x={x} y={14} width={88} height={34} rx={6}
                     fill="rgba(255,255,255,0.06)" stroke={color + "66"} strokeWidth={1} />
-                  {/* 彩色圆点 */}
-                  <circle cx={x + 14} cy={31} r={4} fill={color} />
-                  {/* 文字 */}
-                  <text x={x + 24} y={35} fontSize={10.5} fontWeight={600} fill="rgba(255,255,255,0.85)">{label}</text>
+                  {/* 文字居中 */}
+                  <text x={x + 44} y={35} fontSize={10.5} fontWeight={600} fill="rgba(255,255,255,0.85)" textAnchor="middle">{label}</text>
                   {/* 连线到 agent（贝塞尔曲线） */}
                   <path
                     d={`M${x + 44},48 C${x + 44},85 240,95 240,112`}
@@ -247,9 +245,8 @@ export function Landing() {
                 <g key={label}>
                   <rect x={x} y={228} width={100} height={34} rx={6}
                     fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.12)" strokeWidth={1} />
-                  <circle cx={x + 14} cy={245} r={4} fill={color} />
-                  <text x={x + 24} y={249} fontSize={11} fontWeight={600} fill="rgba(255,255,255,0.85)">{label}</text>
-                  <text x={x + 82} y={249} fontSize={11} fontWeight={700} fill="#34d399">✓</text>
+                  <text x={x + 40} y={249} fontSize={11} fontWeight={600} fill="rgba(255,255,255,0.85)">{label}</text>
+                  <text x={x + 84} y={249} fontSize={11} fontWeight={700} fill="#34d399">✓</text>
                 </g>
               ))}
             </svg>
