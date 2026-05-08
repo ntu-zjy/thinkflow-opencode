@@ -20,14 +20,28 @@ export function XhsPreview({ content, images, contentType, showPreview }: Previe
       {/* 图片区（如有） */}
       {hasImage && (
         <div className="tf-xhs-card__images">
-          {images!.map((img) => (
+          {images!.length === 1 ? (
             <img
-              key={img.id}
-              src={img.url}
-              alt={img.title ?? "小红书图片"}
-              style={{ width: "100%", borderRadius: "var(--radius-sm)", display: "block", marginBottom: "var(--space-2)" }}
+              src={images![0].url}
+              alt={images![0].title ?? "小红书封面"}
+              style={{ width: "100%", borderRadius: "var(--radius-sm)", display: "block" }}
             />
-          ))}
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "var(--space-1)" }}>
+              {images!.map((img, idx) => (
+                <div key={img.id} style={{ position: "relative", paddingBottom: "133%", overflow: "hidden", borderRadius: "var(--radius-sm)", background: "var(--bg-surface-2)" }}>
+                  <img
+                    src={img.url}
+                    alt={img.title ?? `图${idx + 1}`}
+                    style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", objectFit: "cover" }}
+                  />
+                  {idx === 0 && (
+                    <span style={{ position: "absolute", top: 4, left: 4, background: "rgba(0,0,0,0.5)", color: "#fff", fontSize: 9, padding: "1px 5px", borderRadius: 4 }}>封面</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

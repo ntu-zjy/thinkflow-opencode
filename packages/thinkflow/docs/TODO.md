@@ -141,6 +141,10 @@
   新增 `src/pages/Landing.tsx`；App.tsx 路由判断：`/` 显示 Landing，`/app` 进入主应用；Landing 包含 Navbar、Hero（带画布预览）、核心差异对比、功能特性、使用场景、CTA、Footer（含免责声明）。
 - [x] 安全和免责声明
   Landing 页 Footer 底部独立「安全说明与免责声明」区块，涵盖 AI 内容说明、数据本地存储、API 密钥安全、内容责任、适用法律五条。
+- [x] 我觉得目前的每个创作平台的提示词还是有挺大的问题，就是都太简化了。举例来说，小红书图文这个场景，我之前写过一个open code的插件，在/Users/zhangjingyuan/Downloads/thinkflow/thinkflow-plugin，你可以参考这个的提示词，不是说一定要多个agent，只是你需要把每个场景的提示词都细化到这个程度。所有的场景都需要细化。
+  参考 thinkflow-plugin/subagents/writer.md 标准，重写所有平台提示词：小红书（标题三方案+口语化正文规范+标签配比+多图格式）、公众号（结构化文章+排版规范+图文封面格式）、知乎（论点驱动+辩证结构+洞察力规范）、日记（第一人称口语+情绪细节+碎片化）、笔记（摘要+分节+关键结论结构）。
+- [x] 目前图文模式只支持单图，图文模式一般是3-5张图甚至更多。
+  canvasStore 图文两步法扩展为多图串行生成：匹配 [IMG_PROMPT_COVER:] + [IMG_PROMPT_1:] 到 [IMG_PROMPT_5:] 全部标记，逐张调用 generateImage 并即时更新节点；XhsPreview 多图改为 3 列网格（封面标签）；OutputNode 下载逻辑改为多图 ZIP（text + 每张图单独文件）。
 
 ### 🟢 锦上添花
 - [ ] **Desktop（Tauri）验证**（已在本地验证 arm64，CI 构建待跑）
