@@ -43,7 +43,7 @@ export interface PromptPart {
 export async function sendPrompt(
   sessionId: string,
   parts: PromptPart[],
-  model: string = "moonshotai/kimi-k2.6",
+  model: string = "openai/gpt-5.5",
 ): Promise<void> {
   const providerID = "openrouter"
   const modelID = model
@@ -94,7 +94,7 @@ export function subscribeEvents(
 
 // ─── 图片生成 ─────────────────────────────────────────────────────────────────
 // OpenRouter（chat/completions，图片在 choices[0].message.images[0].image_url.url）
-// 优先级：指定模型 → seedream-4.5（字节跳动，国内可直连）→ SVG 占位图
+// 优先级：gpt-5.4-image-2 → seedream-4.5（字节跳动，国内可直连）
 
 async function generateImageViaOpenRouter(prompt: string, model: string): Promise<string> {
   const resp = await fetch("/api/openrouter/v1/chat/completions", {
@@ -118,11 +118,10 @@ export async function generateImage(
   prompt: string,
   model: string = "openai/gpt-5.4-image-2",
 ): Promise<string> {
-  // 第一优先：OpenRouter 指定模型
   const r1 = await generateImageViaOpenRouter(prompt, model).catch((e: Error) => e)
   if (typeof r1 === "string") return r1
 
-  // 第二优先：OpenRouter seedream-4.5（字节跳动，国内可直连）
+  // fallback：seedream-4.5（字节跳动，国内可直连）
   const r2 = await generateImageViaOpenRouter(prompt, "bytedance-seed/seedream-4.5").catch((e: Error) => e)
   if (typeof r2 === "string") return r2
 

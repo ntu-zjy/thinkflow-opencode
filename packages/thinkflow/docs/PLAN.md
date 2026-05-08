@@ -1379,3 +1379,189 @@ export default defineConfig({
   },
 })
 ```
+
+---
+
+## Phase 26：中国网络适配方案
+
+### 26.1 问题背景
+
+ThinkFlow 网页版当前部署架构全部在境外，中国大陆用户无法正常访问：
+
+| 组件 | 当前部署 | 中国可访问性 |
+|------|---------|------------|
+| 前端 SPA | Vercel（自动分配域名） | ❌ 被 GFW 屏蔽 |
+| `/api/openrouter` 代理 | Vercel Function | ❌ 随前端一起不可达 |
+| OpenCode 服务端 | Railway US West | ⚠️ 直连不稳定 |
+
+### 26.2 目标架构
+
+将所有用户流量统一走 Cloudflare，Cloudflare 在中国有大量边缘节点（PoP），访问成功率显著高于 Vercel/Railway 直连。
+
+```
+中国用户浏览器
+      │
+      ▼
+Cloudflare（边缘节点，中国可访问）
+      │
+      ├── 静态资源 ────────────────→ Cloudflare Pages（dist/）
+      │
+      ├── /api/openrouter/* ───────→ Cloudflare Worker → OpenRouter API
+      │     （注入 OPENROUTER_API_KEY，CORS 处理）
+      │
+      └── /api/opencode/* ─────────→ Cloudflare Worker → Railway US West
+            （反向代理，透传 SSE 长连接）
+```
+
+> 注意：此方案不需要 ICP 备案，无需迁移 Railway 上的 OpenCode 服务端。
+> 若需 100% 国内稳定访问，则必须走国内云（腾讯云/阿里云）+ ICP 备案，成本和流程复杂度大幅上升。
+
+### 26.3 实施步骤
+
+#### 步骤一：前端改为 Cloudflare Pages
+
+1. 在 `app/public/` 新增 `_redirects` 文件（SPA 路由回退）：
+   ```
+   /*  /index.html  200
+   ```
+
+2. 在项目根（或 `app/`）新增 `wrangler.toml`：
+   ```toml
+   name = "thinkflow"
+   pages_build_output_dir = "dist"
+   compatibility_date = "2024-01-01"
+   ```
+
+3. GitHub Actions 中替换 Vercel 部署步骤：
+   ```yaml
+   - name: Deploy to Cloudflare Pages
+     uses: cloudflare/wrangler-action@v3
+     with:
+       apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+       accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+       command: pages deploy dist --project-name=thinkflow --branch=production
+       workingDirectory: packages/thinkflow/app
+   ```
+
+4. 所需 GitHub Secrets：
+   - `CLOUDFLARE_API_TOKEN`（Pages:Edit 权限）
+   - `CLOUDFLARE_ACCOUNT_ID`
+
+#### 步骤二：OpenRouter 代理迁移为 Cloudflare Pages Function
+
+将 `app/api/openrouter/[...path].ts`（Vercel Function 格式）改写为 Cloudflare Pages Function：
+
+新建 `app/functions/api/openrouter/[[path]].ts`：
+```typescript
+export const onRequest: PagesFunction<{ OPENROUTER_API_KEY: string }> = async (ctx) => {
+  if (ctx.request.method === "OPTIONS") {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      },
+    })
+  }
+
+  const url = new URL(ctx.request.url)
+  const path = ctx.params.path as string[]
+  const targetUrl = `https://openrouter.ai/api/${path.join("/")}`
+
+  const headers = new Headers(ctx.request.headers)
+  headers.set("HTTP-Referer", "https://thinkflow.ai")
+  headers.set("X-Title", "ThinkFlow")
+  if (ctx.env.OPENROUTER_API_KEY) {
+    headers.set("Authorization", `Bearer ${ctx.env.OPENROUTER_API_KEY}`)
+  }
+
+  const resp = await fetch(targetUrl, {
+    method: ctx.request.method,
+    headers,
+    body: ctx.request.method !== "GET" ? ctx.request.body : undefined,
+  })
+
+  return new Response(resp.body, {
+    status: resp.status,
+    headers: {
+      "Content-Type": resp.headers.get("content-type") ?? "application/json",
+      "Access-Control-Allow-Origin": "*",
+    },
+  })
+}
+```
+
+在 Cloudflare Pages 后台配置环境变量 `OPENROUTER_API_KEY`。
+
+#### 步骤三：OpenCode 服务端反向代理（含 SSE）
+
+新建 `app/functions/api/opencode/[[path]].ts`：
+```typescript
+// OPENCODE_SERVER_URL 示例：https://thinkflow-opencode-production.up.railway.app
+export const onRequest: PagesFunction<{ OPENCODE_SERVER_URL: string }> = async (ctx) => {
+  const path = (ctx.params.path as string[]).join("/")
+  const targetUrl = `${ctx.env.OPENCODE_SERVER_URL}/${path}${new URL(ctx.request.url).search}`
+
+  const resp = await fetch(targetUrl, {
+    method: ctx.request.method,
+    headers: ctx.request.headers,
+    body: ctx.request.method !== "GET" && ctx.request.method !== "HEAD"
+      ? ctx.request.body
+      : undefined,
+  })
+
+  // SSE 长连接：透传 Content-Type 和流式 body
+  return new Response(resp.body, {
+    status: resp.status,
+    headers: resp.headers,
+  })
+}
+```
+
+在 Cloudflare Pages 后台配置环境变量 `OPENCODE_SERVER_URL`（Railway 服务的内网或公网 URL）。
+
+前端 `opencodeClient.ts` 中，网页版将 `getBaseUrl()` 改为返回 `/api/opencode`（相对路径），由 Cloudflare Worker 透明转发：
+
+```typescript
+export function getBaseUrl(): string {
+  const stored = typeof sessionStorage !== "undefined"
+    ? sessionStorage.getItem("thinkflow_server_url")
+    : null
+  if (stored) return stored  // Tauri 桌面版仍走本地 sidecar
+
+  // 网页版：走 Cloudflare Worker 反向代理（相对路径，无需暴露 Railway URL）
+  if (import.meta.env.VITE_USE_CF_PROXY === "true") return "/api/opencode"
+
+  const buildTimeUrl = import.meta.env.VITE_OPENCODE_SERVER_URL as string | undefined
+  return buildTimeUrl || "http://localhost:4096"
+}
+```
+
+构建时在 CI 中注入 `VITE_USE_CF_PROXY=true`。
+
+### 26.4 关键注意事项
+
+#### SSE 连接
+Cloudflare Workers 支持流式响应透传，但有以下限制：
+- **免费套餐**：单次请求最长 30 秒 CPU 时间（SSE 长连接本身不消耗 CPU，通常没问题）
+- **响应流**：必须透传 `Transfer-Encoding: chunked` 或 `Content-Type: text/event-stream`，上述代码直接透传 `resp.headers` 已覆盖
+
+#### SiliconFlow 图片生成（如有使用）
+若存在 `/api/siliconflow` 代理，同理新建 `app/functions/api/siliconflow/[[path]].ts`，环境变量改为 `SILICONFLOW_API_KEY`。
+
+#### 自定义域名
+绑定自定义域名（如 `app.thinkflow.ai`）后，Cloudflare 自动签发 SSL 证书，中国用户访问体验更好。无自定义域名时默认使用 `*.pages.dev`，该域名在部分地区可能也受限。**强烈建议绑定自有域名。**
+
+#### 备案说明
+此方案**不需要 ICP 备案**，因为服务器不在中国境内。若将来迁移至国内云（腾讯云/阿里云），则必须完成 ICP 备案才能绑定域名对外提供服务。
+
+### 26.5 所需配置汇总
+
+| 位置 | Key | 说明 |
+|------|-----|------|
+| GitHub Secrets | `CLOUDFLARE_API_TOKEN` | 替换 `VERCEL_TOKEN` |
+| GitHub Secrets | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare 账户 ID |
+| Cloudflare Pages 环境变量 | `OPENROUTER_API_KEY` | OpenRouter API 密钥 |
+| Cloudflare Pages 环境变量 | `OPENCODE_SERVER_URL` | Railway OpenCode 服务地址 |
+| Vite 构建环境变量（CI） | `VITE_USE_CF_PROXY=true` | 启用 CF Worker 反向代理 |
