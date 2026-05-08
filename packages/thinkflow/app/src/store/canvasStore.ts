@@ -23,6 +23,7 @@ import type {
   MatrixSlot,
   OutputPlatform,
   ContentFormat,
+  ImageAsset,
 } from "../types"
 import {
   createSession,
@@ -54,8 +55,8 @@ function getPlatformInstruction(platform: string, contentFormat: string, customI
   const isText = contentFormat === "text"
   const isImageText = contentFormat === "image_text"
 
-  // 视频和小红书不追加图文格式说明后缀（已内嵌在指令中）
-  const noSuffix = platform === "video" || platform === "xiaohongshu"
+  // 视频、小红书、公众号不追加图文格式说明后缀（已内嵌在指令中）
+  const noSuffix = platform === "video" || platform === "xiaohongshu" || platform === "wechat"
   const imgFormatNote = noSuffix ? "" : isText
     ? "\n\n请只输出文字内容，不需要配图或图片描述。"
     : isImageText
@@ -769,28 +770,35 @@ export const useCanvasStore = create<CanvasStore>()(
         sendPrompt(sessionId, parts, agentNode.data.model).catch(reject)
       })
 
-      // 图文两步法：解析 [IMG_PROMPT:...] 标记触发生图
+      // 图文两步法：解析 [IMG_PROMPT_*:...] 或旧版 [IMG_PROMPT:...] 标记，串行生成多张图
       // 触发条件：选了"图文"，或选了"自主"且平台为小红书
       const shouldGenerateImage =
         cf === "image_text" ||
         (cf === "auto" && outputNode.data.platform === "xiaohongshu")
       if (shouldGenerateImage && outputBuffer) {
-        const match = outputBuffer.match(/\[IMG_PROMPT:\s*([\s\S]+?)\]/)
-        if (match) {
-          const imagePrompt = match[1].trim()
-          const caption = outputBuffer.replace(/\[IMG_PROMPT:[\s\S]+?\]\n?/, "").trim()
+        // 匹配所有图片标记（新格式多图 + 旧格式单图兼容）
+        const multiMatches = [...outputBuffer.matchAll(/\[IMG_PROMPT(?:_(?:COVER|\d+))?\s*:\s*([\s\S]+?)\]/g)]
+        if (multiMatches.length > 0) {
+          const caption = outputBuffer.replace(/\[IMG_PROMPT(?:_(?:COVER|\d+))?\s*:[\s\S]+?\]\n?/g, "").trim()
           updateWorkflowNodeData<OutputNodeData>(outputNode.id, { content: caption })
-          appendLog(`[小红书] 解析到图片描述，开始生图...`, "info")
-          const imageUrl = await generateImage(imagePrompt).catch((err: Error) => {
-            appendLog(`[小红书] 所有图片生成通道失败: ${(err.message ?? "").slice(0, 60)}，使用占位图`, "info")
-            const label = encodeURIComponent(imagePrompt.slice(0, 40))
-            return `data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300"><rect width="400" height="300" fill="%23ff2b54" opacity="0.1" rx="12"/><text x="50%" y="40%" font-family="sans-serif" font-size="16" fill="%23ff2b54" text-anchor="middle">图片生成失败，使用占位图</text><text x="50%" y="56%" font-family="sans-serif" font-size="12" fill="%23888" text-anchor="middle">${label}</text></svg>`
-          })
-          updateWorkflowNodeData<OutputNodeData>(outputNode.id, {
-            images: [{ id: nanoid(), url: imageUrl, generatedAt: Date.now() }],
-            contentType: "image",
-          })
-          appendLog(`[小红书] 图片生成完成`, "info")
+          appendLog(`[图文] 解析到 ${multiMatches.length} 张图片描述，开始依次生图...`, "info")
+          const generatedImages: ImageAsset[] = []
+          for (let imgIdx = 0; imgIdx < multiMatches.length; imgIdx++) {
+            const imagePrompt = multiMatches[imgIdx][1].trim()
+            appendLog(`[图文] 生成第 ${imgIdx + 1}/${multiMatches.length} 张...`, "info")
+            const imageUrl = await generateImage(imagePrompt).catch((err: Error) => {
+              appendLog(`[图文] 第 ${imgIdx + 1} 张生成失败: ${(err.message ?? "").slice(0, 60)}，使用占位图`, "info")
+              const label = encodeURIComponent(imagePrompt.slice(0, 40))
+              return `data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300"><rect width="400" height="300" fill="%23ff2b54" opacity="0.1" rx="12"/><text x="50%" y="40%" font-family="sans-serif" font-size="16" fill="%23ff2b54" text-anchor="middle">图片生成失败，使用占位图</text><text x="50%" y="56%" font-family="sans-serif" font-size="12" fill="%23888" text-anchor="middle">${label}</text></svg>`
+            })
+            generatedImages.push({ id: nanoid(), url: imageUrl, generatedAt: Date.now() })
+            // 每张完成后即时更新，让用户看到进度
+            updateWorkflowNodeData<OutputNodeData>(outputNode.id, {
+              images: [...generatedImages],
+              contentType: "image",
+            })
+          }
+          appendLog(`[图文] 全部 ${generatedImages.length} 张图片生成完成`, "info")
         }
       }
     }

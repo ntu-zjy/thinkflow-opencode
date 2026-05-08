@@ -79,11 +79,16 @@ export function OutputNode({ id, data, selected }: NodeProps<OutputNodeType>) {
   const doDownload = useCallback(() => {
     const personaSuffix = activeResult ? `-${activeResult.personaLabel}` : ""
     const date = new Date().toLocaleDateString("zh-CN").replace(/\//g, "-")
-    if (hasImage && displayImages?.[0]) {
-      downloadAsZip(
-        [{ filename: `${card.label}${personaSuffix}-${date}.txt`, content: displayContent ?? "", imageBase64: displayImages[0].url }],
-        `${card.label}${personaSuffix}-${date}.zip`,
-      )
+    if (hasImage && displayImages && displayImages.length > 0) {
+      const items = [
+        { filename: `${card.label}${personaSuffix}-${date}.txt`, content: displayContent ?? "", imageBase64: undefined as string | undefined },
+        ...displayImages.map((img, idx) => ({
+          filename: `${card.label}${personaSuffix}-图${idx + 1}-${date}.png`,
+          content: "",
+          imageBase64: img.url,
+        })),
+      ]
+      downloadAsZip(items, `${card.label}${personaSuffix}-${date}.zip`)
     } else if (displayContent) {
       downloadSingleText(displayContent, `${card.label}${personaSuffix}-${date}.txt`)
     }
@@ -92,11 +97,16 @@ export function OutputNode({ id, data, selected }: NodeProps<OutputNodeType>) {
   const doDownloadAll = useCallback(() => {
     if (!isMatrix || matrixResults.length === 0) return
     const date = new Date().toLocaleDateString("zh-CN").replace(/\//g, "-")
-    const items = matrixResults.map((r) => ({
-      filename: `${card.label}-${r.personaLabel || `人设${r.slotIndex + 1}`}-${date}.txt`,
-      content: r.content,
-      imageBase64: r.images?.[0]?.url,
-    }))
+    const items: { filename: string; content: string; imageBase64?: string }[] = []
+    matrixResults.forEach((r) => {
+      const label = r.personaLabel || `人设${r.slotIndex + 1}`
+      items.push({ filename: `${card.label}-${label}-${date}.txt`, content: r.content, imageBase64: undefined })
+      if (r.images && r.images.length > 0) {
+        r.images.forEach((img, idx) => {
+          items.push({ filename: `${card.label}-${label}-图${idx + 1}-${date}.png`, content: "", imageBase64: img.url })
+        })
+      }
+    })
     downloadAsZip(items, `${card.label}-矩阵全部-${date}.zip`)
   }, [matrixResults, isMatrix, card.label])
 
