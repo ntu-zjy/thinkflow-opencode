@@ -145,12 +145,16 @@
   参考 thinkflow-plugin/subagents/writer.md 标准，重写所有平台提示词：小红书（标题三方案+口语化正文规范+标签配比+多图格式）、公众号（结构化文章+排版规范+图文封面格式）、知乎（论点驱动+辩证结构+洞察力规范）、日记（第一人称口语+情绪细节+碎片化）、笔记（摘要+分节+关键结论结构）。
 - [x] 目前图文模式只支持单图，图文模式一般是3-5张图甚至更多。
   canvasStore 图文两步法扩展为多图串行生成：匹配 [IMG_PROMPT_COVER:] + [IMG_PROMPT_1:] 到 [IMG_PROMPT_5:] 全部标记，逐张调用 generateImage 并即时更新节点；XhsPreview 多图改为 3 列网格（封面标签）；OutputNode 下载逻辑改为多图 ZIP（text + 每张图单独文件）。
+- [x] 生图模型替换为openai/gpt-5.4-image-2（对应链接为https://openrouter.ai/openai/gpt-5.4-image-2），Agent模型替换为claude sonnet 4.6 medium推理强度模型为anthropic/claude-sonnet-4.6（对应链接https://openrouter.ai/anthropic/claude-sonnet-4.6）
 
 ### 🟢 锦上添花
 - [ ] **Desktop（Tauri）验证**（已在本地验证 arm64，CI 构建待跑）
   本地已成功构建 ThinkFlow.app + dmg；CI 构建需在 GitHub Actions 上运行一次验证。
 
+- [ ] 中国用户无法访问vercel部署的链接，可按照解决方案解决
+
 - [ ] **参考之前写好的thinkflow插件，对不同的输出卡片的提示词进行精心调整，目前每个内容平台对应的提示词还是过于简单了**
+
 - [ ] 输入图片的时候，不需要使用markitdown，直接输入Agent就行
 - [ ] 支持文件夹输入，网页端不支持输入文件夹，桌面端输入文件夹，代表着一个文件夹的地址，输入给Agent
 - [ ] **让记忆机制和画布能够更加无缝的衔接，记忆需要更便捷的被用户添加，能够用Agent的方式，和用户沟通去完善记忆**

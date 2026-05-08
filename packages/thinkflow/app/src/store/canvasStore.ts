@@ -96,7 +96,7 @@ const initialAgent: AgentNodeType = {
   position: { x: -160, y: -160 },
   data: {
     idea: "",
-    model: "moonshotai/kimi-k2.6",
+    model: "openai/gpt-5.5",
     status: "idle",
     logs: [],
     dryRun: false,
@@ -393,7 +393,7 @@ export const useCanvasStore = create<CanvasStore>()(
           position: pos,
           data: {
             idea: "",
-            model: "moonshotai/kimi-k2.6",
+            model: "openai/gpt-5.5",
             status: "idle",
             logs: [],
             dryRun: false,
@@ -755,11 +755,14 @@ export const useCanvasStore = create<CanvasStore>()(
               unsubscribe()
               resolve()
             } else if (payload.type === "session.error" || payload.type === "session.failed") {
-              const props = payload.properties as { sessionID?: string; error?: string; message?: string }
+              const props = payload.properties as { sessionID?: string; error?: unknown; message?: unknown }
               if (props.sessionID && props.sessionID !== sessionId) return
-              appendLog(`[${outputNode.data.platform}] 错误: ${props.error ?? props.message ?? "未知错误"}`, "error")
+              const errStr = typeof props.error === "string" ? props.error
+                : typeof props.message === "string" ? props.message
+                : JSON.stringify(props.error ?? props.message ?? "未知错误")
+              appendLog(`[${outputNode.data.platform}] 错误: ${errStr}`, "error")
               unsubscribe()
-              reject(new Error(props.error ?? props.message ?? "session error"))
+              reject(new Error(errStr))
             }
           },
           () => {
