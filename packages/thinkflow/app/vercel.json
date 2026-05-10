@@ -7,5 +7,10 @@
   ],
   "buildCommand": "bun run build",
   "outputDirectory": "dist",
-  "installCommand": "bun install"
+  "installCommand": "bun install",
+  "functions": {
+    "api/openrouter/[...path].ts": {
+      "runtime": "@vercel/node@5.7.15"
+    }
+  }
 }
