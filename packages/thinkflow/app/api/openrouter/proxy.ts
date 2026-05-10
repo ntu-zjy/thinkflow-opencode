@@ -8,7 +8,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(204).end()
   }
 
-  const path = (req.query.path as string[])?.join("/") ?? ""
+  const raw = req.query.path
+  const path = Array.isArray(raw) ? raw.join("/") : (raw ?? "")
   const targetUrl = `https://openrouter.ai/api/${path}`
 
   const headers: Record<string, string> = {

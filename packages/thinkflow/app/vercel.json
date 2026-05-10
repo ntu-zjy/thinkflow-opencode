@@ -1,15 +1,14 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
-    {
-      "source": "/((?!api/).*)",
-      "destination": "/index.html"
-    }
+    { "source": "/api/openrouter/(.*)", "destination": "/api/openrouter/proxy?path=$1" },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
   "buildCommand": "bun run build",
   "outputDirectory": "dist",
   "installCommand": "bun install",
   "functions": {
-    "api/openrouter/[...path].ts": {
+    "api/openrouter/proxy.ts": {
       "runtime": "@vercel/node@5.7.15"
     }
   }
