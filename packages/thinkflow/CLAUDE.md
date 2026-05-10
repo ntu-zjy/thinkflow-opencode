@@ -73,7 +73,7 @@ packages/thinkflow/
 - **状态管理**：`canvasStore` 用 Zustand persist 持久化，`partialize` 跳过 `status`/`logs`/`sessionId` 等运行时字段
 - **SSE 过滤**：全局事件流需按 `sessionID` 过滤，避免多 session 并发时串台
 - **VITE_OPENCODE_WORKDIR**：vite `define` 注入构建时工作目录路径，避免硬编码绝对路径
-- **模型默认值**：`moonshotai/kimi-k2.6`（via OpenRouter），provider 固定为 `openrouter`
+- **模型默认值**：`anthropic/claude-sonnet-4.6`（via OpenRouter），provider 固定为 `openrouter`
 - **主题**：双主题（`light` / `dark`）通过 `data-theme` 属性 + CSS 变量切换，存 localStorage
 
 ## 交付前必须完成的测试

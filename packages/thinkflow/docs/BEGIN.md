@@ -293,12 +293,9 @@ cp -r /tmp/remotion-skills/skills/remotion ~/.config/opencode/skills/
 - **文件存储**：本地文件系统 + 可选云存储
 
 ## AI 能力
-- **默认模型**：MoonshotAI Kimi K2.6，model ID: `moonshotai/kimi-k2.6`，通过 OpenRouter 接入
-- **图像理解**：kimi-k2 支持多模态
-- **生图模型（优先级链）**：
-  1. `openai/gpt-5.4-image-2`（via OpenRouter，需 VPN，画质最佳）
-  2. `bytedance-seed/seedream-4.5`（via OpenRouter，字节跳动，**国内可直连**，当前默认生效）
-  3. SVG 占位图（以上全部失败时的最终降级）
+- **默认模型**：Anthropic Claude Sonnet 4.6，model ID: `anthropic/claude-sonnet-4.6`，通过 OpenRouter 接入
+- **图像理解**：Claude Sonnet 4.6 支持多模态
+- **生图模型**：固定使用 `openai/gpt-5.4-image-2`（via OpenRouter，`reasoning.effort = "high"`），失败降级为 SVG 占位图
 - **图片生成调用方式**：OpenRouter 走 `/v1/chat/completions`，图片返回在 `choices[0].message.images[0].image_url.url`（base64）
 - **注意**：硅基流动已移除（内测阶段放弃），不再作为兜底选项
 

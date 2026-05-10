@@ -5,7 +5,7 @@ import { useCanvasStore } from "../store/canvasStore"
 // 重置为初始状态
 const RESET_NODES = [
   { id: "input-1", type: "input", position: { x: 100, y: 200 }, data: { inputType: "text", value: "", label: "输入" } },
-  { id: "agent-1", type: "agent", position: { x: 450, y: 200 }, data: { idea: "", model: "moonshotai/kimi-k2.6", status: "idle", logs: [], dryRun: false } },
+  { id: "agent-1", type: "agent", position: { x: 450, y: 200 }, data: { idea: "", model: "anthropic/claude-sonnet-4.6", status: "idle", logs: [], dryRun: false } },
   { id: "output-1", type: "output", position: { x: 800, y: 200 }, data: { platform: "zhihu", content: "", label: "输出" } },
 ] as ReturnType<typeof useCanvasStore.getState>["nodes"]
 
@@ -56,7 +56,7 @@ describe("canvasStore — 节点操作", () => {
     const agentNodes = useCanvasStore.getState().nodes.filter((n) => n.type === "agent")
     expect(agentNodes).toHaveLength(2)
     const newAgent = agentNodes.find((n) => n.id !== "agent-1")
-    expect((newAgent?.data as { model: string }).model).toBe("moonshotai/kimi-k2.6")
+    expect((newAgent?.data as { model: string }).model).toBe("anthropic/claude-sonnet-4.6")
   })
 
   it("addNode 指定位置", () => {

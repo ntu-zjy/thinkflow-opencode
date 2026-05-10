@@ -98,7 +98,7 @@ bun tauri dev
 
 ### 配置 AI 模型
 
-ThinkFlow 默认使用 [Kimi K2.6](https://openrouter.ai/moonshotai/kimi-k2.6)（通过 OpenRouter）。  
+ThinkFlow 默认使用 [Claude Sonnet 4.6](https://openrouter.ai/anthropic/claude-sonnet-4.6)（通过 OpenRouter）。  
 在 OpenCode 配置文件 `~/.config/opencode/opencode.json` 中添加：
 
 ```json

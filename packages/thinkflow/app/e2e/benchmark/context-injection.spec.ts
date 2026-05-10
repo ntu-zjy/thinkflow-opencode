@@ -70,7 +70,7 @@ function makeCanvasState(opts: {
       data: {
         label: "Agent",
         idea: agentIdea,
-        model: "moonshotai/kimi-k2.6",
+        model: "anthropic/claude-sonnet-4.6",
         provider: "openrouter",
         dryRun: true,
         status: "idle",

@@ -274,8 +274,7 @@ cd packages/thinkflow/app && ./node_modules/.bin/playwright test
 | 约束 | 说明 |
 |------|------|
 | 图片生成端点 | OpenRouter 用 `/v1/chat/completions`，图片在 `choices[0].message.images[0].image_url.url` |
-| seedream-4.5 | OpenRouter `bytedance-seed/seedream-4.5` 国内可直连，当前默认 |
-| gpt-5.4-image-2 | 中国区 403，需 VPN |
+| gpt-5.4-image-2 | 当前唯一生图模型，请求体带 `reasoning.effort = "high"`，单图约 $0.22 |
 | `panActivationKeyCode` | `<ReactFlow panActivationKeyCode={null}>` 防 Space 被拦截 |
 
 ---
