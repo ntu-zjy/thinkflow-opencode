@@ -96,7 +96,7 @@ const initialAgent: AgentNodeType = {
   position: { x: -160, y: -160 },
   data: {
     idea: "",
-    model: "openai/gpt-5.5",
+    model: "anthropic/claude-sonnet-4.6",
     status: "idle",
     logs: [],
     dryRun: false,
@@ -393,7 +393,7 @@ export const useCanvasStore = create<CanvasStore>()(
           position: pos,
           data: {
             idea: "",
-            model: "openai/gpt-5.5",
+            model: "anthropic/claude-sonnet-4.6",
             status: "idle",
             logs: [],
             dryRun: false,

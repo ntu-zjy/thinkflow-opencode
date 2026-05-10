@@ -121,7 +121,7 @@ function makeExampleNodes(
       position: { x: -160, y: -160 },
       data: {
         idea: agentIdea,
-        model: "moonshotai/kimi-k2.6",
+        model: "anthropic/claude-sonnet-4.6",
         status: "idle",
         logs: [],
         dryRun: false,

@@ -68,7 +68,13 @@ function opencodePlugin() {
             detached: false,
             cwd: OPENCODE_DIR,
             // 用空 plugin 列表覆盖全局配置，避免用户本地插件安装失败阻塞服务启动
-            env: { ...process.env, OPENCODE_CONFIG_CONTENT: '{"plugin":[]}' },
+            // OPENCODE_EXPERIMENTAL_OUTPUT_TOKEN_MAX：将单次输出 token 上限从默认 32000 降到 16000，
+            // 避免 OpenRouter 等按预付额度计费的 provider 因单请求预扣额度过高而拒绝请求
+            env: {
+              ...process.env,
+              OPENCODE_CONFIG_CONTENT: '{"plugin":[]}',
+              OPENCODE_EXPERIMENTAL_OUTPUT_TOKEN_MAX: process.env.OPENCODE_EXPERIMENTAL_OUTPUT_TOKEN_MAX ?? "16000",
+            },
           },
         )
         proc.on("error", (e: Error) => console.error("[opencode] 启动失败:", e.message))
