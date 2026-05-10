@@ -10,7 +10,7 @@
   "functions": {
     "api/openrouter/proxy.ts": {
       "runtime": "@vercel/node@5.7.15",
-      "maxDuration": 60
+      "maxDuration": 300
     }
   }
 }
