@@ -1,6 +1,21 @@
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import type { PreviewProps } from "../../cards/registry"
+import type { ImageAsset } from "../../types"
+
+function ImgOrSkeleton({ img, alt, style }: { img: ImageAsset; alt: string; style?: React.CSSProperties }) {
+  if (img.loading) {
+    return (
+      <div style={{ ...style, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 6, background: "var(--bg-surface-2)", color: "var(--text-tertiary)", fontSize: 11 }}>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ animation: "spin 1s linear infinite" }}>
+          <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+        </svg>
+        生图中...
+      </div>
+    )
+  }
+  return <img src={img.url} alt={alt} style={style} />
+}
 
 function extractTags(content: string): { text: string; tags: string[] } {
   const tags: string[] = []
@@ -21,8 +36,8 @@ export function XhsPreview({ content, images, contentType, showPreview }: Previe
       {hasImage && (
         <div className="tf-xhs-card__images">
           {images!.length === 1 ? (
-            <img
-              src={images![0].url}
+            <ImgOrSkeleton
+              img={images![0]}
               alt={images![0].title ?? "小红书封面"}
               style={{ width: "100%", borderRadius: "var(--radius-sm)", display: "block" }}
             />
@@ -30,8 +45,8 @@ export function XhsPreview({ content, images, contentType, showPreview }: Previe
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "var(--space-1)" }}>
               {images!.map((img, idx) => (
                 <div key={img.id} style={{ position: "relative", paddingBottom: "133%", overflow: "hidden", borderRadius: "var(--radius-sm)", background: "var(--bg-surface-2)" }}>
-                  <img
-                    src={img.url}
+                  <ImgOrSkeleton
+                    img={img}
                     alt={img.title ?? `图${idx + 1}`}
                     style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", objectFit: "cover" }}
                   />

@@ -12,6 +12,36 @@ import { markdownToHtml } from "../utils/markdownToHtml"
 import { createSession, sendPrompt, subscribeEvents } from "../services/opencodeClient"
 import { getCard, getAllCards } from "../cards"
 
+function ImageSkeleton() {
+  return (
+    <div style={{
+      width: "100%",
+      paddingBottom: "66%",
+      position: "relative",
+      borderRadius: "var(--radius-sm)",
+      background: "var(--bg-surface-2)",
+      overflow: "hidden",
+    }}>
+      <div style={{
+        position: "absolute",
+        inset: 0,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flexDirection: "column",
+        gap: 8,
+        color: "var(--text-tertiary)",
+        fontSize: 12,
+      }}>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ animation: "spin 1s linear infinite" }}>
+          <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+        </svg>
+        生图中...
+      </div>
+    </div>
+  )
+}
+
 const FORMAT_OPTIONS: { key: ContentFormat; label: string; title: string }[] = [
   { key: "text",       label: "纯文本", title: "只输出文字内容" },
   { key: "image_text", label: "图文",   title: "生成图片 + 文案" },
@@ -381,7 +411,9 @@ export function OutputNode({ id, data, selected }: NodeProps<OutputNodeType>) {
           ) : hasImage ? (
             <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
               {displayImages!.map((img) => (
-                <img key={img.id} src={img.url} alt={img.title ?? "生成图片"} style={{ maxWidth: "100%", borderRadius: "var(--radius-sm)", display: "block" }} />
+                img.loading
+                  ? <ImageSkeleton key={img.id} />
+                  : <img key={img.id} src={img.url} alt={img.title ?? "生成图片"} style={{ maxWidth: "100%", borderRadius: "var(--radius-sm)", display: "block" }} />
               ))}
               {displayContent && <ReactMarkdown remarkPlugins={[remarkGfm]}>{displayContent}</ReactMarkdown>}
             </div>
