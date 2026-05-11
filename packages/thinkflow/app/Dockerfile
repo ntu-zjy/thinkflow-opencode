@@ -67,6 +67,6 @@ COPY --from=builder /app/packages/thinkflow/app/dist /usr/share/nginx/html
 COPY packages/thinkflow/app/nginx.conf /etc/nginx/templates/default.conf.template
 
 # 启动时用 envsubst 替换 nginx 配置中的环境变量，再启动 nginx
-CMD ["/bin/sh", "-c", "envsubst '${OPENROUTER_API_KEY} ${FRONTEND_URL}' < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
+CMD ["/bin/sh", "-c", "envsubst '${OPENROUTER_API_KEY} ${FRONTEND_URL} ${THINKFLOW_SERVER_URL}' < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
 
 EXPOSE 80
