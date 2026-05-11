@@ -146,14 +146,17 @@
 - [x] 目前图文模式只支持单图，图文模式一般是3-5张图甚至更多。
   canvasStore 图文两步法扩展为多图串行生成：匹配 [IMG_PROMPT_COVER:] + [IMG_PROMPT_1:] 到 [IMG_PROMPT_5:] 全部标记，逐张调用 generateImage 并即时更新节点；XhsPreview 多图改为 3 列网格（封面标签）；OutputNode 下载逻辑改为多图 ZIP（text + 每张图单独文件）。
 - [x] 生图模型替换为openai/gpt-5.4-image-2（对应链接为https://openrouter.ai/openai/gpt-5.4-image-2），Agent模型替换为claude sonnet 4.6 medium推理强度模型为anthropic/claude-sonnet-4.6（对应链接https://openrouter.ai/anthropic/claude-sonnet-4.6）
-- [ ] **将当前的部署全部切换sealos**（分支：`feat/sealos-deploy-auth`）
+- [x] **将当前的部署全部切换sealos**（分支：`feat/sealos-deploy-auth`，详见 `docs/sealos-deploy.md`）
   - [x] 前端 Dockerfile（bun build + Nginx，含 OpenRouter proxy）：`packages/thinkflow/app/Dockerfile`
   - [x] OpenCode Dockerfile 更新（补 video stub，加 entrypoint 写 auth.json）：`Dockerfile.opencode`
   - [x] GitHub Actions 自动构建推送 Docker Hub：`.github/workflows/thinkflow-release.yml`
-  - [x] Sealos 部署配置文档：`docs/sealos-deploy.md`
-  - [ ] 配置 GitHub Secrets（DOCKERHUB_USERNAME / DOCKERHUB_TOKEN / VITE_OPENCODE_SERVER_URL）
-  - [ ] Sealos 上创建两个 App 并验证端到端可用
+  - [x] 配置 GitHub Secrets（DOCKERHUB_USERNAME / DOCKERHUB_TOKEN / VITE_OPENCODE_SERVER_URL）
+  - [x] Sealos 新加坡节点部署两个 App：thinkflow-opencode（4096）+ thinkflow-frontend（80）
+  - [x] 端到端验证通过，OpenCode 健康检查 `{"healthy":true}`，前端 HTTP 200
+  - OpenCode 公网地址：`https://eqctmtdymqbx.cloud.sealos.io`
+  - 前端公网地址：`https://bawzdlyeewhf.cloud.sealos.io`
 - [ ] 接入用户注册，支付，加上服务器数据缓存机制。
+- [ ] 画图问题
 
 ### 🟢 锦上添花
 - [ ] **Desktop（Tauri）验证**（已在本地验证 arm64，CI 构建待跑）
@@ -161,9 +164,9 @@
 
 - [ ] 中国用户无法访问vercel部署的链接，可按照解决方案解决
 
+
 - [ ] **参考之前写好的thinkflow插件，对不同的输出卡片的提示词进行精心调整，目前每个内容平台对应的提示词还是过于简单了**
 
-- [ ] 输入图片的时候，不需要使用markitdown，直接输入Agent就行
 - [ ] 支持文件夹输入，网页端不支持输入文件夹，桌面端输入文件夹，代表着一个文件夹的地址，输入给Agent
 - [ ] **让记忆机制和画布能够更加无缝的衔接，记忆需要更便捷的被用户添加，能够用Agent的方式，和用户沟通去完善记忆**
   画布的Agent节点可以添加一个配置按钮，叫做“自动记忆”。开启后，Agent会自动连接一个记忆输出节点。Agent能够自动整理用户本次运行产生的记忆，显示在记忆节点里面，用户可以自主选择是否将这些记忆添加到记忆中。同时也支持用户直接创建记忆节点，或者是单独将输出的作品也添加到记忆中。
