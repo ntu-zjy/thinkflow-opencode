@@ -784,24 +784,38 @@ export const useCanvasStore = create<CanvasStore>()(
         if (multiMatches.length > 0) {
           const caption = outputBuffer.replace(/\[IMG_PROMPT(?:_(?:COVER|\d+))?\s*:[\s\S]+?\]\n?/g, "").trim()
           updateWorkflowNodeData<OutputNodeData>(outputNode.id, { content: caption })
-          appendLog(`[图文] 解析到 ${multiMatches.length} 张图片描述，开始依次生图...`, "info")
-          const generatedImages: ImageAsset[] = []
-          for (let imgIdx = 0; imgIdx < multiMatches.length; imgIdx++) {
-            const imagePrompt = multiMatches[imgIdx][1].trim()
-            appendLog(`[图文] 生成第 ${imgIdx + 1}/${multiMatches.length} 张...`, "info")
-            const imageUrl = await generateImage(imagePrompt).catch((err: Error) => {
-              appendLog(`[图文] 第 ${imgIdx + 1} 张生成失败: ${(err.message ?? "").slice(0, 60)}，使用占位图`, "info")
-              const label = encodeURIComponent(imagePrompt.slice(0, 40))
-              return `data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300"><rect width="400" height="300" fill="%23ff2b54" opacity="0.1" rx="12"/><text x="50%" y="40%" font-family="sans-serif" font-size="16" fill="%23ff2b54" text-anchor="middle">图片生成失败，使用占位图</text><text x="50%" y="56%" font-family="sans-serif" font-size="12" fill="%23888" text-anchor="middle">${label}</text></svg>`
+          const total = multiMatches.length
+          appendLog(`[图文] 解析到 ${total} 张图片描述，并行生图中...`, "info")
+          // 占位数组保证顺序，并行发起所有请求
+          const slots: (ImageAsset | null)[] = Array(total).fill(null)
+          const allStart = Date.now()
+          await Promise.all(
+            multiMatches.map(async (match, imgIdx) => {
+              const imagePrompt = match[1].trim()
+              const imgStart = Date.now()
+              const ticker = setInterval(() => {
+                const elapsed = Math.round((Date.now() - imgStart) / 1000)
+                appendLog(`[图文] 第 ${imgIdx + 1} 张生成中，已等待 ${elapsed}s...`, "info")
+              }, 15000)
+              const imageUrl = await generateImage(imagePrompt).catch((err: Error) => {
+                clearInterval(ticker)
+                appendLog(`[图文] 第 ${imgIdx + 1} 张生成失败: ${(err.message ?? "").slice(0, 60)}，使用占位图`, "info")
+                const label = encodeURIComponent(imagePrompt.slice(0, 40))
+                return `data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300"><rect width="400" height="300" fill="%23ff2b54" opacity="0.1" rx="12"/><text x="50%" y="40%" font-family="sans-serif" font-size="16" fill="%23ff2b54" text-anchor="middle">图片生成失败，使用占位图</text><text x="50%" y="56%" font-family="sans-serif" font-size="12" fill="%23888" text-anchor="middle">${label}</text></svg>`
+              })
+              clearInterval(ticker)
+              const elapsed = ((Date.now() - imgStart) / 1000).toFixed(1)
+              slots[imgIdx] = { id: nanoid(), url: imageUrl, generatedAt: Date.now() }
+              appendLog(`[图文] 第 ${imgIdx + 1} 张完成，用时 ${elapsed}s`, "info")
+              // 每张完成后即时更新已完成的图片
+              updateWorkflowNodeData<OutputNodeData>(outputNode.id, {
+                images: slots.filter((s): s is ImageAsset => s !== null),
+                contentType: "image",
+              })
             })
-            generatedImages.push({ id: nanoid(), url: imageUrl, generatedAt: Date.now() })
-            // 每张完成后即时更新，让用户看到进度
-            updateWorkflowNodeData<OutputNodeData>(outputNode.id, {
-              images: [...generatedImages],
-              contentType: "image",
-            })
-          }
-          appendLog(`[图文] 全部 ${generatedImages.length} 张图片生成完成`, "info")
+          )
+          const totalElapsed = ((Date.now() - allStart) / 1000).toFixed(1)
+          appendLog(`[图文] 全部 ${total} 张图片生成完成，总用时 ${totalElapsed}s`, "info")
         }
       }
     }
