@@ -1,7 +1,5 @@
-# ThinkFlow 云端 OpenCode 服务
-FROM oven/bun:1-alpine
-
-RUN apk add --no-cache ripgrep ca-certificates git
+# ─── Stage 1: Build ───────────────────────────────────────────────────────────
+FROM oven/bun:1-alpine AS builder
 
 WORKDIR /app
 
@@ -9,18 +7,18 @@ WORKDIR /app
 COPY package.json bun.lock* ./
 COPY patches patches/
 
-# 复制真实 workspace 包的 package.json
+# 复制所有 workspace package.json（bun install 需要）
 COPY packages/opencode/package.json packages/opencode/
 COPY packages/plugin/package.json packages/plugin/
 COPY packages/script/package.json packages/script/
 COPY packages/sdk/js/package.json packages/sdk/js/
 COPY packages/util/package.json packages/util/
 
-# 其余 workspace 包用各自唯一名称占位（bun 要求 workspace name 不重复）
+# stub 其余 workspace，避免 bun 报缺失
 RUN mkdir -p packages/app packages/console/app packages/console/core \
     packages/console/function packages/console/mail packages/console/resource \
     packages/desktop packages/enterprise packages/function packages/slack \
-    packages/ui packages/web packages/thinkflow/app packages/thinkflow/desktop \
+    packages/ui packages/web packages/thinkflow/desktop \
     packages/thinkflow/video-nextjs packages/thinkflow/video-renderer
 RUN echo '{"name":"@stub/app","version":"0.0.0"}' > packages/app/package.json
 RUN echo '{"name":"@stub/console-app","version":"0.0.0"}' > packages/console/app/package.json
@@ -34,26 +32,40 @@ RUN echo '{"name":"@stub/function","version":"0.0.0"}' > packages/function/packa
 RUN echo '{"name":"@stub/slack","version":"0.0.0"}' > packages/slack/package.json
 RUN echo '{"name":"@stub/ui","version":"0.0.0"}' > packages/ui/package.json
 RUN echo '{"name":"@stub/web","version":"0.0.0"}' > packages/web/package.json
-RUN echo '{"name":"@stub/thinkflow-app","version":"0.0.0"}' > packages/thinkflow/app/package.json
 RUN echo '{"name":"@stub/thinkflow-desktop","version":"0.0.0"}' > packages/thinkflow/desktop/package.json
 RUN echo '{"name":"@stub/video-nextjs","version":"0.0.0"}' > packages/thinkflow/video-nextjs/package.json
 RUN echo '{"name":"@stub/video-renderer","version":"0.0.0"}' > packages/thinkflow/video-renderer/package.json
 
-# 安装依赖（不用 --frozen-lockfile，因为 stub package.json 与 lockfile 不完全匹配）
+# 复制 thinkflow/app 的 package.json
+COPY packages/thinkflow/app/package.json packages/thinkflow/app/
+
 RUN bun install
 
-# 复制完整源码（.dockerignore 已排除 node_modules/dist）
-COPY packages/opencode packages/opencode/
-COPY packages/plugin packages/plugin/
-COPY packages/script packages/script/
-COPY packages/sdk/js packages/sdk/js/
-COPY packages/util packages/util/
+# 复制源码
+COPY packages/thinkflow/app/ packages/thinkflow/app/
+COPY packages/opencode/ packages/opencode/
+COPY packages/plugin/ packages/plugin/
+COPY packages/sdk/js/ packages/sdk/js/
+COPY packages/util/ packages/util/
 
-COPY packages/thinkflow/docker-entrypoint.sh /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh
+# 构建时注入环境变量（运行时通过 nginx envsubst 注入 API key）
+# VITE_OPENCODE_SERVER_URL 在构建时必须知道（前端打包后无法动态修改）
+ARG VITE_OPENCODE_SERVER_URL
+ENV VITE_OPENCODE_SERVER_URL=${VITE_OPENCODE_SERVER_URL}
 
-ENV PORT=4096
-EXPOSE 4096
+WORKDIR /app/packages/thinkflow/app
+RUN bun run build
 
-ENTRYPOINT ["/docker-entrypoint.sh"]
-CMD ["sh", "-c", "cd packages/opencode && bun run --conditions=browser src/index.ts serve --hostname 0.0.0.0 --port ${PORT} --cors '*'"]
+# ─── Stage 2: Serve ───────────────────────────────────────────────────────────
+FROM nginx:alpine
+
+# 安装 envsubst（gettext 包含）
+RUN apk add --no-cache gettext
+
+COPY --from=builder /app/packages/thinkflow/app/dist /usr/share/nginx/html
+COPY packages/thinkflow/app/nginx.conf /etc/nginx/templates/default.conf.template
+
+# 启动时用 envsubst 替换 nginx 配置中的环境变量，再启动 nginx
+CMD ["/bin/sh", "-c", "envsubst '${OPENROUTER_API_KEY} ${FRONTEND_URL}' < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
+
+EXPOSE 80
