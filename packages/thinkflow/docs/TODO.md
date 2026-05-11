@@ -146,6 +146,14 @@
 - [x] 目前图文模式只支持单图，图文模式一般是3-5张图甚至更多。
   canvasStore 图文两步法扩展为多图串行生成：匹配 [IMG_PROMPT_COVER:] + [IMG_PROMPT_1:] 到 [IMG_PROMPT_5:] 全部标记，逐张调用 generateImage 并即时更新节点；XhsPreview 多图改为 3 列网格（封面标签）；OutputNode 下载逻辑改为多图 ZIP（text + 每张图单独文件）。
 - [x] 生图模型替换为openai/gpt-5.4-image-2（对应链接为https://openrouter.ai/openai/gpt-5.4-image-2），Agent模型替换为claude sonnet 4.6 medium推理强度模型为anthropic/claude-sonnet-4.6（对应链接https://openrouter.ai/anthropic/claude-sonnet-4.6）
+- [ ] **将当前的部署全部切换sealos**（分支：`feat/sealos-deploy-auth`）
+  - [x] 前端 Dockerfile（bun build + Nginx，含 OpenRouter proxy）：`packages/thinkflow/app/Dockerfile`
+  - [x] OpenCode Dockerfile 更新（补 video stub，加 entrypoint 写 auth.json）：`Dockerfile.opencode`
+  - [x] GitHub Actions 自动构建推送 Docker Hub：`.github/workflows/thinkflow-release.yml`
+  - [x] Sealos 部署配置文档：`docs/sealos-deploy.md`
+  - [ ] 配置 GitHub Secrets（DOCKERHUB_USERNAME / DOCKERHUB_TOKEN / VITE_OPENCODE_SERVER_URL）
+  - [ ] Sealos 上创建两个 App 并验证端到端可用
+- [ ] 接入用户注册，支付，加上服务器数据缓存机制。
 
 ### 🟢 锦上添花
 - [ ] **Desktop（Tauri）验证**（已在本地验证 arm64，CI 构建待跑）
