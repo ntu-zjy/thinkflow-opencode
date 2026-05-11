@@ -108,7 +108,7 @@ async function generateImageViaOpenRouter(prompt: string, model: string): Promis
   })
   const text = await resp.text()
   let data: { choices?: Array<{ message: { content?: string; images?: Array<{ image_url: { url: string } }> } }>; error?: { message: string; code?: number } }
-  try { data = JSON.parse(text) } catch { throw new Error(`OpenRouter response not JSON: ${text.slice(0, 100)}`) }
+  try { data = JSON.parse(text) } catch { throw new Error(`OpenRouter HTTP ${resp.status}, response not JSON: ${text.slice(0, 200)}`) }
   if (data.error) throw new Error(`openrouter:${data.error.code ?? 0}:${data.error.message}`)
   const url = data.choices?.[0]?.message?.images?.[0]?.image_url?.url
   if (url) return url
