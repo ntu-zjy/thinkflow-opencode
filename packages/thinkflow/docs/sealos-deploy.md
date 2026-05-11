@@ -183,3 +183,6 @@ curl -o /dev/null -w "%{http_code}" https://bawzdlyeewhf.cloud.sealos.io
 | Sealos 拉镜像失败（ErrImagePull） | Docker Hub 镜像为 Private 但认证信息有误 | Password 填 Access Token 而非登录密码 |
 | 前端仍连接旧 OpenCode 地址 | `VITE_OPENCODE_SERVER_URL` 是构建时变量，改 Secret 后需重建镜像 | 更新 Secret → 手动触发 CI → Sealos 重启前端 App |
 | Sealos 重启后仍是旧版本 | 默认不重新拉取 `:latest` 镜像 | 手动点「重启」触发拉取 |
+| 图片生成返回 "no image in response" | 请求缺少 `modalities: ["image","text"]` 参数，模型只返回文字 | 在 chat/completions 请求体加 `modalities: ["image","text"]`，同时移除对生图模型无效的 `reasoning.effort` |
+| 图片生成返回 "response not JSON" | nginx 默认缓冲区（`proxy_buffer_size 4k`）不足以容纳 base64 图片响应体（~7000 tokens），缓冲溢出截断响应 | nginx 加 `proxy_buffer_size 256k; proxy_buffers 8 512k; proxy_busy_buffers_size 1m;` |
+| 多图生成体验差（用户以为卡死） | 串行生成 4-5 张共需 ~10 分钟，期间卡片无任何反馈 | 改为 `Promise.all` 并行；发起请求前先写入转圈占位卡，每张完成后即时替换 |
