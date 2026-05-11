@@ -20,7 +20,8 @@
       "packages/sdk/js",
       "packages/slack",
       "packages/thinkflow/app",
-      "packages/thinkflow/desktop"
+      "packages/thinkflow/desktop",
+      "packages/thinkflow/server"
     ],
     "catalog": {
       "@types/bun": "1.3.4",

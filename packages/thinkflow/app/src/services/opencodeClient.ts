@@ -93,10 +93,16 @@ export function subscribeEvents(
 }
 
 // ─── 图片生成 ─────────────────────────────────────────────────────────────────
-// OpenRouter（chat/completions + modalities:["image","text"]，图片在 choices[0].message.images[0].image_url.url）
-// 固定使用 openai/gpt-5.4-image-2
+// 图片生成：OpenRouter chat/completions + modalities
+// 质量策略：70% Medium（$0.041/张，1024×1536），30% Low（$0.005/张）——对用户透明
+// size 固定为 1024x1536（小红书竖版）
+
+function pickImageQuality(): "low" | "medium" {
+  return Math.random() < 0.3 ? "low" : "medium"
+}
 
 async function generateImageViaOpenRouter(prompt: string, model: string): Promise<string> {
+  const quality = pickImageQuality()
   const resp = await fetch("/api/openrouter/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -104,6 +110,10 @@ async function generateImageViaOpenRouter(prompt: string, model: string): Promis
       model,
       messages: [{ role: "user", content: prompt }],
       modalities: ["image", "text"],
+      image_generation_config: {
+        quality,
+        size: "1024x1536",
+      },
     }),
   })
   const text = await resp.text()
@@ -117,7 +127,7 @@ async function generateImageViaOpenRouter(prompt: string, model: string): Promis
 
 export async function generateImage(
   prompt: string,
-  model: string = "openai/gpt-5.4-image-2",
+  model: string = "openai/gpt-image-1",
 ): Promise<string> {
   return generateImageViaOpenRouter(prompt, model)
 }
