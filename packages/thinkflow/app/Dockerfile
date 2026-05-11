@@ -19,7 +19,7 @@ RUN mkdir -p packages/app packages/console/app packages/console/core \
     packages/console/function packages/console/mail packages/console/resource \
     packages/desktop packages/enterprise packages/function packages/slack \
     packages/ui packages/web packages/thinkflow/desktop \
-    packages/thinkflow/video-nextjs packages/thinkflow/video-renderer
+    packages/thinkflow/server packages/thinkflow/video-nextjs packages/thinkflow/video-renderer
 RUN echo '{"name":"@stub/app","version":"0.0.0"}' > packages/app/package.json
 RUN echo '{"name":"@stub/console-app","version":"0.0.0"}' > packages/console/app/package.json
 RUN echo '{"name":"@stub/console-core","version":"0.0.0"}' > packages/console/core/package.json
@@ -33,6 +33,7 @@ RUN echo '{"name":"@stub/slack","version":"0.0.0"}' > packages/slack/package.jso
 RUN echo '{"name":"@stub/ui","version":"0.0.0"}' > packages/ui/package.json
 RUN echo '{"name":"@stub/web","version":"0.0.0"}' > packages/web/package.json
 RUN echo '{"name":"@stub/thinkflow-desktop","version":"0.0.0"}' > packages/thinkflow/desktop/package.json
+RUN echo '{"name":"@stub/thinkflow-server","version":"0.0.0"}' > packages/thinkflow/server/package.json
 RUN echo '{"name":"@stub/video-nextjs","version":"0.0.0"}' > packages/thinkflow/video-nextjs/package.json
 RUN echo '{"name":"@stub/video-renderer","version":"0.0.0"}' > packages/thinkflow/video-renderer/package.json
 
