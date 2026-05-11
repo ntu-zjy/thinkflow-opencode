@@ -5,6 +5,7 @@ ThinkFlow 云端部署采用两个独立 App：**thinkflow-opencode**（OpenCode
 当前部署地址：
 - 前端：https://bawzdlyeewhf.cloud.sealos.io
 - OpenCode 服务：https://eqctmtdymqbx.cloud.sealos.io
+- 后端 API 服务：https://dtwbvaymfksw.cloud.sealos.io
 
 ---
 
@@ -15,13 +16,25 @@ ThinkFlow 云端部署采用两个独立 App：**thinkflow-opencode**（OpenCode
     ↓ HTTPS
 thinkflow-frontend（Sealos，Nginx，port 80）
     ├── 静态文件服务（React SPA）
-    └── /api/openrouter/* → proxy_pass → openrouter.ai（注入 API Key）
+    ├── /api/openrouter/* → proxy_pass → openrouter.ai（注入 API Key）
+    └── /api/thinkflow/* → proxy_pass → thinkflow-server（运行时环境变量）
     ↓ VITE_OPENCODE_SERVER_URL（构建时打包）
 thinkflow-opencode（Sealos，Bun，port 4096）
     └── OpenCode HTTP + SSE 服务
+thinkflow-server（Sealos，Hono + Bun，port 3456）
+    ├── 用户注册/登录（JWT）
+    ├── 积分系统（credits）
+    ├── 画布存储（canvases）
+    └── ZPAY 支付回调
+    ↓ 连接
+PostgreSQL（Sealos 数据库，thinkflow-pg）
     ↓ 调用
 OpenRouter API（新加坡直连，无需代理）
 ```
+
+**关键点**：
+- `VITE_OPENCODE_SERVER_URL` 是构建时打包进前端 JS 的，修改后必须重新构建镜像
+- `THINKFLOW_SERVER_URL` 是 Nginx 运行时读取的环境变量，修改后只需重启 thinkflow-frontend 即可
 
 **关键点**：`VITE_OPENCODE_SERVER_URL` 是构建时打包进前端 JS 的，不是运行时环境变量。因此每次修改 OpenCode 地址后必须重新构建前端镜像。
 
@@ -186,3 +199,93 @@ curl -o /dev/null -w "%{http_code}" https://bawzdlyeewhf.cloud.sealos.io
 | 图片生成返回 "no image in response" | 请求缺少 `modalities: ["image","text"]` 参数，模型只返回文字 | 在 chat/completions 请求体加 `modalities: ["image","text"]`，同时移除对生图模型无效的 `reasoning.effort` |
 | 图片生成返回 "response not JSON" | nginx 默认缓冲区（`proxy_buffer_size 4k`）不足以容纳 base64 图片响应体（~7000 tokens），缓冲溢出截断响应 | nginx 加 `proxy_buffer_size 256k; proxy_buffers 8 512k; proxy_busy_buffers_size 1m;` |
 | 多图生成体验差（用户以为卡死） | 串行生成 4-5 张共需 ~10 分钟，期间卡片无任何反馈 | 改为 `Promise.all` 并行；发起请求前先写入转圈占位卡，每张完成后即时替换 |
+| Docker 构建报 `Workspace not found "packages/thinkflow/server"` | `package.json` workspaces 新增了 `thinkflow/server`，但两个 Dockerfile（`Dockerfile.opencode` 和 `app/Dockerfile`）的 stub 占位列表没同步更新 | 两个 Dockerfile 都加上 `mkdir -p packages/thinkflow/server` 和对应 stub `package.json` |
+| thinkflow-server 接口 405 | Nginx 没有 `/api/thinkflow` 的 proxy 规则，请求直接命中 SPA 路由返回 405 | nginx.conf 加 `/api/thinkflow/` location 块，envsubst 注入 `THINKFLOW_SERVER_URL` |
+| `POST /auth/create-super` 返回 403 "仅开发环境可用" | 生产环境默认保护，防止超级账号被随意创建 | 临时加环境变量 `ALLOW_SUPER_ACCOUNT=1`，用完立即删除 |
+| `POST /auth/create-super` 返回 500 | 数据库表还未建 | 在 App Terminal 执行 `bun run src/migrate.ts` 初始化表结构 |
+
+---
+
+## 七、部署 App 3：thinkflow-server（后端 API）
+
+### 7.1 Sealos 开通 PostgreSQL
+
+数据库 → 新建：
+
+| 字段 | 值 |
+|---|---|
+| 类型 | PostgreSQL |
+| 版本 | 16 |
+| 名称 | `thinkflow-pg` |
+| 规格 | 0.5 核 / 512 MB |
+
+创建后进入详情 → **连接信息** → 复制 Connection String，格式：
+```
+postgresql://root:密码@thinkflow-pg-postgresql.ns-xxx.svc:5432/postgres
+```
+
+### 7.2 新建 thinkflow-server App
+
+| 字段 | 值 |
+|---|---|
+| **Name** | `thinkflow-server` |
+| **Image** | `你的DockerHub用户名/thinkflow-server:latest` |
+| **CPU** | 0.2 Core |
+| **Memory** | 256 MB |
+| **Container Port** | `3456` |
+| **Enable Internet Access** | ✅ 开启 |
+
+环境变量：
+
+| Key | Value |
+|---|---|
+| `DATABASE_URL` | 上面复制的 PostgreSQL 连接串 |
+| `JWT_SECRET` | 随机字符串（32 位以上） |
+| `PORT` | `3456` |
+| `NODE_ENV` | `production` |
+| `CORS_ORIGIN` | 前端外网域名，如 `https://bawzdlyeewhf.cloud.sealos.io` |
+
+### 7.3 初始化数据库表
+
+App 部署后，进入 App Terminal 执行一次：
+
+```bash
+bun run src/migrate.ts
+```
+
+输出 `Done.` 表示建表成功。
+
+### 7.4 给前端添加后端地址环境变量
+
+在 **thinkflow-frontend** App → 环境变量 → 新增：
+
+```
+THINKFLOW_SERVER_URL=https://dtwbvaymfksw.cloud.sealos.io
+```
+
+重启 thinkflow-frontend 生效（无需重新构建镜像，因为这是 Nginx 运行时变量）。
+
+### 7.5 验证
+
+```bash
+# 后端健康检查
+curl https://dtwbvaymfksw.cloud.sealos.io/health
+# 返回：{"ok":true,"ts":...}
+
+# 注册测试
+curl -X POST https://dtwbvaymfksw.cloud.sealos.io/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@example.com","password":"test1234"}'
+```
+
+### 7.6 创建超级测试账号
+
+参见 `docs/TESTING.md`。简短步骤：
+
+```bash
+# 1. 临时开启（Sealos 环境变量加 ALLOW_SUPER_ACCOUNT=1，重启）
+# 2. 调接口
+curl -X POST https://dtwbvaymfksw.cloud.sealos.io/auth/create-super \
+  -H "Content-Type: application/json"
+# 3. 删除 ALLOW_SUPER_ACCOUNT=1 环境变量，重启
+```

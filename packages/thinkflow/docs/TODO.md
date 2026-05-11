@@ -155,7 +155,22 @@
   - [x] 端到端验证通过，OpenCode 健康检查 `{"healthy":true}`，前端 HTTP 200
   - OpenCode 公网地址：`https://eqctmtdymqbx.cloud.sealos.io`
   - 前端公网地址：`https://bawzdlyeewhf.cloud.sealos.io`
-- [ ] 接入用户注册，支付，加上服务器数据缓存机制。
+- [x] **接入用户注册、积分体系与定价**（分支：`feat/sealos-deploy-auth`，详见 `docs/sealos-deploy.md`）
+  - [x] 后端服务（Hono + Bun，port 3456）：`packages/thinkflow/server/`
+  - [x] 邮箱注册 / 登录，JWT HS256，30 天有效期
+  - [x] 积分体系：文字 8 分/次，图文 18 分/次（以「篇」为单位，不按张计费）
+  - [x] 内测每日赠送 30 积分，当天清零；永久积分（充值）不过期
+  - [x] 图片质量随机 Medium/Low 混合（70%/30%），对用户透明，降低成本
+  - [x] 图片数量硬限 6 张/次，避免成本失控
+  - [x] 定价页（/pricing）：订阅版 ¥39/月（无限文字）+ 积分包 ¥15/¥40/¥118
+  - [x] ZPAY 支付接入（回调验签 + 积分到账）
+  - [x] Toolbar 积分余量常驻显示，积分不足弹窗引导充值
+  - [x] 路由守卫：/app 未登录强制跳转 /login
+  - [x] 超级测试账号（999 积分，详见 `docs/TESTING.md`）
+  - [x] thinkflow-server 部署到 Sealos，地址：`https://dtwbvaymfksw.cloud.sealos.io`
+  - [ ] 服务端画布存储（canvasStore 迁移，替换 localStorage）
+  - [ ] 图片资产上传 S3 对象存储（替换 base64）
+  - [ ] Dashboard 历史画布列表页（/dashboard）
 - [x] 画图问题
   - [x] 图片生成请求加入 `modalities: ["image", "text"]`，修复封面图频繁失败（原因：缺少该参数时模型只返回文字）
   - [x] 移除无效的 `reasoning: { effort: "high" }` 参数（图片生成模型不支持）
@@ -164,12 +179,13 @@
   - [x] nginx `proxy_buffers` 调大（`8 512k`），防止 base64 大体积响应被截断返回非 JSON
   - [x] 图片提示词去掉字数限制，改为引导 Agent 写出具体描述维度（主体、场景、光线、色调、构图等）
 
+
 ### 🟢 锦上添花
 - [ ] 数据后台
 - [ ] 文风/画风克隆功能
   一个专门的Agent和你聊天，
 - [ ] **Desktop（Tauri）验证**（已在本地验证 arm64，CI 构建待跑）
-  本地已成功构建 ThinkFlow.app + dmg；CI 构建需在 GitHub Actions 上运行一次验证。
+  本地已成功构建 ThinkFlow.app + dmg；CI 构建需在 GitHub Actions 上运行一次验证。   
 - [ ] 中国用户无法访问vercel部署的链接，可按照解决方案解决
 
 
