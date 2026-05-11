@@ -786,8 +786,17 @@ export const useCanvasStore = create<CanvasStore>()(
           updateWorkflowNodeData<OutputNodeData>(outputNode.id, { content: caption })
           const total = multiMatches.length
           appendLog(`[图文] 解析到 ${total} 张图片描述，并行生图中...`, "info")
-          // 占位数组保证顺序，并行发起所有请求
-          const slots: (ImageAsset | null)[] = Array(total).fill(null)
+          // 先写入占位卡，让用户立即看到转圈反馈
+          const slots: (ImageAsset)[] = multiMatches.map((_, i) => ({
+            id: nanoid(),
+            url: "",
+            loading: true,
+            generatedAt: Date.now() + i,
+          }))
+          updateWorkflowNodeData<OutputNodeData>(outputNode.id, {
+            images: [...slots],
+            contentType: "image",
+          })
           const allStart = Date.now()
           await Promise.all(
             multiMatches.map(async (match, imgIdx) => {
@@ -805,11 +814,11 @@ export const useCanvasStore = create<CanvasStore>()(
               })
               clearInterval(ticker)
               const elapsed = ((Date.now() - imgStart) / 1000).toFixed(1)
-              slots[imgIdx] = { id: nanoid(), url: imageUrl, generatedAt: Date.now() }
+              slots[imgIdx] = { id: slots[imgIdx].id, url: imageUrl, loading: false, generatedAt: Date.now() }
               appendLog(`[图文] 第 ${imgIdx + 1} 张完成，用时 ${elapsed}s`, "info")
-              // 每张完成后即时更新已完成的图片
+              // 每张完成后替换对应占位卡
               updateWorkflowNodeData<OutputNodeData>(outputNode.id, {
-                images: slots.filter((s): s is ImageAsset => s !== null),
+                images: [...slots],
                 contentType: "image",
               })
             })
