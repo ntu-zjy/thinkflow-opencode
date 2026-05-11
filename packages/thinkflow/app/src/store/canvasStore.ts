@@ -60,7 +60,7 @@ function getPlatformInstruction(platform: string, contentFormat: string, customI
   const imgFormatNote = noSuffix ? "" : isText
     ? "\n\n请只输出文字内容，不需要配图或图片描述。"
     : isImageText
-    ? "\n\n请在文案开头输出 [IMG_PROMPT: <详细英文图片描述，包含风格、色调、主体、构图，约 20 个单词>]，换行后输出正文。"
+    ? "\n\n请在文案开头单独输出一行图片描述标记：\n[IMG_PROMPT: 详细英文图片描述，包含具体的主体对象、背景场景、光线方向与质感、色调搭配、道具细节、构图方式，描述越具体生图质量越高]\n然后换行输出正文。"
     : ""
 
   // 用户自定义指令优先，否则从卡片注册表获取默认指令

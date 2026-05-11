@@ -93,8 +93,8 @@ export function subscribeEvents(
 }
 
 // ─── 图片生成 ─────────────────────────────────────────────────────────────────
-// OpenRouter（chat/completions，图片在 choices[0].message.images[0].image_url.url）
-// 固定使用 openai/gpt-5.4-image-2，reasoning.effort 固定 high
+// OpenRouter（chat/completions + modalities:["image","text"]，图片在 choices[0].message.images[0].image_url.url）
+// 固定使用 openai/gpt-5.4-image-2
 
 async function generateImageViaOpenRouter(prompt: string, model: string): Promise<string> {
   const resp = await fetch("/api/openrouter/v1/chat/completions", {
@@ -103,11 +103,11 @@ async function generateImageViaOpenRouter(prompt: string, model: string): Promis
     body: JSON.stringify({
       model,
       messages: [{ role: "user", content: prompt }],
-      reasoning: { effort: "high" },
+      modalities: ["image", "text"],
     }),
   })
   const text = await resp.text()
-  let data: { choices?: Array<{ message: { images?: Array<{ image_url: { url: string } }> } }>; error?: { message: string; code?: number } }
+  let data: { choices?: Array<{ message: { content?: string; images?: Array<{ image_url: { url: string } }> } }>; error?: { message: string; code?: number } }
   try { data = JSON.parse(text) } catch { throw new Error(`OpenRouter response not JSON: ${text.slice(0, 100)}`) }
   if (data.error) throw new Error(`openrouter:${data.error.code ?? 0}:${data.error.message}`)
   const url = data.choices?.[0]?.message?.images?.[0]?.image_url?.url
