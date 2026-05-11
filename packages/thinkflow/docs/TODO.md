@@ -156,12 +156,20 @@
   - OpenCode 公网地址：`https://eqctmtdymqbx.cloud.sealos.io`
   - 前端公网地址：`https://bawzdlyeewhf.cloud.sealos.io`
 - [ ] 接入用户注册，支付，加上服务器数据缓存机制。
-- [ ] 画图问题
+- [x] 画图问题
+  - [x] 图片生成请求加入 `modalities: ["image", "text"]`，修复封面图频繁失败（原因：缺少该参数时模型只返回文字）
+  - [x] 移除无效的 `reasoning: { effort: "high" }` 参数（图片生成模型不支持）
+  - [x] 多图从串行改为 `Promise.all` 并行，小红书 4-5 张图总耗时从 ~10 分钟降至 ~2 分钟
+  - [x] 并行发起请求前立即写入占位骨架卡片（转圈 spinner），每张完成后即时替换，消除空白等待感
+  - [x] nginx `proxy_buffers` 调大（`8 512k`），防止 base64 大体积响应被截断返回非 JSON
+  - [x] 图片提示词去掉字数限制，改为引导 Agent 写出具体描述维度（主体、场景、光线、色调、构图等）
 
 ### 🟢 锦上添花
+- [ ] 数据后台
+- [ ] 文风/画风克隆功能
+  一个专门的Agent和你聊天，
 - [ ] **Desktop（Tauri）验证**（已在本地验证 arm64，CI 构建待跑）
   本地已成功构建 ThinkFlow.app + dmg；CI 构建需在 GitHub Actions 上运行一次验证。
-
 - [ ] 中国用户无法访问vercel部署的链接，可按照解决方案解决
 
 
