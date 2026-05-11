@@ -2161,6 +2161,200 @@ html {
   justify-content: center;
 }
 
+/* ─── Toolbar 积分显示 ────────────────────────────────────────────────────── */
+
+.tf-toolbar__credits {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  padding: 4px 10px;
+  background: var(--accent-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+  margin-left: 12px;
+}
+
+/* ─── 积分不足弹窗 ────────────────────────────────────────────────────────── */
+
+.tf-credits-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 24px;
+}
+
+.tf-credits-modal {
+  background: var(--bg-node);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: 32px 28px;
+  max-width: 360px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2);
+  animation: tf-modal-in 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes tf-modal-in {
+  from { opacity: 0; transform: scale(0.94) translateY(8px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.tf-credits-modal__icon {
+  font-size: 36px;
+  margin-bottom: 12px;
+}
+
+.tf-credits-modal__title {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0 0 10px;
+  letter-spacing: -0.3px;
+}
+
+.tf-credits-modal__desc {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.7;
+  margin: 0 0 24px;
+}
+
+.tf-credits-modal__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tf-credits-modal__buy {
+  display: block;
+  padding: 11px 24px;
+  background: var(--accent);
+  color: var(--accent-text);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: opacity 0.15s, transform 0.1s;
+}
+.tf-credits-modal__buy:hover { opacity: 0.85; transform: translateY(-1px); }
+
+.tf-credits-modal__cancel {
+  padding: 9px 24px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.tf-credits-modal__cancel:hover { border-color: var(--border-hover); color: var(--text-primary); }
+
+/* ─── 用户头像 + 下拉菜单 ────────────────────────────────────────────────── */
+
+.tf-user-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-size: 13px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  flex-shrink: 0;
+  transition: opacity 0.15s;
+}
+.tf-user-avatar:hover { opacity: 0.85; }
+
+.tf-user-avatar__badge {
+  position: absolute;
+  bottom: -3px;
+  right: -3px;
+  background: #f59e0b;
+  color: #000;
+  font-size: 7px;
+  font-weight: 900;
+  padding: 1px 3px;
+  border-radius: 3px;
+  letter-spacing: 0.05em;
+}
+
+.tf-user-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 220px;
+  background: var(--bg-node);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.14);
+  z-index: 1000;
+  overflow: hidden;
+}
+
+.tf-user-dropdown__info {
+  padding: 14px 16px 12px;
+}
+.tf-user-dropdown__email {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tf-user-dropdown__plan {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin: 0;
+}
+.tf-user-dropdown__divider {
+  height: 1px;
+  background: var(--border);
+  margin: 0;
+}
+.tf-user-dropdown__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.12s;
+}
+.tf-user-dropdown__item:hover { background: var(--bg-surface); }
+.tf-user-dropdown__item--upgrade {
+  color: #f59e0b;
+  font-weight: 700;
+}
+.tf-user-dropdown__item--upgrade:hover { background: rgba(245,158,11,0.06); }
+.tf-user-dropdown__item--logout { color: var(--status-error); }
+.tf-user-dropdown__item--logout:hover { background: rgba(239,68,68,0.06); }
+
 /* ─── 平台化节点主题 ─────────────────────────────────────────────────────── */
 
 .tf-node--zhihu       { --tf-platform-color: #0070d2; --tf-platform-bg: rgba(0,112,210,0.06); --tf-platform-border: rgba(0,112,210,0.28); --tf-platform-shadow: rgba(0,112,210,0.14); }

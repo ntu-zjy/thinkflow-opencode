@@ -34,6 +34,7 @@ import {
   runMockWorkflow,
   generateImage,
 } from "../services/opencodeClient"
+import { creditsApi } from "../services/apiClient"
 import { useMemoryStore } from "./memoryStore"
 import { markdownToHtml } from "../utils/markdownToHtml"
 import { getCard } from "../cards"
@@ -200,6 +201,9 @@ interface CanvasStore {
   clearScheduleTimer: (agentNodeId: string) => void
   // 示例画布加载
   loadExampleWorkflow: (name: string, nodes: FlowNode[], edges: FlowEdge[]) => void
+  // 积分不足标志（运行被拒绝时置 true，弹窗关闭后清除）
+  _creditsInsufficient: boolean
+  clearCreditsInsufficient: () => void
 }
 
 // ─── Store 实现 ───────────────────────────────────────────────────────────────
@@ -217,6 +221,8 @@ export const useCanvasStore = create<CanvasStore>()(
   workflows: { [defaultWf.id]: defaultWf },
   activeWorkflowId: defaultWf.id,
   _scheduleTimers: {},
+  _creditsInsufficient: false,
+  clearCreditsInsufficient: () => set({ _creditsInsufficient: false }),
 
   setScheduleTimer: (agentNodeId, timer) =>
     set((s) => ({ _scheduleTimers: { ...s._scheduleTimers, [agentNodeId]: timer } })),
@@ -514,6 +520,35 @@ export const useCanvasStore = create<CanvasStore>()(
 
     const dryRun = agentNode.data.dryRun
 
+    // ─ 积分检查（非 dry-run 才扣积分）────────────────────────────────────────
+    // 判断本次运行类型：有小红书输出节点 = image，否则 = text
+    const hasImageOutput = outputNodes.some((o) => o.data.platform === "xiaohongshu")
+    const runType = hasImageOutput ? "image" : "text"
+    // 矩阵模式：每个 slot 算一次（此处用前缀避免与下方 matrixMode/matrixSlots 冲突）
+    const _creditMatrixMode = agentNode.data.matrixMode ?? false
+    const _creditMatrixSlots = agentNode.data.matrixSlots ?? []
+    const runCount = _creditMatrixMode && _creditMatrixSlots.length > 0 ? _creditMatrixSlots.length : 1
+
+    if (!dryRun) {
+      const token = localStorage.getItem("thinkflow-token")
+      if (token) {
+        const deductResult = await creditsApi.deduct(runType, runCount).catch((err: Error) => {
+          // 402 = 积分不足
+          if (err.message.includes("积分不足") || err.message === "积分不足") {
+            return { ok: false as const, error: "credits_insufficient" }
+          }
+          return null  // 网络错误等，不阻断运行（避免因网络问题影响使用）
+        })
+
+        if (deductResult && !deductResult.ok) {
+          updateWorkflowNodeData<AgentNodeData>(agentNodeId, { status: "idle" })
+          setEdgesAnimated(false)
+          set({ _creditsInsufficient: true })
+          return
+        }
+      }
+    }
+
     // 运行完成后自动存入「作品」记忆（从工作流中读取节点数据）
     const autoSaveToMemory = (outputNodeId: string, platform: string, persona?: string) => {
       const wf = get().workflows[runWorkflowId]
@@ -779,13 +814,16 @@ export const useCanvasStore = create<CanvasStore>()(
         cf === "image_text" ||
         (cf === "auto" && outputNode.data.platform === "xiaohongshu")
       if (shouldGenerateImage && outputBuffer) {
-        // 匹配所有图片标记（新格式多图 + 旧格式单图兼容）
-        const multiMatches = [...outputBuffer.matchAll(/\[IMG_PROMPT(?:_(?:COVER|\d+))?\s*:\s*([\s\S]+?)\]/g)]
+        // 匹配所有图片标记（新格式多图 + 旧格式单图兼容），最多6张
+        const MAX_IMAGES = 6
+        const allMatches = [...outputBuffer.matchAll(/\[IMG_PROMPT(?:_(?:COVER|\d+))?\s*:\s*([\s\S]+?)\]/g)]
+        const multiMatches = allMatches.slice(0, MAX_IMAGES)
         if (multiMatches.length > 0) {
           const caption = outputBuffer.replace(/\[IMG_PROMPT(?:_(?:COVER|\d+))?\s*:[\s\S]+?\]\n?/g, "").trim()
           updateWorkflowNodeData<OutputNodeData>(outputNode.id, { content: caption })
           const total = multiMatches.length
-          appendLog(`[图文] 解析到 ${total} 张图片描述，并行生图中...`, "info")
+          const clipped = allMatches.length > MAX_IMAGES ? `（已限制最多 ${MAX_IMAGES} 张）` : ""
+          appendLog(`[图文] 解析到 ${total} 张图片描述${clipped}，并行生图中...`, "info")
           // 先写入占位卡，让用户立即看到转圈反馈
           const slots: (ImageAsset)[] = multiMatches.map((_, i) => ({
             id: nanoid(),
@@ -926,6 +964,10 @@ export const useCanvasStore = create<CanvasStore>()(
     } catch (err) {
       appendLog(`运行失败: ${(err as Error).message}`, "error")
       updateWorkflowNodeData<AgentNodeData>(agentNodeId, { status: "error" })
+      // 运行失败退还积分
+      if (!dryRun && localStorage.getItem("thinkflow-token")) {
+        creditsApi.refund(runType, runCount).catch(() => {})
+      }
     } finally {
       setEdgesAnimated(false)
     }
