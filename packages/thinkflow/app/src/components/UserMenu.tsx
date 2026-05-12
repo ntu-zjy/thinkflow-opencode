@@ -1,9 +1,26 @@
 import { useState, useRef, useEffect } from "react"
 import { useAuthStore } from "../store/authStore"
 
+// ─── DiceBear 头像配置 ────────────────────────────────────────────────────────
+const DICEBEAR_STYLES = [
+  { id: "avataaars", label: "卡通人物" },
+  { id: "lorelei",   label: "线条插画" },
+  { id: "bottts",    label: "像素机器人" },
+  { id: "thumbs",    label: "二次元" },
+] as const
+
+type AvatarStyle = typeof DICEBEAR_STYLES[number]["id"]
+
+function getAvatarUrl(seed: string, style: AvatarStyle, size = 40): string {
+  return `https://api.dicebear.com/9.x/${style}/svg?seed=${encodeURIComponent(seed)}&size=${size}&radius=50`
+}
+
 export function UserMenu() {
   const { user, logout } = useAuthStore()
   const [open, setOpen] = useState(false)
+  const [style, setStyle] = useState<AvatarStyle>(
+    () => (localStorage.getItem("thinkflow-avatar-style") as AvatarStyle) ?? "avataaars"
+  )
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -23,8 +40,12 @@ export function UserMenu() {
     )
   }
 
-  const initial = user.email[0].toUpperCase()
   const isPro = user.plan === "pro"
+
+  const handleStyleChange = (s: AvatarStyle) => {
+    setStyle(s)
+    localStorage.setItem("thinkflow-avatar-style", s)
+  }
 
   return (
     <div ref={ref} style={{ position: "relative" }}>
@@ -34,19 +55,60 @@ export function UserMenu() {
         title={user.email}
         aria-label="用户菜单"
       >
-        {initial}
+        <img
+          src={getAvatarUrl(user.email, style, 30)}
+          width={30}
+          height={30}
+          alt="avatar"
+          className="tf-user-avatar-img"
+        />
         {isPro && <span className="tf-user-avatar__badge">PRO</span>}
       </button>
 
       {open && (
         <div className="tf-user-dropdown">
           <div className="tf-user-dropdown__info">
-            <p className="tf-user-dropdown__email">{user.email}</p>
-            <p className="tf-user-dropdown__plan">
-              {isPro ? "专业版" : `免费版 · 今日剩余 ${user.credits} 次`}
-            </p>
+            <div className="tf-user-dropdown__avatar-row">
+              <img
+                src={getAvatarUrl(user.email, style, 36)}
+                width={36}
+                height={36}
+                alt="avatar"
+                className="tf-user-avatar-img"
+              />
+              <div>
+                <p className="tf-user-dropdown__email">{user.email}</p>
+                <p className="tf-user-dropdown__plan">
+                  {isPro ? "专业版" : `免费版 · 今日剩余 ${user.credits} 积分`}
+                </p>
+              </div>
+            </div>
           </div>
+
+          {/* 头像风格选择 */}
+          <div className="tf-user-dropdown__styles">
+            <p className="tf-user-dropdown__styles-label">头像风格</p>
+            <div className="tf-user-dropdown__styles-row">
+              {DICEBEAR_STYLES.map((s) => (
+                <button
+                  key={s.id}
+                  className={`tf-user-avatar-style-btn${style === s.id ? " active" : ""}`}
+                  title={s.label}
+                  onClick={() => handleStyleChange(s.id)}
+                >
+                  <img
+                    src={getAvatarUrl(user.email, s.id, 28)}
+                    width={28}
+                    height={28}
+                    alt={s.label}
+                  />
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="tf-user-dropdown__divider" />
+
           {!isPro && (
             <a href="/pricing" className="tf-user-dropdown__item tf-user-dropdown__item--upgrade" onClick={() => setOpen(false)}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

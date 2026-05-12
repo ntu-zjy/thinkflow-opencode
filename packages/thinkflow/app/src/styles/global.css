@@ -2267,10 +2267,7 @@ html {
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  background: var(--accent);
-  color: var(--accent-text);
-  font-size: 13px;
-  font-weight: 700;
+  background: transparent;
   border: none;
   cursor: pointer;
   display: flex;
@@ -2279,8 +2276,18 @@ html {
   position: relative;
   flex-shrink: 0;
   transition: opacity 0.15s;
+  padding: 0;
+  overflow: visible;
 }
 .tf-user-avatar:hover { opacity: 0.85; }
+
+.tf-user-avatar-img {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: block;
+  object-fit: cover;
+}
 
 .tf-user-avatar__badge {
   position: absolute;
@@ -2293,6 +2300,57 @@ html {
   padding: 1px 3px;
   border-radius: 3px;
   letter-spacing: 0.05em;
+  z-index: 1;
+}
+
+/* 下拉头像信息行 */
+.tf-user-dropdown__avatar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.tf-user-dropdown__avatar-row .tf-user-avatar-img {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+}
+
+/* 头像风格选择区 */
+.tf-user-dropdown__styles {
+  padding: 4px 14px 10px;
+}
+.tf-user-dropdown__styles-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  margin: 0 0 7px;
+}
+.tf-user-dropdown__styles-row {
+  display: flex;
+  gap: 8px;
+}
+.tf-user-avatar-style-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  background: var(--bg-base);
+  cursor: pointer;
+  padding: 2px;
+  transition: border-color 0.12s, transform 0.1s;
+  flex-shrink: 0;
+}
+.tf-user-avatar-style-btn img {
+  border-radius: 50%;
+  display: block;
+  width: 28px;
+  height: 28px;
+}
+.tf-user-avatar-style-btn.active { border-color: var(--accent); }
+.tf-user-avatar-style-btn:hover:not(.active) {
+  border-color: var(--border-hover);
+  transform: scale(1.08);
 }
 
 .tf-user-dropdown {
