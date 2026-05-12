@@ -168,9 +168,9 @@
   - [x] 路由守卫：/app 未登录强制跳转 /login
   - [x] 超级测试账号（999 积分，详见 `docs/TESTING.md`）
   - [x] thinkflow-server 部署到 Sealos，地址：`https://dtwbvaymfksw.cloud.sealos.io`
-  - [ ] 服务端画布存储（canvasStore 迁移，替换 localStorage）
+  - [x] 服务端画布存储（canvasStore 迁移，登录后自动同步，1.5s debounce 保存，新建/删除/重命名实时同步）
   - [ ] 图片资产上传 S3 对象存储（替换 base64）
-  - [ ] Dashboard 历史画布列表页（/dashboard）
+  - [x] Dashboard 历史画布列表页（/dashboard）
 - [x] 画图问题
   - [x] 图片生成请求加入 `modalities: ["image", "text"]`，修复封面图频繁失败（原因：缺少该参数时模型只返回文字）
   - [x] 移除无效的 `reasoning: { effort: "high" }` 参数（图片生成模型不支持）
@@ -179,7 +179,7 @@
   - [x] nginx `proxy_buffers` 调大（`8 512k`），防止 base64 大体积响应被截断返回非 JSON
   - [x] 图片提示词去掉字数限制，改为引导 Agent 写出具体描述维度（主体、场景、光线、色调、构图等）
 - [ ] 数据后台，记录支付，用户反馈，注册记录，各种有利于商业分析的统计信息
-- [ ] 用户信息管理页，用户可以管理自己的头像，命名等，是一个现在通用的用户账号管理以及配置
+- [x] 用户信息管理页（/profile）：显示名修改、积分余额、订阅状态、头像风格切换、画布管理入口
 
 
 ### 🟢 锦上添花

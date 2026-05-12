@@ -7,6 +7,7 @@ import { Register } from "./pages/Register"
 import { Pricing } from "./pages/Pricing"
 import { Dashboard } from "./pages/Dashboard"
 import { Profile } from "./pages/Profile"
+import { Admin } from "./pages/Admin"
 import { Toolbar } from "./components/Toolbar"
 import { MemoryPanel } from "./components/MemoryPanel"
 import { WorkflowSidebar } from "./components/WorkflowSidebar"
@@ -24,7 +25,7 @@ function getInitialTheme(): Theme {
   return "light"
 }
 
-type Route = "landing" | "login" | "register" | "pricing" | "app" | "dashboard" | "profile"
+type Route = "landing" | "login" | "register" | "pricing" | "app" | "dashboard" | "profile" | "admin"
 
 function getRoute(): Route {
   const { pathname, search } = window.location
@@ -33,6 +34,7 @@ function getRoute(): Route {
   if (pathname === "/pricing") return "pricing"
   if (pathname === "/dashboard") return "dashboard"
   if (pathname === "/profile") return "profile"
+  if (pathname.startsWith("/admin")) return "admin"
   if (pathname.startsWith("/app") || search.includes("app")) return "app"
   return "landing"
 }
@@ -92,6 +94,7 @@ export default function App() {
   if (route === "landing") return <Landing />
   if (route === "dashboard") return <Dashboard />
   if (route === "profile") return <Profile />
+  if (route === "admin") return <Admin />
 
   // /app 路由守卫：未登录且无 token → 跳转登录页
   if (!token && !user) {
