@@ -41,7 +41,7 @@ admin.get("/stats", async (c) => {
       image_consumed: Number(txns[0].image_credits),
       sold: Number(txns[0].credits_sold),
     },
-    plans: Object.fromEntries((plans as Array<{ plan: string; count: string }>).map((r) => [r.plan, Number(r.count)])),
+    plans: Object.fromEntries((plans as unknown as Array<{ plan: string; count: string }>).map((r) => [r.plan, Number(r.count)])),
   })
 })
 
