@@ -149,6 +149,16 @@ export const payApi = {
     }),
 }
 
+// ─── Upload ───────────────────────────────────────────────────────────────────
+
+export const uploadApi = {
+  image: (base64: string, folder = "images") =>
+    request<{ url: string }>("/upload/image", {
+      method: "POST",
+      body: JSON.stringify({ base64, folder }),
+    }),
+}
+
 // ─── Admin ────────────────────────────────────────────────────────────────────
 
 export interface AdminStats {

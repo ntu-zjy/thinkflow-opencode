@@ -34,7 +34,7 @@ import {
   runMockWorkflow,
   generateImage,
 } from "../services/opencodeClient"
-import { creditsApi, canvasApi } from "../services/apiClient"
+import { creditsApi, canvasApi, uploadApi } from "../services/apiClient"
 import { useMemoryStore } from "./memoryStore"
 import { markdownToHtml } from "../utils/markdownToHtml"
 import { getCard } from "../cards"
@@ -48,6 +48,21 @@ const PLATFORM_LABELS: Record<string, string> = {
   note: "笔记",
   xiaohongshu: "小红书",
   video: "视频",
+}
+
+// ─── 图片 URL → S3（登录时自动上传，未登录直接用原始 URL） ──────────────────
+
+async function persistImageUrl(rawUrl: string): Promise<string> {
+  const token = localStorage.getItem("thinkflow-token")
+  if (!token) return rawUrl
+  // 仅上传 base64 data URL 或 OpenRouter 临时链接（不重复上传已是 Sealos 域名的 URL）
+  if (rawUrl.includes("cloud.sealos.io")) return rawUrl
+  try {
+    const { url } = await uploadApi.image(rawUrl, "images")
+    return url
+  } catch {
+    return rawUrl  // 上传失败时 fallback 用原始 URL
+  }
 }
 
 // ─── 创作形式 → 平台指令 ────────────────────────────────────────────────────
@@ -890,13 +905,24 @@ export const useCanvasStore = create<CanvasStore>()(
               if (part?.type === "file") {
                 const fp = part as { mime?: string; url?: string; id?: string }
                 if (fp.mime?.startsWith("image/") && fp.url) {
+                  const assetId = fp.id ?? nanoid()
+                  // 先用原始 URL 显示，上传完成后替换为 S3 URL
                   const wf = get().workflows[runWorkflowId]
                   const existing = ((wf?.nodes ?? get().nodes).find((n) => n.id === outputNode.id) as OutputNodeType | undefined)?.data.images ?? []
                   updateWorkflowNodeData<OutputNodeData>(outputNode.id, {
-                    images: [...existing, { id: fp.id ?? nanoid(), url: fp.url, generatedAt: Date.now() }],
+                    images: [...existing, { id: assetId, url: fp.url, generatedAt: Date.now() }],
                     contentType: "image",
                   })
                   appendLog(`[${outputNode.data.platform}] 图片已生成`, "info")
+                  // 异步上传到 S3，完成后替换 URL
+                  persistImageUrl(fp.url).then((persistedUrl) => {
+                    if (persistedUrl === fp.url) return
+                    const cur = get().workflows[runWorkflowId]
+                    const curImages = ((cur?.nodes ?? get().nodes).find((n) => n.id === outputNode.id) as OutputNodeType | undefined)?.data.images ?? []
+                    updateWorkflowNodeData<OutputNodeData>(outputNode.id, {
+                      images: curImages.map((img) => img.id === assetId ? { ...img, url: persistedUrl } : img),
+                    })
+                  })
                 }
               }
               if (part?.type === "tool") {
@@ -964,13 +990,15 @@ export const useCanvasStore = create<CanvasStore>()(
                 const elapsed = Math.round((Date.now() - imgStart) / 1000)
                 appendLog(`[图文] 第 ${imgIdx + 1} 张生成中，已等待 ${elapsed}s...`, "info")
               }, 15000)
-              const imageUrl = await generateImage(imagePrompt).catch((err: Error) => {
+              const rawImageUrl = await generateImage(imagePrompt).catch((err: Error) => {
                 clearInterval(ticker)
                 appendLog(`[图文] 第 ${imgIdx + 1} 张生成失败: ${(err.message ?? "").slice(0, 60)}，使用占位图`, "info")
                 const label = encodeURIComponent(imagePrompt.slice(0, 40))
                 return `data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300"><rect width="400" height="300" fill="%23ff2b54" opacity="0.1" rx="12"/><text x="50%" y="40%" font-family="sans-serif" font-size="16" fill="%23ff2b54" text-anchor="middle">图片生成失败，使用占位图</text><text x="50%" y="56%" font-family="sans-serif" font-size="12" fill="%23888" text-anchor="middle">${label}</text></svg>`
               })
               clearInterval(ticker)
+              // 上传到 S3（登录时自动持久化，未登录用原始 URL）
+              const imageUrl = await persistImageUrl(rawImageUrl)
               const elapsed = ((Date.now() - imgStart) / 1000).toFixed(1)
               slots[imgIdx] = { id: slots[imgIdx].id, url: imageUrl, loading: false, generatedAt: Date.now() }
               appendLog(`[图文] 第 ${imgIdx + 1} 张完成，用时 ${elapsed}s`, "info")
