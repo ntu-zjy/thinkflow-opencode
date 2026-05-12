@@ -11,6 +11,13 @@ const DICEBEAR_STYLES = [
 ] as const
 type AvatarStyle = typeof DICEBEAR_STYLES[number]["id"]
 
+// 每种风格展示的备选 seed（8 个，涵盖不同外形）
+const PRESET_SEEDS = [
+  "Felix", "Zoe", "Milo", "Luna", "Kai",
+  "Nora", "Leo", "Iris", "Sage", "River",
+  "Nova", "Finn",
+]
+
 function getAvatarUrl(seed: string, style: AvatarStyle, size = 80): string {
   return `https://api.dicebear.com/9.x/${style}/svg?seed=${encodeURIComponent(seed)}&size=${size}&radius=50`
 }
@@ -27,6 +34,9 @@ export function Profile() {
   const [saved, setSaved] = useState(false)
   const [avatarStyle, setAvatarStyle] = useState<AvatarStyle>(
     () => (localStorage.getItem("thinkflow-avatar-style") as AvatarStyle) ?? "avataaars"
+  )
+  const [avatarSeed, setAvatarSeed] = useState<string>(
+    () => localStorage.getItem("thinkflow-avatar-seed") ?? ""
   )
 
   useEffect(() => {
@@ -54,6 +64,14 @@ export function Profile() {
     localStorage.setItem("thinkflow-avatar-style", s)
   }
 
+  const handleAvatarSeed = (seed: string) => {
+    setAvatarSeed(seed)
+    localStorage.setItem("thinkflow-avatar-seed", seed)
+  }
+
+  // 当前预览用的 seed：用户选了就用选的，否则用邮箱（默认）
+  const currentSeed = avatarSeed || (user?.email ?? "")
+
   const isSubscriber = user?.plan === "subscriber"
   const creditsDaily = (user as { credits_daily?: number })?.credits_daily ?? 0
   const creditsPermanent = (user as { credits_permanent?: number })?.credits_permanent ?? 0
@@ -72,17 +90,18 @@ export function Profile() {
         <section className="profile-section">
           <h2 className="profile-section__title">头像</h2>
           <div className="profile-avatar-row">
-            {user && (
-              <img
-                src={getAvatarUrl(user.email, avatarStyle, 80)}
-                width={80}
-                height={80}
-                alt="avatar"
-                className="profile-avatar-img"
-              />
-            )}
-            <div>
-              <p className="profile-avatar-label">选择风格</p>
+            {/* 左侧大头像预览 */}
+            <img
+              src={getAvatarUrl(currentSeed, avatarStyle, 88)}
+              width={88}
+              height={88}
+              alt="avatar"
+              className="profile-avatar-img profile-avatar-img--lg"
+            />
+
+            <div className="profile-avatar-right">
+              {/* 第一行：选风格 */}
+              <p className="profile-avatar-label">风格</p>
               <div className="profile-avatar-styles">
                 {DICEBEAR_STYLES.map((s) => (
                   <button
@@ -91,18 +110,42 @@ export function Profile() {
                     title={s.label}
                     onClick={() => handleAvatarStyle(s.id)}
                   >
-                    {user && (
-                      <img
-                        src={getAvatarUrl(user.email, s.id, 36)}
-                        width={36}
-                        height={36}
-                        alt={s.label}
-                      />
-                    )}
+                    <img
+                      src={getAvatarUrl(currentSeed, s.id, 34)}
+                      width={34}
+                      height={34}
+                      alt={s.label}
+                    />
                   </button>
                 ))}
               </div>
-              <p className="profile-avatar-hint">头像基于你的邮箱生成，风格偏好保存在本地</p>
+
+              {/* 第二行：当前风格的备选头像 */}
+              <p className="profile-avatar-label" style={{ marginTop: 14 }}>选择头像</p>
+              <div className="profile-avatar-seeds">
+                {/* 用户邮箱生成的默认头像 */}
+                {user && (
+                  <button
+                    className={`profile-avatar-seed-btn${(!avatarSeed) ? " active" : ""}`}
+                    title="默认（邮箱生成）"
+                    onClick={() => handleAvatarSeed("")}
+                  >
+                    <img src={getAvatarUrl(user.email, avatarStyle, 40)} width={40} height={40} alt="default" />
+                  </button>
+                )}
+                {PRESET_SEEDS.map((seed) => (
+                  <button
+                    key={seed}
+                    className={`profile-avatar-seed-btn${avatarSeed === seed ? " active" : ""}`}
+                    title={seed}
+                    onClick={() => handleAvatarSeed(seed)}
+                  >
+                    <img src={getAvatarUrl(seed, avatarStyle, 40)} width={40} height={40} alt={seed} />
+                  </button>
+                ))}
+              </div>
+
+              <p className="profile-avatar-hint">风格和头像偏好保存在本地</p>
             </div>
           </div>
         </section>
@@ -248,8 +291,15 @@ const STYLES = `
   width: 80px; height: 80px; border-radius: 50%; object-fit: cover; flex-shrink: 0;
   border: 2px solid var(--border);
 }
+.profile-avatar-img--lg {
+  width: 88px; height: 88px;
+  border: 2.5px solid var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+.profile-avatar-right { flex: 1; min-width: 0; }
 .profile-avatar-label {
-  font-size: 12px; color: var(--text-muted); margin: 0 0 10px;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--text-muted); margin: 0 0 8px; display: block;
 }
 .profile-avatar-styles {
   display: flex; gap: 8px; flex-wrap: wrap;
@@ -262,7 +312,21 @@ const STYLES = `
 }
 .profile-avatar-style-btn.active { border-color: var(--accent); }
 .profile-avatar-style-btn:hover:not(.active) { border-color: var(--border-hover); transform: scale(1.08); }
-.profile-avatar-hint { font-size: 11px; color: var(--text-muted); margin: 10px 0 0; }
+
+/* 备选头像网格 */
+.profile-avatar-seeds {
+  display: flex; flex-wrap: wrap; gap: 8px;
+}
+.profile-avatar-seed-btn {
+  width: 48px; height: 48px; border-radius: 50%;
+  border: 2px solid transparent; background: var(--bg-node);
+  cursor: pointer; padding: 3px;
+  transition: border-color 0.12s, transform 0.1s;
+}
+.profile-avatar-seed-btn.active { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
+.profile-avatar-seed-btn:hover:not(.active) { border-color: var(--border-hover); transform: scale(1.06); }
+
+.profile-avatar-hint { font-size: 11px; color: var(--text-muted); margin: 12px 0 0; }
 
 /* ── Fields ── */
 .profile-field { margin-bottom: 20px; }
