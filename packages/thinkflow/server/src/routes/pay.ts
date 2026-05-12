@@ -5,10 +5,11 @@ import { sql } from "../db"
 
 const pay = new Hono()
 
-const ZPAY_PID = process.env.ZPAY_PID ?? ""
-const ZPAY_KEY = process.env.ZPAY_KEY ?? ""
-const ZPAY_API = process.env.ZPAY_API ?? "https://zpayz.cn/submit.php"
-const SITE_URL = process.env.SITE_URL ?? "https://thinkflow.app"
+const ZPAY_PID  = process.env.ZPAY_PID ?? ""
+const ZPAY_KEY  = process.env.ZPAY_KEY ?? ""
+const ZPAY_API  = process.env.ZPAY_API ?? "https://zpayz.cn/submit.php"
+const SITE_URL  = process.env.SITE_URL ?? "https://thinkflow.app"
+const MOCK_PAY  = process.env.ZPAY_MOCK === "1"
 
 type PlanType = "subscription" | "credits"
 
@@ -47,11 +48,18 @@ pay.post("/create", requireAuth, async (c) => {
   const jwt = c.get("jwtPayload") as JwtPayload
   const raw = await c.req.json().catch(() => ({})) as Record<string, unknown>
   const planId = typeof raw.planId === "string" ? raw.planId : ""
-  const payType = typeof raw.payType === "string" ? raw.payType : "wxpay"
 
   if (!PLANS[planId]) return c.json({ error: "套餐不存在" }, 400)
+
+  // Mock 支付：ZPAY_MOCK=1 时直接返回本地回调 URL，无需真实商户配置
+  if (MOCK_PAY) {
+    const payUrl = `${SITE_URL}/api/thinkflow/pay/mock-callback?userId=${jwt.sub}&planId=${planId}`
+    return c.json({ payUrl, outTradeNo: `mock_${Date.now()}`, mock: true })
+  }
+
   if (!ZPAY_PID || !ZPAY_KEY) return c.json({ error: "支付未配置，请联系管理员" }, 503)
 
+  const payType = typeof raw.payType === "string" ? raw.payType : "wxpay"
   const plan = PLANS[planId]
   const outTradeNo = `tf_${Date.now()}_${jwt.sub.slice(0, 8)}`
 
@@ -70,6 +78,32 @@ pay.post("/create", requireAuth, async (c) => {
 
   const payUrl = `${ZPAY_API}?${new URLSearchParams(params).toString()}`
   return c.json({ payUrl, outTradeNo })
+})
+
+// GET /pay/mock-callback — 仅 ZPAY_MOCK=1 时可用，模拟支付成功，直接充值后跳转
+pay.get("/mock-callback", async (c) => {
+  if (!MOCK_PAY) return c.json({ error: "mock 支付未启用" }, 403)
+
+  const userId = c.req.query("userId")
+  const planId = c.req.query("planId")
+  if (!userId || !planId || !PLANS[planId]) {
+    return c.html("<h2>参数错误</h2>", 400)
+  }
+
+  const plan = PLANS[planId]
+
+  if (plan.type === "subscription") {
+    await sql`UPDATE users SET plan = 'subscriber', credits_permanent = credits_permanent + ${plan.credits ?? 0} WHERE id = ${userId}`
+  } else {
+    await sql`UPDATE users SET credits_permanent = credits_permanent + ${plan.credits ?? 0} WHERE id = ${userId}`
+  }
+
+  const creditsAdded = plan.credits ?? 0
+  if (creditsAdded > 0) {
+    await sql`INSERT INTO credit_transactions (user_id, delta, reason) VALUES (${userId}, ${creditsAdded}, ${"purchase_" + planId})`
+  }
+
+  return c.redirect(`${SITE_URL}/app?payment=success&mock=1`)
 })
 
 pay.post("/notify", async (c) => {

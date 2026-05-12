@@ -143,7 +143,7 @@ export const creditsApi = {
 
 export const payApi = {
   create: (planId: string, payType: "wxpay" | "alipay" = "wxpay") =>
-    request<{ payUrl: string; outTradeNo: string }>("/pay/create", {
+    request<{ payUrl: string; outTradeNo: string; mock?: boolean }>("/pay/create", {
       method: "POST",
       body: JSON.stringify({ planId, payType }),
     }),
