@@ -25,7 +25,7 @@ admin.get("/stats", async (c) => {
   const [users, canvases, txns, plans] = await Promise.all([
     sql`SELECT COUNT(*) AS total, COUNT(*) FILTER (WHERE created_at > now() - INTERVAL '7 days') AS new_7d, COUNT(*) FILTER (WHERE created_at > now() - INTERVAL '30 days') AS new_30d FROM users`,
     sql`SELECT COUNT(*) AS total FROM canvases`,
-    sql`SELECT COALESCE(SUM(ABS(delta)) FILTER (WHERE delta < 0 AND reason = 'run_text'), 0) AS text_credits, COALESCE(SUM(ABS(delta)) FILTER (WHERE delta < 0 AND reason = 'run_image'), 0) AS image_credits, COALESCE(SUM(delta) FILTER (WHERE delta > 0 AND reason = 'purchase'), 0) AS credits_sold FROM credit_transactions`,
+    sql`SELECT COALESCE(SUM(ABS(delta)) FILTER (WHERE delta < 0 AND reason = 'run_text'), 0) AS text_credits, COALESCE(SUM(ABS(delta)) FILTER (WHERE delta < 0 AND reason = 'run_image'), 0) AS image_credits, COALESCE(SUM(ABS(delta)) FILTER (WHERE delta < 0 AND reason = 'run_video'), 0) AS video_credits, COALESCE(SUM(delta) FILTER (WHERE delta > 0 AND reason LIKE 'purchase%'), 0) AS credits_sold FROM credit_transactions`,
     sql`SELECT plan, COUNT(*) AS count FROM users GROUP BY plan ORDER BY plan`,
   ])
 
@@ -39,6 +39,7 @@ admin.get("/stats", async (c) => {
     credits: {
       text_consumed: Number(txns[0].text_credits),
       image_consumed: Number(txns[0].image_credits),
+      video_consumed: Number(txns[0].video_credits),
       sold: Number(txns[0].credits_sold),
     },
     plans: Object.fromEntries((plans as unknown as Array<{ plan: string; count: string }>).map((r) => [r.plan, Number(r.count)])),

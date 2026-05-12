@@ -164,8 +164,14 @@ export const uploadApi = {
 export interface AdminStats {
   users: { total: number; new_7d: number; new_30d: number }
   canvases: { total: number }
-  credits: { text_consumed: number; image_consumed: number; sold: number }
+  credits: { text_consumed: number; image_consumed: number; video_consumed: number; sold: number }
   plans: Record<string, number>
+}
+
+export interface AdminRevenueDay {
+  day: string
+  txn_count: string
+  credits_added: string
 }
 
 export interface AdminUser {
@@ -188,6 +194,8 @@ export interface AdminTransaction {
 
 export const adminApi = {
   stats: () => request<AdminStats>("/admin/stats"),
+
+  revenue: () => request<{ daily: AdminRevenueDay[] }>("/admin/revenue"),
 
   users: (page = 1, limit = 20, q = "") =>
     request<{ users: AdminUser[]; total: number; page: number; limit: number }>(
