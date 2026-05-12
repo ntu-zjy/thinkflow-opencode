@@ -159,17 +159,27 @@ export function Admin() {
               <h2 className="adm-subheading">财务概览（累计）</h2>
               <div className="adm-stats-grid">
                 <StatCard label="累计收入" value={yuan(stats.financials.revenue)} accent />
-                <StatCard label="累计成本" value={yuan(stats.financials.cost)} sub={`文¥${stats.financials.cost_text} · 图¥${stats.financials.cost_image} · 视¥${stats.financials.cost_video}`} />
+                <StatCard label="累计成本" value={yuan(stats.financials.cost_cny)} sub={`$${stats.financials.cost_usd.toFixed(4)} USD`} />
                 <StatCard label="毛利润" value={yuan(stats.financials.profit)} accent={stats.financials.profit > 0} sub={`毛利率 ${stats.financials.margin}%`} />
                 <StatCard label="售出积分" value={stats.credits.sold} sub={`= ${creditsToYuan(stats.credits.sold)}`} />
               </div>
 
-              <h2 className="adm-subheading">消耗次数（累计）</h2>
-              <div className="adm-stats-grid">
-                <StatCard label="文字生成" value={`${stats.credits.text_runs} 次`} sub={`消耗 ${stats.credits.text_consumed} 积分 · 成本 ¥${stats.financials.cost_text}`} />
-                <StatCard label="图文生成" value={`${stats.credits.image_runs} 次`} sub={`消耗 ${stats.credits.image_consumed} 积分 · 成本 ¥${stats.financials.cost_image}`} />
-                <StatCard label="视频生成" value={`${stats.credits.video_runs} 次`} sub={`消耗 ${stats.credits.video_consumed} 积分 · 成本 ¥${stats.financials.cost_video}`} />
-              </div>
+              <h2 className="adm-subheading">真实用量（累计，来自 OpenRouter）</h2>
+              <table className="adm-table" style={{ maxWidth: 720 }}>
+                <thead><tr><th>类型</th><th>次数</th><th>输入 Tokens</th><th>输出 Tokens</th><th>缓存命中</th><th>成本 (USD)</th></tr></thead>
+                <tbody>
+                  {(["text","image","video"] as const).map((t) => (
+                    <tr key={t}>
+                      <td>{{ text: "文字", image: "图文", video: "视频" }[t]}</td>
+                      <td>{stats.usage[t].runs}</td>
+                      <td>{stats.usage[t].tokens_input.toLocaleString()}</td>
+                      <td>{stats.usage[t].tokens_output.toLocaleString()}</td>
+                      <td>{stats.usage[t].tokens_cache_read.toLocaleString()}</td>
+                      <td className="adm-td-neg">${stats.usage[t].cost_usd.toFixed(4)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
 
               <h2 className="adm-subheading">套餐分布</h2>
               <table className="adm-table" style={{ maxWidth: 320 }}>
@@ -190,25 +200,25 @@ export function Admin() {
                 <h1 className="adm-heading">收入与成本（近 30 天）</h1>
                 <button className="adm-btn" onClick={() => downloadCsv(
                   "thinkflow-revenue.csv",
-                  ["日期", "订单数", "售出积分", "收入(¥)", "成本(¥)", "利润(¥)", "文字次数", "图文次数", "视频次数"],
-                  revenue.map((r) => [r.day, r.txn_count, r.credits_added, r.revenue, r.cost, r.profit, r.text_runs, r.image_runs, r.video_runs])
+                  ["日期", "订单数", "售出积分", "收入(¥)", "成本(USD)", "成本(¥)", "利润(¥)", "文字次", "文字入参tokens", "文字出参tokens", "图文次", "视频次"],
+                  revenue.map((r) => [r.day, r.txn_count, r.credits_added, r.revenue, r.cost_usd, r.cost_cny, r.profit, r.text_runs, r.text_tokens_in, r.text_tokens_out, r.image_runs, r.video_runs])
                 )}>
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: 4 }}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                   导出 CSV
                 </button>
               </div>
-              <p className="adm-count">1 积分 = ¥0.1 · 成本基于单次固定成本估算（文¥0.48 / 图¥1.32 / 视¥1.50）</p>
+              <p className="adm-count">成本来自 OpenRouter 真实用量（USD × 7 换算人民币）</p>
               <table className="adm-table">
                 <thead>
                   <tr>
                     <th>日期</th><th>订单数</th><th>售出积分</th>
-                    <th>收入</th><th>成本</th><th>利润</th>
-                    <th>文字次数</th><th>图文次数</th><th>视频次数</th>
+                    <th>收入</th><th>成本(USD)</th><th>成本(CNY)</th><th>利润</th>
+                    <th>文字次</th><th>文字入参</th><th>文字出参</th><th>图文次</th><th>视频次</th>
                   </tr>
                 </thead>
                 <tbody>
                   {revenue.length === 0 && (
-                    <tr><td colSpan={9} style={{ textAlign: "center", color: "var(--text-muted)", padding: "32px" }}>暂无收入记录</td></tr>
+                    <tr><td colSpan={12} style={{ textAlign: "center", color: "var(--text-muted)", padding: "32px" }}>暂无收入记录</td></tr>
                   )}
                   {revenue.map((r) => (
                     <tr key={r.day}>
@@ -216,9 +226,12 @@ export function Admin() {
                       <td>{r.txn_count}</td>
                       <td>{r.credits_added}</td>
                       <td className="adm-td-pos">{yuan(r.revenue)}</td>
-                      <td className="adm-td-neg">{yuan(r.cost)}</td>
+                      <td className="adm-td-neg">${r.cost_usd.toFixed(4)}</td>
+                      <td className="adm-td-neg">{yuan(r.cost_cny)}</td>
                       <td className={r.profit >= 0 ? "adm-td-pos" : "adm-td-neg"}>{yuan(r.profit)}</td>
                       <td className="adm-td-muted">{r.text_runs}</td>
+                      <td className="adm-td-muted">{r.text_tokens_in.toLocaleString()}</td>
+                      <td className="adm-td-muted">{r.text_tokens_out.toLocaleString()}</td>
                       <td className="adm-td-muted">{r.image_runs}</td>
                       <td className="adm-td-muted">{r.video_runs}</td>
                     </tr>
@@ -226,8 +239,8 @@ export function Admin() {
                 </tbody>
               </table>
               {revenue.length > 0 && (() => {
-                const totRev  = revenue.reduce((s, r) => s + r.revenue, 0)
-                const totCost = revenue.reduce((s, r) => s + r.cost, 0)
+                const totRev    = revenue.reduce((s, r) => s + r.revenue, 0)
+                const totCost   = revenue.reduce((s, r) => s + r.cost_cny, 0)
                 const totProfit = totRev - totCost
                 return (
                   <div className="adm-revenue-total">

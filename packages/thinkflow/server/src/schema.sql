@@ -50,6 +50,23 @@ CREATE TABLE IF NOT EXISTS assets (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
+-- 每次生成的真实用量（tokens + cost），从 OpenCode SSE 或 OpenRouter generation API 取得
+CREATE TABLE IF NOT EXISTS usage_records (
+  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id             UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  run_type            TEXT NOT NULL,         -- 'text' | 'image' | 'video'
+  model               TEXT,                  -- 模型名，如 anthropic/claude-sonnet-4-6
+  tokens_input        INT NOT NULL DEFAULT 0,
+  tokens_output       INT NOT NULL DEFAULT 0,
+  tokens_cache_read   INT NOT NULL DEFAULT 0,
+  tokens_cache_write  INT NOT NULL DEFAULT 0,
+  cost_usd            NUMERIC(12,8) NOT NULL DEFAULT 0,  -- 美元，精确到亿分之一
+  created_at          TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS usage_records_user_id_idx ON usage_records(user_id);
+CREATE INDEX IF NOT EXISTS usage_records_created_at_idx ON usage_records(created_at);
+
 -- 更新画布时自动刷新 updated_at
 CREATE OR REPLACE FUNCTION set_updated_at()
 RETURNS TRIGGER AS $$
