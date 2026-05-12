@@ -1,9 +1,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { useAuthStore } from "../store/authStore"
 import { adminApi } from "../services/apiClient"
-import type { AdminStats, AdminUser, AdminTransaction } from "../services/apiClient"
-
-const ADMIN_EMAILS = ["super@thinkflow.dev"]
+import type { AdminStats, AdminUser, AdminTransaction, AdminRevenueDay } from "../services/apiClient"
 
 function StatCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
   return (
@@ -19,10 +17,16 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).replace(/\//g, "-")
 }
 
+// 积分换算成人民币（1积分=¥0.1）
+function creditsToYuan(credits: number): string {
+  return `¥${(credits * 0.1).toFixed(0)}`
+}
+
 export function Admin() {
   const { user, token, fetchMe } = useAuthStore()
-  const [tab, setTab] = useState<"overview" | "users" | "credits">("overview")
+  const [tab, setTab] = useState<"overview" | "users" | "credits" | "revenue">("overview")
   const [stats, setStats] = useState<AdminStats | null>(null)
+  const [revenue, setRevenue] = useState<AdminRevenueDay[]>([])
   const [users, setUsers] = useState<AdminUser[]>([])
   const [usersTotal, setUsersTotal] = useState(0)
   const [usersPage, setUsersPage] = useState(1)
@@ -38,10 +42,10 @@ export function Admin() {
     if (!user) fetchMe()
   }, [token]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 权限检查：非管理员跳转
+  // 权限检查：后端会返回 403，这里提前 redirect 避免白屏
   useEffect(() => {
-    if (user && !ADMIN_EMAILS.includes(user.email)) {
-      window.location.replace("/app")
+    if (user && user.plan !== "subscriber") {
+      adminApi.stats().catch(() => window.location.replace("/app"))
     }
   }, [user])
 
@@ -50,6 +54,13 @@ export function Admin() {
     const s = await adminApi.stats().catch(() => null)
     setLoading(false)
     if (s) setStats(s)
+  }, [])
+
+  const loadRevenue = useCallback(async () => {
+    setLoading(true)
+    const r = await adminApi.revenue().catch(() => null)
+    setLoading(false)
+    if (r) setRevenue(r.daily)
   }, [])
 
   const loadUsers = useCallback(async (page = 1, q = "") => {
@@ -64,14 +75,15 @@ export function Admin() {
 
   const loadTxns = useCallback(async (reason = "") => {
     setLoading(true)
-    const r = await adminApi.credits(80, reason || undefined).catch(() => null)
+    const r = await adminApi.credits(100, reason || undefined).catch(() => null)
     setLoading(false)
     if (r) setTxns(r.transactions)
   }, [])
 
   useEffect(() => {
-    if (!user || !ADMIN_EMAILS.includes(user.email)) return
+    if (!user) return
     if (tab === "overview") loadStats()
+    if (tab === "revenue") loadRevenue()
     if (tab === "users") loadUsers(1, userSearch)
     if (tab === "credits") loadTxns(txnReason)
   }, [tab, user]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -87,7 +99,6 @@ export function Admin() {
   }
 
   if (!user) return null
-  if (!ADMIN_EMAILS.includes(user.email)) return null
 
   return (
     <div className="adm-page">
@@ -99,7 +110,7 @@ export function Admin() {
       <div className="adm-layout">
         {/* ── 侧边 Tab ── */}
         <aside className="adm-aside">
-          {(["overview", "users", "credits"] as const).map((t) => (
+          {(["overview", "revenue", "users", "credits"] as const).map((t) => (
             <button
               key={t}
               className={`adm-aside__item${tab === t ? " active" : ""}`}
@@ -108,13 +119,16 @@ export function Admin() {
               {t === "overview" && (
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
               )}
+              {t === "revenue" && (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              )}
               {t === "users" && (
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
               )}
               {t === "credits" && (
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
               )}
-              {{ overview: "总览", users: "用户", credits: "积分流水" }[t]}
+              {{ overview: "总览", revenue: "收入", users: "用户", credits: "积分流水" }[t]}
             </button>
           ))}
         </aside>
@@ -130,10 +144,11 @@ export function Admin() {
                 <StatCard label="注册用户总数" value={stats.users.total} sub={`近 7 天 +${stats.users.new_7d}`} />
                 <StatCard label="近 30 天新增" value={stats.users.new_30d} />
                 <StatCard label="画布总数" value={stats.canvases.total} />
-                <StatCard label="订阅用户" value={stats.plans.subscriber ?? 0} />
-                <StatCard label="消耗文字积分" value={stats.credits.text_consumed} />
-                <StatCard label="消耗图片积分" value={stats.credits.image_consumed} />
-                <StatCard label="售出积分" value={stats.credits.sold} />
+                <StatCard label="订阅用户" value={stats.plans.subscriber ?? 0} sub={`免费 ${stats.plans.free ?? 0}`} />
+                <StatCard label="文字积分消耗" value={stats.credits.text_consumed} sub={creditsToYuan(stats.credits.text_consumed)} />
+                <StatCard label="图片积分消耗" value={stats.credits.image_consumed} sub={creditsToYuan(stats.credits.image_consumed)} />
+                <StatCard label="视频积分消耗" value={stats.credits.video_consumed} sub={creditsToYuan(stats.credits.video_consumed)} />
+                <StatCard label="售出积分" value={stats.credits.sold} sub={creditsToYuan(stats.credits.sold)} />
               </div>
               <div className="adm-plan-table">
                 <h2 className="adm-subheading">套餐分布</h2>
@@ -146,6 +161,38 @@ export function Admin() {
                   </tbody>
                 </table>
               </div>
+            </div>
+          )}
+
+          {/* ── 收入 ── */}
+          {tab === "revenue" && (
+            <div>
+              <h1 className="adm-heading">收入记录（近 30 天）</h1>
+              <p className="adm-count">1 积分 = ¥0.1，下表为购买充值流水</p>
+              <table className="adm-table">
+                <thead>
+                  <tr><th>日期</th><th>笔数</th><th>售出积分</th><th>折算金额</th></tr>
+                </thead>
+                <tbody>
+                  {revenue.length === 0 && (
+                    <tr><td colSpan={4} style={{ textAlign: "center", color: "var(--text-muted)", padding: "32px" }}>暂无收入记录</td></tr>
+                  )}
+                  {revenue.map((r) => (
+                    <tr key={r.day}>
+                      <td>{r.day.slice(0, 10)}</td>
+                      <td>{r.txn_count}</td>
+                      <td>{r.credits_added}</td>
+                      <td className="adm-td-pos">{creditsToYuan(Number(r.credits_added))}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {revenue.length > 0 && (
+                <div className="adm-revenue-total">
+                  合计：<strong>{creditsToYuan(revenue.reduce((s, r) => s + Number(r.credits_added), 0))}</strong>
+                  （{revenue.reduce((s, r) => s + Number(r.txn_count), 0)} 笔订单）
+                </div>
+              )}
             </div>
           )}
 
@@ -216,12 +263,14 @@ export function Admin() {
                   onChange={(e) => { setTxnReason(e.target.value); loadTxns(e.target.value) }}
                 >
                   <option value="">全部类型</option>
-                  <option value="run_text">run_text（文字消耗）</option>
-                  <option value="run_image">run_image（图文消耗）</option>
-                  <option value="purchase">purchase（购买充值）</option>
-                  <option value="daily_reset">daily_reset（每日重置）</option>
-                  <option value="refund">refund（退款）</option>
-                  <option value="admin_adjust">admin_adjust（管理员调整）</option>
+                  <option value="run_text">文字消耗</option>
+                  <option value="run_image">图文消耗</option>
+                  <option value="run_video">视频消耗</option>
+                  <option value="purchase">购买充值</option>
+                  <option value="refund_text">退款（文字）</option>
+                  <option value="refund_image">退款（图文）</option>
+                  <option value="refund_video">退款（视频）</option>
+                  <option value="admin_adjust">管理员调整</option>
                 </select>
               </div>
               <table className="adm-table">
@@ -406,6 +455,13 @@ const STYLES = `
   background: var(--accent); color: var(--accent-text); border-color: var(--accent);
 }
 .adm-btn--primary:hover:not(:disabled) { opacity: 0.85; }
+
+.adm-revenue-total {
+  margin-top: 16px; font-size: 13px; color: var(--text-muted);
+  padding: 12px 16px; background: var(--bg-node);
+  border: 1px solid var(--border); border-radius: var(--radius-md);
+}
+.adm-revenue-total strong { color: var(--status-done); font-size: 16px; }
 
 /* ── Modal ── */
 .adm-modal-overlay {
