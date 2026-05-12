@@ -10,6 +10,7 @@ import { OutputModal } from "../components/OutputModal"
 import { downloadSingleText, downloadAsZip } from "../utils/download"
 import { markdownToHtml } from "../utils/markdownToHtml"
 import { createSession, sendPrompt, subscribeEvents } from "../services/opencodeClient"
+import { creditsApi } from "../services/apiClient"
 import { getCard, getAllCards } from "../cards"
 
 function ImageSkeleton() {
@@ -155,6 +156,21 @@ export function OutputNode({ id, data, selected }: NodeProps<OutputNodeType>) {
 
   const doGenerateVideo = useCallback(async () => {
     if (!videoScript) return
+
+    // 扣积分（登录用户才扣）
+    const token = localStorage.getItem("thinkflow-token")
+    if (token) {
+      const deductResult = await creditsApi.deduct("video", 1).catch((err: Error) => {
+        if (err.message.includes("积分不足")) return { ok: false as const }
+        return null
+      })
+      if (deductResult && !deductResult.ok) {
+        setVideoGenStatus("error")
+        setVideoMessage("积分不足，无法生成视频（需要 90 积分）")
+        return
+      }
+    }
+
     setVideoGenStatus("generating")
     setVideoProgress(5)
     setVideoMessage("启动 Agent 创作视频...")
@@ -190,6 +206,8 @@ export function OutputNode({ id, data, selected }: NodeProps<OutputNodeType>) {
           videoUnsubRef.current = null
           setVideoGenStatus("error")
           setVideoMessage((props?.error as string | undefined) ?? "Agent 运行失败")
+          // 生成失败退还积分
+          if (token) creditsApi.refund("video", 1).catch(() => {})
         }
       })
       videoUnsubRef.current = unsub
@@ -199,6 +217,8 @@ export function OutputNode({ id, data, selected }: NodeProps<OutputNodeType>) {
     } catch (err) {
       setVideoGenStatus("error")
       setVideoMessage(err instanceof Error ? err.message : "生成失败")
+      // 启动失败退还积分
+      if (token) creditsApi.refund("video", 1).catch(() => {})
     }
   }, [videoScript, displayContent])
 

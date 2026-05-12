@@ -656,9 +656,10 @@ export const useCanvasStore = create<CanvasStore>()(
     const dryRun = agentNode.data.dryRun
 
     // ─ 积分检查（非 dry-run 才扣积分）────────────────────────────────────────
-    // 判断本次运行类型：有小红书输出节点 = image，否则 = text
+    // 判断本次运行类型：视频节点 = video，小红书图文 = image，其余 = text
+    const hasVideoOutput = outputNodes.some((o) => o.data.platform === "video")
     const hasImageOutput = outputNodes.some((o) => o.data.platform === "xiaohongshu")
-    const runType = hasImageOutput ? "image" : "text"
+    const runType = hasVideoOutput ? "video" : hasImageOutput ? "image" : "text"
     // 矩阵模式：每个 slot 算一次（此处用前缀避免与下方 matrixMode/matrixSlots 冲突）
     const _creditMatrixMode = agentNode.data.matrixMode ?? false
     const _creditMatrixSlots = agentNode.data.matrixSlots ?? []
