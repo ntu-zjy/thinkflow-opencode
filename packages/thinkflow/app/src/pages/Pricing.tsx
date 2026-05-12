@@ -76,6 +76,7 @@ export function Pricing() {
   const { user } = useAuthStore()
   const [loadingId, setLoadingId] = useState<string | null>(null)
   const [payType, setPayType] = useState<"wxpay" | "alipay">("wxpay")
+  const [isMock, setIsMock] = useState(false)
 
   const handlePay = async (planId: string) => {
     if (!user) { window.location.href = "/register"; return }
@@ -85,7 +86,14 @@ export function Pricing() {
       return null
     })
     setLoadingId(null)
-    if (result?.payUrl) window.open(result.payUrl, "_blank")
+    if (!result?.payUrl) return
+    if (result.mock) setIsMock(true)
+    // mock 模式直接当前页跳转（后端会 redirect 回 /app?payment=success）
+    if (result.mock) {
+      window.location.href = result.payUrl
+    } else {
+      window.open(result.payUrl, "_blank")
+    }
   }
 
   const isSubscriber = (user?.plan as string) === "subscriber"
@@ -104,6 +112,13 @@ export function Pricing() {
           <a href="/login" className="pricing-nav__back">登录</a>
         )}
       </nav>
+
+      {/* ── Mock 支付提示横幅（仅 ZPAY_MOCK=1 时后端返回 mock=true 后显示） ── */}
+      {isMock && (
+        <div className="pricing-mock-banner">
+          🧪 Mock 支付模式 — 积分已直接到账，无需真实付款（仅测试环境）
+        </div>
+      )}
 
       {/* ── 标题区 ── */}
       <div className="pricing-header">
@@ -287,6 +302,14 @@ const STYLES = `
   background: var(--bg-base);
   color: var(--text-primary);
   padding-bottom: 60px;
+}
+
+/* ── Mock 横幅 ── */
+.pricing-mock-banner {
+  background: #fef3c7; color: #92400e;
+  text-align: center; padding: 10px 24px;
+  font-size: 13px; font-weight: 600;
+  border-bottom: 1px solid #fcd34d;
 }
 
 /* ── Nav ── */
