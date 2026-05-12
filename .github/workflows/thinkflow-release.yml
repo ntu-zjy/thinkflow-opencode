@@ -122,9 +122,15 @@ jobs:
              packages/thinkflow/desktop/src-tauri/sidecars/opencode-cli-aarch64-apple-darwin
         working-directory: ${{ github.workspace }}
 
+      - name: Build frontend (app/dist)
+        run: bun run build
+        working-directory: packages/thinkflow/app
+
       - name: Build Tauri app
         run: bun tauri build
         working-directory: packages/thinkflow/desktop
+        env:
+          TAURI_SKIP_DEVSERVER_CHECK: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
