@@ -100,7 +100,7 @@ export const canvasApi = {
 
 // ─── Credits ─────────────────────────────────────────────────────────────────
 
-export type RunType = "text" | "image"
+export type RunType = "text" | "image" | "video"
 
 export interface CreditsInfo {
   daily: number
