@@ -164,14 +164,27 @@ export const uploadApi = {
 export interface AdminStats {
   users: { total: number; new_7d: number; new_30d: number }
   canvases: { total: number }
-  credits: { text_consumed: number; image_consumed: number; video_consumed: number; sold: number }
+  credits: {
+    text_consumed: number; image_consumed: number; video_consumed: number; sold: number
+    text_runs: number; image_runs: number; video_runs: number
+  }
+  financials: {
+    revenue: number; cost: number; cost_text: number; cost_image: number; cost_video: number
+    profit: number; margin: number
+  }
   plans: Record<string, number>
 }
 
 export interface AdminRevenueDay {
   day: string
-  txn_count: string
-  credits_added: string
+  txn_count: number
+  credits_added: number
+  revenue: number
+  cost: number
+  profit: number
+  text_runs: number
+  image_runs: number
+  video_runs: number
 }
 
 export interface AdminUser {

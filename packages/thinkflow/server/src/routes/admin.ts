@@ -20,14 +20,44 @@ const requireAdmin: MiddlewareHandler = async (c, next) => {
 
 admin.use("*", requireAdmin)
 
+// 成本常量（单次，人民币）
+const COST_PER_RUN = {
+  text:  0.48,  // Claude Sonnet via OpenRouter，~2000 tokens
+  image: 1.32,  // 6张图 medium quality，$0.042×6
+  video: 1.50,  // 5张图 + Remotion 渲染
+}
+// 积分单价（与 credits.ts CREDIT_COST 保持一致）
+const CREDIT_PRICE = { text: 8, image: 18, video: 90 }
+
 // GET /admin/stats — 总览统计
 admin.get("/stats", async (c) => {
   const [users, canvases, txns, plans] = await Promise.all([
     sql`SELECT COUNT(*) AS total, COUNT(*) FILTER (WHERE created_at > now() - INTERVAL '7 days') AS new_7d, COUNT(*) FILTER (WHERE created_at > now() - INTERVAL '30 days') AS new_30d FROM users`,
     sql`SELECT COUNT(*) AS total FROM canvases`,
-    sql`SELECT COALESCE(SUM(ABS(delta)) FILTER (WHERE delta < 0 AND reason = 'run_text'), 0) AS text_credits, COALESCE(SUM(ABS(delta)) FILTER (WHERE delta < 0 AND reason = 'run_image'), 0) AS image_credits, COALESCE(SUM(ABS(delta)) FILTER (WHERE delta < 0 AND reason = 'run_video'), 0) AS video_credits, COALESCE(SUM(delta) FILTER (WHERE delta > 0 AND reason LIKE 'purchase%'), 0) AS credits_sold FROM credit_transactions`,
+    sql`SELECT
+      COALESCE(SUM(ABS(delta)) FILTER (WHERE delta < 0 AND reason = 'run_text'), 0) AS text_credits,
+      COALESCE(SUM(ABS(delta)) FILTER (WHERE delta < 0 AND reason = 'run_image'), 0) AS image_credits,
+      COALESCE(SUM(ABS(delta)) FILTER (WHERE delta < 0 AND reason = 'run_video'), 0) AS video_credits,
+      COALESCE(SUM(delta) FILTER (WHERE delta > 0 AND reason LIKE 'purchase%'), 0) AS credits_sold
+    FROM credit_transactions`,
     sql`SELECT plan, COUNT(*) AS count FROM users GROUP BY plan ORDER BY plan`,
   ])
+
+  const textConsumed  = Number(txns[0].text_credits)
+  const imageConsumed = Number(txns[0].image_credits)
+  const videoConsumed = Number(txns[0].video_credits)
+  const creditsSold   = Number(txns[0].credits_sold)
+
+  const textRuns  = Math.round(textConsumed  / CREDIT_PRICE.text)
+  const imageRuns = Math.round(imageConsumed / CREDIT_PRICE.image)
+  const videoRuns = Math.round(videoConsumed / CREDIT_PRICE.video)
+
+  const textCost  = +(textRuns  * COST_PER_RUN.text).toFixed(2)
+  const imageCost = +(imageRuns * COST_PER_RUN.image).toFixed(2)
+  const videoCost = +(videoRuns * COST_PER_RUN.video).toFixed(2)
+  const totalCost = +(textCost + imageCost + videoCost).toFixed(2)
+  const revenue   = +(creditsSold * 0.1).toFixed(2)
+  const profit    = +(revenue - totalCost).toFixed(2)
 
   return c.json({
     users: {
@@ -37,10 +67,22 @@ admin.get("/stats", async (c) => {
     },
     canvases: { total: Number(canvases[0].total) },
     credits: {
-      text_consumed: Number(txns[0].text_credits),
-      image_consumed: Number(txns[0].image_credits),
-      video_consumed: Number(txns[0].video_credits),
-      sold: Number(txns[0].credits_sold),
+      text_consumed: textConsumed,
+      image_consumed: imageConsumed,
+      video_consumed: videoConsumed,
+      sold: creditsSold,
+      text_runs: textRuns,
+      image_runs: imageRuns,
+      video_runs: videoRuns,
+    },
+    financials: {
+      revenue,
+      cost: totalCost,
+      cost_text: textCost,
+      cost_image: imageCost,
+      cost_video: videoCost,
+      profit,
+      margin: revenue > 0 ? +((profit / revenue) * 100).toFixed(1) : 0,
     },
     plans: Object.fromEntries((plans as unknown as Array<{ plan: string; count: string }>).map((r) => [r.plan, Number(r.count)])),
   })
@@ -84,20 +126,55 @@ admin.get("/credits", async (c) => {
   return c.json({ transactions: rows })
 })
 
-// GET /admin/revenue — 收入估算（基于积分流水中 purchase 类型）
+// GET /admin/revenue — 收入 + 成本（按天，近 30 天）
 admin.get("/revenue", async (c) => {
-  const rows = await sql`
-    SELECT
-      DATE_TRUNC('day', created_at) AS day,
-      COUNT(*) AS txn_count,
-      SUM(delta) AS credits_added
-    FROM credit_transactions
-    WHERE reason = 'purchase' AND delta > 0
-    GROUP BY day
-    ORDER BY day DESC
-    LIMIT 30
-  `
-  return c.json({ daily: rows })
+  const [income, costs] = await Promise.all([
+    sql`
+      SELECT
+        DATE_TRUNC('day', created_at)::date AS day,
+        COUNT(*) AS txn_count,
+        SUM(delta) AS credits_added
+      FROM credit_transactions
+      WHERE reason LIKE 'purchase%' AND delta > 0
+      GROUP BY day ORDER BY day DESC LIMIT 30`,
+    sql`
+      SELECT
+        DATE_TRUNC('day', created_at)::date AS day,
+        COALESCE(SUM(ABS(delta)) FILTER (WHERE reason = 'run_text'), 0)  AS text_credits,
+        COALESCE(SUM(ABS(delta)) FILTER (WHERE reason = 'run_image'), 0) AS image_credits,
+        COALESCE(SUM(ABS(delta)) FILTER (WHERE reason = 'run_video'), 0) AS video_credits
+      FROM credit_transactions
+      WHERE delta < 0 AND reason IN ('run_text','run_image','run_video')
+        AND created_at > now() - INTERVAL '30 days'
+      GROUP BY day ORDER BY day DESC`,
+  ])
+
+  const costMap = new Map((costs as unknown as Array<{ day: string; text_credits: string; image_credits: string; video_credits: string }>).map((r) => {
+    const textRuns  = Math.round(Number(r.text_credits)  / CREDIT_PRICE.text)
+    const imageRuns = Math.round(Number(r.image_credits) / CREDIT_PRICE.image)
+    const videoRuns = Math.round(Number(r.video_credits) / CREDIT_PRICE.video)
+    const cost = +(textRuns * COST_PER_RUN.text + imageRuns * COST_PER_RUN.image + videoRuns * COST_PER_RUN.video).toFixed(2)
+    return [String(r.day).slice(0, 10), { textRuns, imageRuns, videoRuns, cost }]
+  }))
+
+  const daily = (income as unknown as Array<{ day: string; txn_count: string; credits_added: string }>).map((r) => {
+    const day = String(r.day).slice(0, 10)
+    const revenue = +(Number(r.credits_added) * 0.1).toFixed(2)
+    const c = costMap.get(day) ?? { textRuns: 0, imageRuns: 0, videoRuns: 0, cost: 0 }
+    return {
+      day,
+      txn_count: Number(r.txn_count),
+      credits_added: Number(r.credits_added),
+      revenue,
+      cost: c.cost,
+      profit: +(revenue - c.cost).toFixed(2),
+      text_runs: c.textRuns,
+      image_runs: c.imageRuns,
+      video_runs: c.videoRuns,
+    }
+  })
+
+  return c.json({ daily })
 })
 
 // PATCH /admin/users/:id/credits — 手动调整用户积分

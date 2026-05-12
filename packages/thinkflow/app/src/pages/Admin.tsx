@@ -3,9 +3,9 @@ import { useAuthStore } from "../store/authStore"
 import { adminApi } from "../services/apiClient"
 import type { AdminStats, AdminUser, AdminTransaction, AdminRevenueDay } from "../services/apiClient"
 
-function StatCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
+function StatCard({ label, value, sub, accent }: { label: string; value: string | number; sub?: string; accent?: boolean }) {
   return (
-    <div className="adm-stat-card">
+    <div className={`adm-stat-card${accent ? " adm-stat-card--accent" : ""}`}>
       <p className="adm-stat-card__label">{label}</p>
       <p className="adm-stat-card__value">{value}</p>
       {sub && <p className="adm-stat-card__sub">{sub}</p>}
@@ -17,9 +17,16 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).replace(/\//g, "-")
 }
 
-// 积分换算成人民币（1积分=¥0.1）
-function creditsToYuan(credits: number): string {
-  return `¥${(credits * 0.1).toFixed(0)}`
+function yuan(n: number): string { return `¥${n.toFixed(2)}` }
+function creditsToYuan(credits: number): string { return `¥${(credits * 0.1).toFixed(0)}` }
+
+function downloadCsv(filename: string, headers: string[], rows: (string | number)[][]) {
+  const bom = "﻿"
+  const lines = [headers.join(","), ...rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","))]
+  const blob = new Blob([bom + lines.join("\n")], { type: "text/csv;charset=utf-8;" })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement("a"); a.href = url; a.download = filename; a.click()
+  URL.revokeObjectURL(url)
 }
 
 export function Admin() {
@@ -139,67 +146,115 @@ export function Admin() {
           {/* ── 总览 ── */}
           {tab === "overview" && stats && (
             <div>
-              <h1 className="adm-heading">总览</h1>
+              <h1 className="adm-heading" style={{ marginBottom: 24 }}>总览</h1>
+
+              <h2 className="adm-subheading">用户</h2>
               <div className="adm-stats-grid">
                 <StatCard label="注册用户总数" value={stats.users.total} sub={`近 7 天 +${stats.users.new_7d}`} />
                 <StatCard label="近 30 天新增" value={stats.users.new_30d} />
-                <StatCard label="画布总数" value={stats.canvases.total} />
                 <StatCard label="订阅用户" value={stats.plans.subscriber ?? 0} sub={`免费 ${stats.plans.free ?? 0}`} />
-                <StatCard label="文字积分消耗" value={stats.credits.text_consumed} sub={creditsToYuan(stats.credits.text_consumed)} />
-                <StatCard label="图片积分消耗" value={stats.credits.image_consumed} sub={creditsToYuan(stats.credits.image_consumed)} />
-                <StatCard label="视频积分消耗" value={stats.credits.video_consumed} sub={creditsToYuan(stats.credits.video_consumed)} />
-                <StatCard label="售出积分" value={stats.credits.sold} sub={creditsToYuan(stats.credits.sold)} />
+                <StatCard label="画布总数" value={stats.canvases.total} />
               </div>
-              <div className="adm-plan-table">
-                <h2 className="adm-subheading">套餐分布</h2>
-                <table className="adm-table">
-                  <thead><tr><th>套餐</th><th>用户数</th></tr></thead>
-                  <tbody>
-                    {Object.entries(stats.plans).map(([plan, count]) => (
-                      <tr key={plan}><td>{plan}</td><td>{count}</td></tr>
-                    ))}
-                  </tbody>
-                </table>
+
+              <h2 className="adm-subheading">财务概览（累计）</h2>
+              <div className="adm-stats-grid">
+                <StatCard label="累计收入" value={yuan(stats.financials.revenue)} accent />
+                <StatCard label="累计成本" value={yuan(stats.financials.cost)} sub={`文¥${stats.financials.cost_text} · 图¥${stats.financials.cost_image} · 视¥${stats.financials.cost_video}`} />
+                <StatCard label="毛利润" value={yuan(stats.financials.profit)} accent={stats.financials.profit > 0} sub={`毛利率 ${stats.financials.margin}%`} />
+                <StatCard label="售出积分" value={stats.credits.sold} sub={`= ${creditsToYuan(stats.credits.sold)}`} />
               </div>
+
+              <h2 className="adm-subheading">消耗次数（累计）</h2>
+              <div className="adm-stats-grid">
+                <StatCard label="文字生成" value={`${stats.credits.text_runs} 次`} sub={`消耗 ${stats.credits.text_consumed} 积分 · 成本 ¥${stats.financials.cost_text}`} />
+                <StatCard label="图文生成" value={`${stats.credits.image_runs} 次`} sub={`消耗 ${stats.credits.image_consumed} 积分 · 成本 ¥${stats.financials.cost_image}`} />
+                <StatCard label="视频生成" value={`${stats.credits.video_runs} 次`} sub={`消耗 ${stats.credits.video_consumed} 积分 · 成本 ¥${stats.financials.cost_video}`} />
+              </div>
+
+              <h2 className="adm-subheading">套餐分布</h2>
+              <table className="adm-table" style={{ maxWidth: 320 }}>
+                <thead><tr><th>套餐</th><th>用户数</th></tr></thead>
+                <tbody>
+                  {Object.entries(stats.plans).map(([plan, count]) => (
+                    <tr key={plan}><td>{plan}</td><td>{count}</td></tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
 
           {/* ── 收入 ── */}
           {tab === "revenue" && (
             <div>
-              <h1 className="adm-heading">收入记录（近 30 天）</h1>
-              <p className="adm-count">1 积分 = ¥0.1，下表为购买充值流水</p>
+              <div className="adm-heading-row">
+                <h1 className="adm-heading">收入与成本（近 30 天）</h1>
+                <button className="adm-btn" onClick={() => downloadCsv(
+                  "thinkflow-revenue.csv",
+                  ["日期", "订单数", "售出积分", "收入(¥)", "成本(¥)", "利润(¥)", "文字次数", "图文次数", "视频次数"],
+                  revenue.map((r) => [r.day, r.txn_count, r.credits_added, r.revenue, r.cost, r.profit, r.text_runs, r.image_runs, r.video_runs])
+                )}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: 4 }}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  导出 CSV
+                </button>
+              </div>
+              <p className="adm-count">1 积分 = ¥0.1 · 成本基于单次固定成本估算（文¥0.48 / 图¥1.32 / 视¥1.50）</p>
               <table className="adm-table">
                 <thead>
-                  <tr><th>日期</th><th>笔数</th><th>售出积分</th><th>折算金额</th></tr>
+                  <tr>
+                    <th>日期</th><th>订单数</th><th>售出积分</th>
+                    <th>收入</th><th>成本</th><th>利润</th>
+                    <th>文字次数</th><th>图文次数</th><th>视频次数</th>
+                  </tr>
                 </thead>
                 <tbody>
                   {revenue.length === 0 && (
-                    <tr><td colSpan={4} style={{ textAlign: "center", color: "var(--text-muted)", padding: "32px" }}>暂无收入记录</td></tr>
+                    <tr><td colSpan={9} style={{ textAlign: "center", color: "var(--text-muted)", padding: "32px" }}>暂无收入记录</td></tr>
                   )}
                   {revenue.map((r) => (
                     <tr key={r.day}>
-                      <td>{r.day.slice(0, 10)}</td>
+                      <td>{r.day}</td>
                       <td>{r.txn_count}</td>
                       <td>{r.credits_added}</td>
-                      <td className="adm-td-pos">{creditsToYuan(Number(r.credits_added))}</td>
+                      <td className="adm-td-pos">{yuan(r.revenue)}</td>
+                      <td className="adm-td-neg">{yuan(r.cost)}</td>
+                      <td className={r.profit >= 0 ? "adm-td-pos" : "adm-td-neg"}>{yuan(r.profit)}</td>
+                      <td className="adm-td-muted">{r.text_runs}</td>
+                      <td className="adm-td-muted">{r.image_runs}</td>
+                      <td className="adm-td-muted">{r.video_runs}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-              {revenue.length > 0 && (
-                <div className="adm-revenue-total">
-                  合计：<strong>{creditsToYuan(revenue.reduce((s, r) => s + Number(r.credits_added), 0))}</strong>
-                  （{revenue.reduce((s, r) => s + Number(r.txn_count), 0)} 笔订单）
-                </div>
-              )}
+              {revenue.length > 0 && (() => {
+                const totRev  = revenue.reduce((s, r) => s + r.revenue, 0)
+                const totCost = revenue.reduce((s, r) => s + r.cost, 0)
+                const totProfit = totRev - totCost
+                return (
+                  <div className="adm-revenue-total">
+                    近 30 天合计：收入 <strong className="adm-td-pos">{yuan(totRev)}</strong>
+                    &nbsp;·&nbsp;成本 <strong className="adm-td-neg">{yuan(totCost)}</strong>
+                    &nbsp;·&nbsp;利润 <strong className={totProfit >= 0 ? "adm-td-pos" : "adm-td-neg"}>{yuan(totProfit)}</strong>
+                    &nbsp;·&nbsp;毛利率 <strong>{totRev > 0 ? ((totProfit / totRev) * 100).toFixed(1) : 0}%</strong>
+                  </div>
+                )
+              })()}
             </div>
           )}
 
           {/* ── 用户 ── */}
           {tab === "users" && (
             <div>
-              <h1 className="adm-heading">用户列表</h1>
+              <div className="adm-heading-row">
+                <h1 className="adm-heading">用户列表</h1>
+                <button className="adm-btn" onClick={() => downloadCsv(
+                  "thinkflow-users.csv",
+                  ["邮箱", "显示名", "套餐", "今日积分", "永久积分", "注册时间"],
+                  users.map((u) => [u.email, u.display_name ?? "", u.plan, u.credits_daily, u.credits_permanent, u.created_at])
+                )}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: 4 }}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  导出 CSV
+                </button>
+              </div>
               <div className="adm-search-row">
                 <input
                   className="adm-search"
@@ -255,7 +310,17 @@ export function Admin() {
           {/* ── 积分流水 ── */}
           {tab === "credits" && (
             <div>
-              <h1 className="adm-heading">积分流水</h1>
+              <div className="adm-heading-row">
+                <h1 className="adm-heading">积分流水</h1>
+                <button className="adm-btn" onClick={() => downloadCsv(
+                  "thinkflow-credits.csv",
+                  ["用户", "变动", "类型", "时间"],
+                  txns.map((t) => [t.email, t.delta, t.reason, t.created_at])
+                )}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: 4 }}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  导出 CSV
+                </button>
+              </div>
               <div className="adm-search-row">
                 <select
                   className="adm-select"
@@ -362,7 +427,11 @@ const STYLES = `
   flex: 1; padding: 32px 40px; overflow-y: auto; position: relative;
 }
 .adm-heading {
-  font-size: 20px; font-weight: 800; margin: 0 0 24px; letter-spacing: -0.3px;
+  font-size: 20px; font-weight: 800; margin: 0; letter-spacing: -0.3px;
+}
+.adm-heading-row {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 24px;
 }
 .adm-subheading {
   font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
@@ -388,6 +457,7 @@ const STYLES = `
   background: var(--bg-node); border: 1px solid var(--border);
   border-radius: var(--radius-lg); padding: 16px;
 }
+.adm-stat-card--accent { border-color: var(--accent); background: var(--accent-subtle); }
 .adm-stat-card__label { font-size: 11px; color: var(--text-muted); margin: 0 0 4px; }
 .adm-stat-card__value { font-size: 28px; font-weight: 800; margin: 0; line-height: 1.1; }
 .adm-stat-card__sub { font-size: 11px; color: var(--text-muted); margin: 4px 0 0; }
