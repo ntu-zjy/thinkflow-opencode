@@ -21,6 +21,9 @@ export function UserMenu() {
   const [style, setStyle] = useState<AvatarStyle>(
     () => (localStorage.getItem("thinkflow-avatar-style") as AvatarStyle) ?? "avataaars"
   )
+  const [seed, setSeed] = useState<string>(
+    () => localStorage.getItem("thinkflow-avatar-seed") ?? ""
+  )
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -41,22 +44,30 @@ export function UserMenu() {
   }
 
   const isPro = user.plan === "pro" || user.plan === "subscriber"
+  const currentSeed = seed || user.email
 
   const handleStyleChange = (s: AvatarStyle) => {
     setStyle(s)
     localStorage.setItem("thinkflow-avatar-style", s)
   }
 
+  // 从 Profile 页切换头像后，重新打开菜单时同步 seed
+  const handleOpen = () => {
+    setSeed(localStorage.getItem("thinkflow-avatar-seed") ?? "")
+    setStyle((localStorage.getItem("thinkflow-avatar-style") as AvatarStyle) ?? "avataaars")
+    setOpen((v) => !v)
+  }
+
   return (
     <div ref={ref} style={{ position: "relative" }}>
       <button
         className="tf-user-avatar"
-        onClick={() => setOpen((v) => !v)}
+        onClick={handleOpen}
         title={user.email}
         aria-label="用户菜单"
       >
         <img
-          src={getAvatarUrl(user.email, style, 30)}
+          src={getAvatarUrl(currentSeed, style, 30)}
           width={30}
           height={30}
           alt="avatar"
@@ -70,7 +81,7 @@ export function UserMenu() {
           <div className="tf-user-dropdown__info">
             <div className="tf-user-dropdown__avatar-row">
               <img
-                src={getAvatarUrl(user.email, style, 36)}
+                src={getAvatarUrl(currentSeed, style, 36)}
                 width={36}
                 height={36}
                 alt="avatar"
@@ -97,7 +108,7 @@ export function UserMenu() {
                   onClick={() => handleStyleChange(s.id)}
                 >
                   <img
-                    src={getAvatarUrl(user.email, s.id, 28)}
+                    src={getAvatarUrl(currentSeed, s.id, 28)}
                     width={28}
                     height={28}
                     alt={s.label}
