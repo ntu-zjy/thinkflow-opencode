@@ -28,8 +28,12 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 export interface User {
   id: string
   email: string
-  plan: "free" | "pro"
+  display_name?: string | null
+  plan: "free" | "pro" | "subscriber"
   credits: number
+  credits_daily?: number
+  credits_permanent?: number
+  created_at?: string
 }
 
 export interface AuthResponse {
@@ -51,6 +55,12 @@ export const authApi = {
     }),
 
   me: () => request<User>("/auth/me"),
+
+  updateProfile: (displayName: string) =>
+    request<{ ok: boolean; display_name: string }>("/auth/profile", {
+      method: "PATCH",
+      body: JSON.stringify({ display_name: displayName }),
+    }),
 }
 
 // ─── Canvas ───────────────────────────────────────────────────────────────────

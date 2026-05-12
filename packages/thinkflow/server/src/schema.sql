@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS users (
   id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email            TEXT UNIQUE NOT NULL,
   password_hash    TEXT NOT NULL,
+  display_name     TEXT,
   created_at       TIMESTAMPTZ DEFAULT now(),
   plan             TEXT NOT NULL DEFAULT 'free',         -- 'free' | 'subscriber'
   -- 永久积分（购买的积分包，不过期）
@@ -14,6 +15,12 @@ CREATE TABLE IF NOT EXISTS users (
   credits_daily    INT NOT NULL DEFAULT 30,  -- 内测每日赠送30积分，当天清零
   credits_daily_reset_at DATE NOT NULL DEFAULT CURRENT_DATE
 );
+
+-- 为已存在的 users 表补充 display_name 字段（幂等）
+DO $$ BEGIN
+  ALTER TABLE users ADD COLUMN display_name TEXT;
+EXCEPTION WHEN duplicate_column THEN NULL;
+END $$;
 
 -- 积分流水（审计用）
 CREATE TABLE IF NOT EXISTS credit_transactions (
