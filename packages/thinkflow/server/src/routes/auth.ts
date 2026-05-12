@@ -91,7 +91,7 @@ auth.post("/login", async (c) => {
 // GET /auth/me
 auth.get("/me", requireAuth, async (c) => {
   const jwt = c.get("jwtPayload") as JwtPayload
-  const rows = await sql`SELECT id, email, plan FROM users WHERE id = ${jwt.sub}`
+  const rows = await sql`SELECT id, email, display_name, plan, created_at FROM users WHERE id = ${jwt.sub}`
   const user = rows[0]
   if (!user) return c.json({ error: "用户不存在" }, 404)
 
@@ -100,11 +100,27 @@ auth.get("/me", requireAuth, async (c) => {
   return c.json({
     id: user.id,
     email: user.email,
+    display_name: user.display_name ?? null,
     plan: user.plan,
     credits: creditsInfo.total,
     credits_daily: creditsInfo.daily,
     credits_permanent: creditsInfo.permanent,
+    created_at: user.created_at,
   })
+})
+
+// PATCH /auth/profile — 修改显示名（不支持改密码，出于安全考虑需单独流程）
+auth.patch("/profile", requireAuth, async (c) => {
+  const jwt = c.get("jwtPayload") as JwtPayload
+  const raw = await c.req.json().catch(() => null)
+  if (!raw || typeof raw !== "object") return c.json({ error: "请求格式错误" }, 400)
+  const body = raw as Record<string, unknown>
+
+  const displayName = typeof body.display_name === "string" ? body.display_name.trim().slice(0, 32) : null
+  if (displayName === null) return c.json({ error: "display_name 不能为空" }, 400)
+
+  await sql`UPDATE users SET display_name = ${displayName} WHERE id = ${jwt.sub}`
+  return c.json({ ok: true, display_name: displayName })
 })
 
 // POST /auth/create-super — 创建或重置超级测试账号（仅开发环境可用）

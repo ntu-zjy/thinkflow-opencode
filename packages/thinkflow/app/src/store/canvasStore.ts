@@ -34,7 +34,7 @@ import {
   runMockWorkflow,
   generateImage,
 } from "../services/opencodeClient"
-import { creditsApi } from "../services/apiClient"
+import { creditsApi, canvasApi } from "../services/apiClient"
 import { useMemoryStore } from "./memoryStore"
 import { markdownToHtml } from "../utils/markdownToHtml"
 import { getCard } from "../cards"
@@ -134,6 +134,7 @@ interface WorkflowRecord {
   edges: FlowEdge[]
   history: Array<{ nodes: FlowNode[]; edges: FlowEdge[] }>
   historyIndex: number
+  serverId?: string  // 后端 canvas UUID，登录时同步
 }
 
 function createDefaultWorkflow(name: string): WorkflowRecord {
@@ -204,6 +205,10 @@ interface CanvasStore {
   // 积分不足标志（运行被拒绝时置 true，弹窗关闭后清除）
   _creditsInsufficient: boolean
   clearCreditsInsufficient: () => void
+  // 服务端画布同步
+  syncCanvasesFromServer: () => Promise<void>
+  _serverSyncTimer: ReturnType<typeof setTimeout> | null
+  _scheduleServerSync: (workflowId: string) => void
 }
 
 // ─── Store 实现 ───────────────────────────────────────────────────────────────
@@ -223,6 +228,98 @@ export const useCanvasStore = create<CanvasStore>()(
   _scheduleTimers: {},
   _creditsInsufficient: false,
   clearCreditsInsufficient: () => set({ _creditsInsufficient: false }),
+  _serverSyncTimer: null,
+
+  // ─── 服务端画布同步 ────────────────────────────────────────────────────────
+
+  syncCanvasesFromServer: async () => {
+    const token = localStorage.getItem("thinkflow-token")
+    if (!token) return
+    const list = await canvasApi.list().catch(() => null)
+    if (!list) return
+    const { workflows, activeWorkflowId } = get()
+    // 找出已有 serverId 映射
+    const serverIdMap = new Map<string, string>() // serverId → localId
+    Object.entries(workflows).forEach(([localId, wf]) => {
+      if (wf.serverId) serverIdMap.set(wf.serverId, localId)
+    })
+    const newWorkflows = { ...workflows }
+    for (const meta of list) {
+      if (serverIdMap.has(meta.id)) continue // 已存在，跳过
+      // 远端有但本地没有 → 拉取完整数据
+      const full = await canvasApi.get(meta.id).catch(() => null)
+      if (!full) continue
+      const localId = nanoid(8)
+      newWorkflows[localId] = {
+        id: localId,
+        name: meta.title,
+        nodes: (full.nodes_json as FlowNode[]) ?? [],
+        edges: (full.edges_json as FlowEdge[]) ?? [],
+        history: [],
+        historyIndex: -1,
+        serverId: meta.id,
+      }
+    }
+    // 将本地没有 serverId 的工作流上传到后端
+    for (const [localId, wf] of Object.entries(newWorkflows)) {
+      if (wf.serverId) continue
+      const created = await canvasApi.create(
+        wf.name,
+        wf.nodes.map(cleanNodeForPersist),
+        wf.edges.map(cleanEdgeForPersist),
+      ).catch(() => null)
+      if (created) {
+        newWorkflows[localId] = { ...newWorkflows[localId], serverId: created.id }
+      }
+    }
+    set({ workflows: newWorkflows })
+    // 检查是否有 Dashboard 跳转请求
+    const openServerId = sessionStorage.getItem("thinkflow-open-canvas-serverId")
+    if (openServerId) {
+      sessionStorage.removeItem("thinkflow-open-canvas-serverId")
+      const target = Object.entries(newWorkflows).find(([, wf]) => wf.serverId === openServerId)
+      if (target) {
+        const [targetLocalId, targetWf] = target
+        set({ activeWorkflowId: targetLocalId, nodes: targetWf.nodes, edges: targetWf.edges, _history: [], _historyIndex: -1 })
+        return
+      }
+    }
+    // 刷新当前激活画布
+    const activeWf = newWorkflows[activeWorkflowId]
+    if (activeWf) set({ nodes: activeWf.nodes, edges: activeWf.edges })
+  },
+
+  _scheduleServerSync: (workflowId: string) => {
+    const prev = get()._serverSyncTimer
+    if (prev) clearTimeout(prev)
+    const timer = setTimeout(async () => {
+      const token = localStorage.getItem("thinkflow-token")
+      if (!token) return
+      const { workflows } = get()
+      const wf = workflows[workflowId]
+      if (!wf) return
+      if (!wf.serverId) {
+        // 尚未在后端创建
+        const created = await canvasApi.create(
+          wf.name,
+          wf.nodes.map(cleanNodeForPersist),
+          wf.edges.map(cleanEdgeForPersist),
+        ).catch(() => null)
+        if (created) {
+          set((s) => ({
+            workflows: { ...s.workflows, [workflowId]: { ...s.workflows[workflowId], serverId: created.id } },
+          }))
+        }
+        return
+      }
+      canvasApi.update(wf.serverId, {
+        title: wf.name,
+        nodes_json: wf.nodes.map(cleanNodeForPersist),
+        edges_json: wf.edges.map(cleanEdgeForPersist),
+      }).catch(() => {})
+    }, 1500)
+    set({ _serverSyncTimer: timer })
+  },
 
   setScheduleTimer: (agentNodeId, timer) =>
     set((s) => ({ _scheduleTimers: { ...s._scheduleTimers, [agentNodeId]: timer } })),
@@ -240,7 +337,7 @@ export const useCanvasStore = create<CanvasStore>()(
   // ─── 多工作流操作 ────────────────────────────────────────────────────────
 
   _saveCurrentWorkflow: () => {
-    const { nodes, edges, _history, _historyIndex, activeWorkflowId, workflows } = get()
+    const { nodes, edges, _history, _historyIndex, activeWorkflowId, workflows, _scheduleServerSync } = get()
     set({
       workflows: {
         ...workflows,
@@ -253,6 +350,8 @@ export const useCanvasStore = create<CanvasStore>()(
         },
       },
     })
+    // debounce 保存到后端（1.5s 内多次操作合并为一次请求）
+    _scheduleServerSync(activeWorkflowId)
   },
 
   createWorkflow: () => {
@@ -268,6 +367,17 @@ export const useCanvasStore = create<CanvasStore>()(
       _history: [],
       _historyIndex: -1,
     })
+    // 登录时同步到后端
+    const token = localStorage.getItem("thinkflow-token")
+    if (token) {
+      canvasApi.create(wf.name, wf.nodes.map(cleanNodeForPersist), wf.edges.map(cleanEdgeForPersist))
+        .then((created) => {
+          set((s) => ({
+            workflows: { ...s.workflows, [wf.id]: { ...s.workflows[wf.id], serverId: created.id } },
+          }))
+        })
+        .catch(() => {})
+    }
   },
 
   switchWorkflow: (id) => {
@@ -296,11 +406,16 @@ export const useCanvasStore = create<CanvasStore>()(
       const nextId = ids[idx > 0 ? idx - 1 : 1]
       switchWorkflow(nextId)
     }
+    const serverId = workflows[id]?.serverId
     set((s) => {
       const next = { ...s.workflows }
       delete next[id]
       return { workflows: next }
     })
+    // 同步删除后端
+    if (serverId && localStorage.getItem("thinkflow-token")) {
+      canvasApi.remove(serverId).catch(() => {})
+    }
   },
 
   renameWorkflow: (id, name) => {
@@ -310,6 +425,11 @@ export const useCanvasStore = create<CanvasStore>()(
         [id]: { ...s.workflows[id], name },
       },
     }))
+    // 同步更新后端标题
+    const serverId = get().workflows[id]?.serverId
+    if (serverId && localStorage.getItem("thinkflow-token")) {
+      canvasApi.update(serverId, { title: name }).catch(() => {})
+    }
   },
 
   loadExampleWorkflow: (name, nodes, edges) => {
