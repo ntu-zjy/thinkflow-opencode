@@ -247,6 +247,12 @@ postgresql://root:密码@thinkflow-pg-postgresql.ns-xxx.svc:5432/postgres
 | `NODE_ENV` | `production` |
 | `CORS_ORIGIN` | 前端外网域名，如 `https://bawzdlyeewhf.cloud.sealos.io` |
 | `ADMIN_EMAILS` | 管理员邮箱（逗号分隔），如 `super@thinkflow.dev`，用于访问 `/admin` 后台 |
+| `S3_ENDPOINT` | Sealos S3 API 端点，如 `https://objectstorageapi.cloud.sealos.io` |
+| `S3_BUCKET` | Bucket 名称，如 `1qfqenq8-thinkflow-assets` |
+| `S3_PUBLIC_BASE` | 图片公开访问域名，如 `https://static-host-1qfqenq8-thinkflow-assets.cloud.sealos.io` |
+| `S3_ACCESS_KEY` | Sealos 对象存储 Access Key |
+| `S3_SECRET_KEY` | Sealos 对象存储 Secret Key |
+| `S3_REGION` | 固定填 `us-east-1` |
 
 ### 7.3 初始化数据库表（已自动化，无需手动）
 

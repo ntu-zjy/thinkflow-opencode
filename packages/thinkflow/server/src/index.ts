@@ -10,6 +10,7 @@ import canvas from "./routes/canvas"
 import pay from "./routes/pay"
 import credits from "./routes/credits"
 import admin from "./routes/admin"
+import upload from "./routes/upload"
 
 // 启动时自动执行 schema 迁移（幂等，多次执行安全）
 const schemaPath = resolve(dirname(fileURLToPath(import.meta.url)), "schema.sql")
@@ -46,6 +47,7 @@ app.route("/canvas", canvas)
 app.route("/pay", pay)
 app.route("/credits", credits)
 app.route("/admin", admin)
+app.route("/upload", upload)
 
 const PORT = parseInt(process.env.PORT ?? "3456")
 
