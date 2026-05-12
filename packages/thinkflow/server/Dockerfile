@@ -4,9 +4,8 @@ WORKDIR /app
 
 # 只复制 server 包自身的依赖文件
 COPY package.json ./
-COPY bun.lock* ./
 
-RUN bun install --frozen-lockfile
+RUN bun install
 
 # 复制源码
 COPY src/ ./src/
