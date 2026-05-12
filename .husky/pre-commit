@@ -1,0 +1,10 @@
+CHANGED_PKG=$(git diff --cached --name-only | grep 'package\.json$' | grep -v node_modules || true)
+
+if [ -n "$CHANGED_PKG" ]; then
+  echo "检测到 package.json 变更，同步 bun.lock..."
+  bun install --no-frozen-lockfile || true
+  if ! git diff --quiet bun.lock 2>/dev/null; then
+    git add bun.lock
+    echo "已自动更新并 stage bun.lock"
+  fi
+fi
