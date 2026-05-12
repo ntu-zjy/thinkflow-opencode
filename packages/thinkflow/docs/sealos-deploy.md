@@ -205,6 +205,10 @@ curl -o /dev/null -w "%{http_code}" https://bawzdlyeewhf.cloud.sealos.io
 | `POST /auth/create-super` 返回 500 | 数据库表还未建 | 在 App Terminal 执行 `bun run src/migrate.ts` 初始化表结构（现已自动化，重启服务即可） |
 | 登录成功后立刻跳回登录页 | `/auth/me` 查询了新增字段（如 `display_name`），旧版数据库无该列报 500 → `authStore.fetchMe` 清除 token → 路由守卫踢回 `/login` | 两个修复已合并：① `/auth/me` 用 try/catch fallback 兼容旧 schema；② 服务启动自动迁移确保字段存在 |
 | 部署新 schema 字段后需要手动 migrate | 每次加字段都要进 App Terminal 跑脚本，容易忘记 | thinkflow-server 启动时自动执行 `schema.sql`（幂等），重启服务即完成迁移，无需手动操作 |
+| CI 报 `lockfile had changes, but lockfile is frozen` | 新增 npm 包后只在本地 node_modules 安装，未提交更新后的 `bun.lock` | 已加 pre-commit hook：staged 的 `package.json` 有变更时自动运行 `bun install` 并 stage `bun.lock` |
+| server Dockerfile 构建报 `lockfile frozen` | `server/Dockerfile` 用 `--frozen-lockfile`，但 `bun.lock` 在仓库根目录，Docker build context 是 `packages/thinkflow/server`，拷不到 | server Dockerfile 改为 `bun install`（不加 `--frozen-lockfile`） |
+| Desktop macOS 构建报 bun 版本不匹配 | `thinkflow-release.yml` 用 `bun-version: latest`，但 `packages/script` 里校验脚本要求版本与 `packageManager` 一致 | workflow 改为 `bun-version-file: package.json`，并同步升级 `packageManager` 字段 |
+| Desktop macOS 构建报 `Unable to find your web assets` | Tauri 的 `beforeBuildCommand` 路径相对于 `src-tauri/`，CI 跑完 vite build 后产出目录不在预期位置 | workflow 里手动加一步 `bun run build`（working-directory: packages/thinkflow/app），并把 `tauri.conf.json` 的 `beforeBuildCommand` 置空 |
 
 ---
 
