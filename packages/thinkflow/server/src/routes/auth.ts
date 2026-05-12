@@ -91,8 +91,18 @@ auth.post("/login", async (c) => {
 // GET /auth/me
 auth.get("/me", requireAuth, async (c) => {
   const jwt = c.get("jwtPayload") as JwtPayload
-  const rows = await sql`SELECT id, email, display_name, plan, created_at FROM users WHERE id = ${jwt.sub}`
-  const user = rows[0]
+
+  // 尝试查询包含 display_name 的完整字段；若列不存在（旧版 schema）则退回基础字段
+  type UserRow = { id: string; email: string; plan: string; created_at: string; display_name?: string | null }
+  let user: UserRow | undefined
+  try {
+    const rows = await sql`SELECT id, email, display_name, plan, created_at FROM users WHERE id = ${jwt.sub}`
+    user = rows[0] as UserRow
+  } catch {
+    const rows = await sql`SELECT id, email, plan, created_at FROM users WHERE id = ${jwt.sub}`
+    user = rows[0] as UserRow
+  }
+
   if (!user) return c.json({ error: "用户不存在" }, 404)
 
   const creditsInfo = await getUserCredits(jwt.sub)
@@ -119,8 +129,13 @@ auth.patch("/profile", requireAuth, async (c) => {
   const displayName = typeof body.display_name === "string" ? body.display_name.trim().slice(0, 32) : null
   if (displayName === null) return c.json({ error: "display_name 不能为空" }, 400)
 
-  await sql`UPDATE users SET display_name = ${displayName} WHERE id = ${jwt.sub}`
-  return c.json({ ok: true, display_name: displayName })
+  // 若列不存在（schema 未迁移），先自动添加列再写入
+  const result = await sql`UPDATE users SET display_name = ${displayName} WHERE id = ${jwt.sub}`.catch(async () => {
+    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name TEXT`
+    await sql`UPDATE users SET display_name = ${displayName} WHERE id = ${jwt.sub}`
+    return null
+  })
+  return c.json({ ok: true, display_name: displayName, migrated: result === null })
 })
 
 // POST /auth/create-super — 创建或重置超级测试账号（仅开发环境可用）
