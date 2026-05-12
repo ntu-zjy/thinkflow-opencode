@@ -340,11 +340,12 @@ export function Admin() {
                   value={txnReason}
                   onChange={(e) => { setTxnReason(e.target.value); loadTxns(e.target.value) }}
                 >
-                  <option value="">全部类型</option>
+                  <option value="">全部类型（含 mock）</option>
                   <option value="run_text">文字消耗</option>
                   <option value="run_image">图文消耗</option>
                   <option value="run_video">视频消耗</option>
-                  <option value="purchase">购买充值</option>
+                  <option value="purchase">购买充值（真实）</option>
+                  <option value="mock_purchase">Mock 测试充值</option>
                   <option value="refund_text">退款（文字）</option>
                   <option value="refund_image">退款（图文）</option>
                   <option value="refund_video">退款（视频）</option>

@@ -100,7 +100,7 @@ pay.get("/mock-callback", async (c) => {
 
   const creditsAdded = plan.credits ?? 0
   if (creditsAdded > 0) {
-    await sql`INSERT INTO credit_transactions (user_id, delta, reason) VALUES (${userId}, ${creditsAdded}, ${"purchase_" + planId})`
+    await sql`INSERT INTO credit_transactions (user_id, delta, reason) VALUES (${userId}, ${creditsAdded}, ${"mock_purchase_" + planId})`
   }
 
   return c.redirect(`${SITE_URL}/app?payment=success&mock=1`)

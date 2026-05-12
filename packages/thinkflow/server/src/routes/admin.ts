@@ -32,7 +32,7 @@ admin.get("/stats", async (c) => {
           COALESCE(SUM(ABS(delta)) FILTER (WHERE delta < 0 AND reason = 'run_text'), 0)  AS text_credits,
           COALESCE(SUM(ABS(delta)) FILTER (WHERE delta < 0 AND reason = 'run_image'), 0) AS image_credits,
           COALESCE(SUM(ABS(delta)) FILTER (WHERE delta < 0 AND reason = 'run_video'), 0) AS video_credits,
-          COALESCE(SUM(delta)      FILTER (WHERE delta > 0 AND reason LIKE 'purchase%'), 0) AS credits_sold
+          COALESCE(SUM(delta)      FILTER (WHERE delta > 0 AND reason LIKE 'purchase%' AND reason NOT LIKE 'mock_%'), 0) AS credits_sold
         FROM credit_transactions`,
     sql`SELECT plan, COUNT(*) AS count FROM users GROUP BY plan ORDER BY plan`,
     sql`SELECT
@@ -123,8 +123,13 @@ admin.get("/credits", async (c) => {
   const limit = Math.min(100, Math.max(1, parseInt(c.req.query("limit") ?? "50")))
   const reason = c.req.query("reason")
 
+  // mock_purchase 做前缀匹配，其余精确匹配
   const rows = await (reason
-    ? sql`SELECT ct.id, ct.delta, ct.reason, ct.created_at, u.email FROM credit_transactions ct JOIN users u ON u.id = ct.user_id WHERE ct.reason = ${reason} ORDER BY ct.created_at DESC LIMIT ${limit}`
+    ? reason === "mock_purchase"
+      ? sql`SELECT ct.id, ct.delta, ct.reason, ct.created_at, u.email FROM credit_transactions ct JOIN users u ON u.id = ct.user_id WHERE ct.reason LIKE 'mock_purchase%' ORDER BY ct.created_at DESC LIMIT ${limit}`
+      : reason === "purchase"
+        ? sql`SELECT ct.id, ct.delta, ct.reason, ct.created_at, u.email FROM credit_transactions ct JOIN users u ON u.id = ct.user_id WHERE ct.reason LIKE 'purchase%' AND ct.reason NOT LIKE 'mock_%' ORDER BY ct.created_at DESC LIMIT ${limit}`
+        : sql`SELECT ct.id, ct.delta, ct.reason, ct.created_at, u.email FROM credit_transactions ct JOIN users u ON u.id = ct.user_id WHERE ct.reason = ${reason} ORDER BY ct.created_at DESC LIMIT ${limit}`
     : sql`SELECT ct.id, ct.delta, ct.reason, ct.created_at, u.email FROM credit_transactions ct JOIN users u ON u.id = ct.user_id ORDER BY ct.created_at DESC LIMIT ${limit}`)
 
   return c.json({ transactions: rows })
@@ -141,7 +146,7 @@ admin.get("/revenue", async (c) => {
         COUNT(*) AS txn_count,
         SUM(delta) AS credits_added
       FROM credit_transactions
-      WHERE reason LIKE 'purchase%' AND delta > 0
+      WHERE reason LIKE 'purchase%' AND reason NOT LIKE 'mock_%' AND delta > 0
       GROUP BY day ORDER BY day DESC LIMIT 30`,
     sql`
       SELECT
