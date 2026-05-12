@@ -178,8 +178,11 @@
   - [x] 并行发起请求前立即写入占位骨架卡片（转圈 spinner），每张完成后即时替换，消除空白等待感
   - [x] nginx `proxy_buffers` 调大（`8 512k`），防止 base64 大体积响应被截断返回非 JSON
   - [x] 图片提示词去掉字数限制，改为引导 Agent 写出具体描述维度（主体、场景、光线、色调、构图等）
-- [x] 数据后台 /admin：注册/积分/套餐统计总览、用户列表（搜索+分页+积分调整）、积分流水（按类型过滤）；管理员邮箱白名单保护
-- [x] 用户信息管理页（/profile）：显示名修改、积分余额、订阅状态、头像风格切换、画布管理入口
+- [x] 数据后台 /admin：注册/积分/套餐统计总览、用户列表（搜索+分页+积分调整）、积分流水（按类型过滤）；管理员邮箱白名单（`ADMIN_EMAILS` 环境变量）保护
+- [x] 用户信息管理页（/profile）：显示名修改、积分余额三栏（今日/永久/套餐）、头像风格 + 备选 seed 选择（12 个预设头像）、画布管理入口
+- [x] DiceBear 头像支持选风格 + 选具体头像（Profile 页展示 13 个备选，seed 存 localStorage，UserMenu 同步显示）
+- [x] 修复登录后跳回登录页（/auth/me 新增 display_name 查询，旧版 schema 无该列报 500 → 清 token → 踢回登录页；改为 try/catch fallback 兼容旧 schema）
+- [x] thinkflow-server 启动时自动执行 schema 迁移（无需手动 bun run src/migrate.ts）
 
 
 ### 🟢 锦上添花

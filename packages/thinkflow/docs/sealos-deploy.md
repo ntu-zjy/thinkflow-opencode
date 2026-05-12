@@ -202,7 +202,9 @@ curl -o /dev/null -w "%{http_code}" https://bawzdlyeewhf.cloud.sealos.io
 | Docker 构建报 `Workspace not found "packages/thinkflow/server"` | `package.json` workspaces 新增了 `thinkflow/server`，但两个 Dockerfile（`Dockerfile.opencode` 和 `app/Dockerfile`）的 stub 占位列表没同步更新 | 两个 Dockerfile 都加上 `mkdir -p packages/thinkflow/server` 和对应 stub `package.json` |
 | thinkflow-server 接口 405 | Nginx 没有 `/api/thinkflow` 的 proxy 规则，请求直接命中 SPA 路由返回 405 | nginx.conf 加 `/api/thinkflow/` location 块，envsubst 注入 `THINKFLOW_SERVER_URL` |
 | `POST /auth/create-super` 返回 403 "仅开发环境可用" | 生产环境默认保护，防止超级账号被随意创建 | 临时加环境变量 `ALLOW_SUPER_ACCOUNT=1`，用完立即删除 |
-| `POST /auth/create-super` 返回 500 | 数据库表还未建 | 在 App Terminal 执行 `bun run src/migrate.ts` 初始化表结构 |
+| `POST /auth/create-super` 返回 500 | 数据库表还未建 | 在 App Terminal 执行 `bun run src/migrate.ts` 初始化表结构（现已自动化，重启服务即可） |
+| 登录成功后立刻跳回登录页 | `/auth/me` 查询了新增字段（如 `display_name`），旧版数据库无该列报 500 → `authStore.fetchMe` 清除 token → 路由守卫踢回 `/login` | 两个修复已合并：① `/auth/me` 用 try/catch fallback 兼容旧 schema；② 服务启动自动迁移确保字段存在 |
+| 部署新 schema 字段后需要手动 migrate | 每次加字段都要进 App Terminal 跑脚本，容易忘记 | thinkflow-server 启动时自动执行 `schema.sql`（幂等），重启服务即完成迁移，无需手动操作 |
 
 ---
 
@@ -244,16 +246,16 @@ postgresql://root:密码@thinkflow-pg-postgresql.ns-xxx.svc:5432/postgres
 | `PORT` | `3456` |
 | `NODE_ENV` | `production` |
 | `CORS_ORIGIN` | 前端外网域名，如 `https://bawzdlyeewhf.cloud.sealos.io` |
+| `ADMIN_EMAILS` | 管理员邮箱（逗号分隔），如 `super@thinkflow.dev`，用于访问 `/admin` 后台 |
 
-### 7.3 初始化数据库表
+### 7.3 初始化数据库表（已自动化，无需手动）
 
-App 部署后，进入 App Terminal 执行一次：
-
-```bash
-bun run src/migrate.ts
-```
-
-输出 `Done.` 表示建表成功。
+> **从 2026-05-12 起，thinkflow-server 启动时会自动执行 `schema.sql` 迁移（幂等）。** 无需再手动进 App Terminal 跑 `bun run src/migrate.ts`，重启服务即可完成建表和字段更新。
+>
+> 如需手动触发（调试用）：
+> ```bash
+> bun run src/migrate.ts
+> ```
 
 ### 7.4 给前端添加后端地址环境变量
 
