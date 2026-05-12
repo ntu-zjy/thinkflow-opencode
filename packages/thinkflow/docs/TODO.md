@@ -183,25 +183,23 @@
 - [x] DiceBear 头像支持选风格 + 选具体头像（Profile 页展示 13 个备选，seed 存 localStorage，UserMenu 同步显示）
 - [x] 修复登录后跳回登录页（/auth/me 新增 display_name 查询，旧版 schema 无该列报 500 → 清 token → 踢回登录页；改为 try/catch fallback 兼容旧 schema）
 - [x] thinkflow-server 启动时自动执行 schema 迁移（无需手动 bun run src/migrate.ts）
+- [x] 图片资产上传 S3 对象存储（Sealos 对象存储，生成图片自动 persistImageUrl → S3，替换 base64）
+- [x] **定价体系重构**：三档订阅（入门¥39/专业¥99/旗舰¥299，各月赠 200/600/2000 积分）；积分包整除定价（100→¥10 / 300→¥30 / 1000→¥100，1积分=¥0.1）；免费每日 16 积分
+- [x] 视频节点接入积分系统（90积分/次）；图片固定 medium quality；所有节点计费完整覆盖
+- [x] **Admin 后台商业分析**：收入/成本/利润/毛利率；真实 tokens+cost 采集（`usage_records` 表，OpenCode SSE step-finish + OpenRouter generation API）；各 tab CSV 导出
+- [x] **CI 稳定性**：pre-commit hook 自动同步 bun.lock；server Dockerfile 去掉 `--frozen-lockfile`；workflow 改 `bun-version-file` 避免版本漂移；Desktop Tauri 构建修复
+- [x] **Desktop（Tauri）CI 构建验证通过**（GitHub Actions macOS arm64，产出 .dmg artifact）
 
 
 ### 🟢 锦上添花
-- [ ] 接入支付
-
-- [ ] 制作更好的，更适合用户的landing页
-- [ ] 评测效果集合
+- [x] 接入支付（ZPAY 微信/支付宝，三档订阅 + 积分包）
 - [ ] 上线内测之前，考虑给出一套实操方案，能够确保用户在线上平稳使用产品，同时开发者可以对思流进行开发，不影响线上产品平稳运行。合理的管理版本更新，用户公告系统，长期维护。
-
-
+  
+- [ ] 制作更好的，更适合用户的landing页
 - [ ] 文风/画风克隆功能
-  一个专门的Agent和你聊天，了解你的账号人设，了解你，构建属于你的记忆体系
-
-
-- [ ] **Desktop（Tauri）验证**（已在本地验证 arm64，CI 构建待跑）
-  本地已成功构建 ThinkFlow.app + dmg；CI 构建需在 GitHub Actions 上运行一次验证。   
-- [ ] 中国用户无法访问vercel部署的链接，可按照解决方案解决
-
-
+当用户第一次打开的时候，一个专门的Agent（依然是open code）和用户聊天，了解用户的整体人设，创作风格等等，了解你，构建属于用户的记忆体系
+  
+- [ ] 评测效果集合
 - [ ] **参考之前写好的thinkflow插件，对不同的输出卡片的提示词进行精心调整，目前每个内容平台对应的提示词还是过于简单了**
 
 - [ ] 支持文件夹输入，网页端不支持输入文件夹，桌面端输入文件夹，代表着一个文件夹的地址，输入给Agent
