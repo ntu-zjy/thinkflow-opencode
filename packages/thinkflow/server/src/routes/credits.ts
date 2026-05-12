@@ -9,11 +9,12 @@ const credits = new Hono()
 // 计费单位：以"次"为单位，不管图片生成几张都算1次
 export const CREDIT_COST = {
   text: 8,    // 文字生成 1 次（知乎/公众号/日记等，成本¥0.48，毛利38%）
-  image: 18,  // 图文生成 1 次（小红书，最多6张图，成本¥1.32，毛利38%）
+  image: 18,  // 图文生成 1 次（小红书，最多6张图，成本¥1.32，毛利27%）
+  video: 90,  // 视频生成 1 次（5张图+Remotion渲染，成本¥7.5，毛利17%）
 } as const
 
-// 内测每日赠送积分
-export const DAILY_FREE_CREDITS = 30
+// 内测每日赠送积分（免费用户）
+export const DAILY_FREE_CREDITS = 16
 
 export type RunType = keyof typeof CREDIT_COST
 
@@ -30,7 +31,7 @@ export async function getUserCredits(userId: string): Promise<{
   await sql`
     UPDATE users
     SET
-      credits_daily = CASE WHEN plan = 'free' THEN 30 ELSE 0 END,
+      credits_daily = CASE WHEN plan = 'free' THEN 16 ELSE 0 END,
       credits_daily_reset_at = ${today}
     WHERE id = ${userId}
       AND credits_daily_reset_at < ${today}
@@ -58,7 +59,7 @@ export async function deductCredits(userId: string, cost: number, reason: string
     await tx`
       UPDATE users
       SET
-        credits_daily = CASE WHEN plan = 'free' THEN 30 ELSE 0 END,
+        credits_daily = CASE WHEN plan = 'free' THEN 16 ELSE 0 END,
         credits_daily_reset_at = ${today}
       WHERE id = ${userId}
         AND credits_daily_reset_at < ${today}

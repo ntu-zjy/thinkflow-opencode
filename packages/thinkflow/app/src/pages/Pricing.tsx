@@ -3,43 +3,70 @@ import { useAuthStore } from "../store/authStore"
 import { payApi } from "../services/apiClient"
 
 // ─── 积分消耗（与后端 CREDIT_COST 保持一致） ─────────────────────────────────
-const CREDIT_COST = { text: 8, image: 18 }
+const CREDIT_COST = { text: 8, image: 18, video: 90 }
 
 // ─── 套餐配置 ──────────────────────────────────────────────────────────────────
-const SUBSCRIPTION = {
-  id: "subscriber_monthly",
-  name: "订阅版",
-  price: "¥39",
-  period: "/ 月",
-  highlight: true,
-  features: [
-    "文字内容无限生成（知乎/公众号/日记等）",
-    "每月赠送 100 积分图片额度",
-    "图文创作最多 6 张图 / 次",
-    "云端画布保存（即将开放）",
-  ],
-  badge: "推荐",
-}
+const SUBSCRIPTIONS = [
+  {
+    id: "sub_basic",
+    name: "入门版",
+    price: 39,
+    credits: 200,
+    badge: null as string | null,
+    features: [
+      "每月赠送 200 积分",
+      "可创作 11 篇小红书图文",
+      "或 25 篇文字内容",
+      "云端画布保存",
+    ],
+  },
+  {
+    id: "sub_pro",
+    name: "专业版",
+    price: 99,
+    credits: 600,
+    badge: "推荐",
+    features: [
+      "每月赠送 600 积分",
+      "可创作 33 篇小红书图文",
+      "或 75 篇文字内容",
+      "云端画布保存",
+    ],
+  },
+  {
+    id: "sub_max",
+    name: "旗舰版",
+    price: 299,
+    credits: 2000,
+    badge: null as string | null,
+    features: [
+      "每月赠送 2000 积分",
+      "可创作 111 篇小红书图文",
+      "或 250 篇文字内容",
+      "云端画布保存 · 优先队列",
+    ],
+  },
+]
 
 const CREDIT_PACKS = [
   {
     id: "credits_100",
     credits: 100,
-    price: 15,
+    price: 10,
     imageRuns: Math.floor(100 / CREDIT_COST.image),   // 5
     textRuns: Math.floor(100 / CREDIT_COST.text),      // 12
   },
   {
     id: "credits_300",
     credits: 300,
-    price: 40,
+    price: 30,
     imageRuns: Math.floor(300 / CREDIT_COST.image),   // 16
     textRuns: Math.floor(300 / CREDIT_COST.text),      // 37
   },
   {
     id: "credits_1000",
     credits: 1000,
-    price: 118,
+    price: 100,
     imageRuns: Math.floor(1000 / CREDIT_COST.image),  // 55
     textRuns: Math.floor(1000 / CREDIT_COST.text),     // 125
   },
@@ -82,7 +109,7 @@ export function Pricing() {
       <div className="pricing-header">
         <h1 className="pricing-title">选择你的方案</h1>
         <p className="pricing-subtitle">
-          内测期间每日赠送 <strong>30 积分</strong>，当天清零 · 订阅版每月无限文字 + 赠 100 积分
+          内测期间每日赠送 <strong>16 积分</strong>，当天清零 · 订阅版每月充值积分，永不过期
         </p>
 
         {/* 支付方式切换 */}
@@ -130,42 +157,55 @@ export function Pricing() {
             <p className="pricing-credits-info__cost"><strong>{CREDIT_COST.image} 积分</strong> / 次</p>
           </div>
         </div>
+        <div className="pricing-credits-info__divider" />
+        <div className="pricing-credits-info__col">
+          <span className="pricing-credits-info__icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="23 7 16 12 23 17 23 7"/>
+              <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+            </svg>
+          </span>
+          <div>
+            <p className="pricing-credits-info__label">视频内容（图文合成短视频）</p>
+            <p className="pricing-credits-info__cost"><strong>{CREDIT_COST.video} 积分</strong> / 次</p>
+          </div>
+        </div>
       </div>
 
       {/* ── 订阅套餐 ── */}
       <section className="pricing-section">
         <h2 className="pricing-section__title">订阅套餐</h2>
-        <div className="pricing-sub-card">
-          <div className="pricing-sub-card__badge">{SUBSCRIPTION.badge}</div>
-          <div className="pricing-sub-card__left">
-            <p className="pricing-sub-card__name">{SUBSCRIPTION.name}</p>
-            <p className="pricing-sub-card__price">
-              {SUBSCRIPTION.price}
-              <span className="pricing-sub-card__period">{SUBSCRIPTION.period}</span>
-            </p>
-            <ul className="pricing-sub-card__features">
-              {SUBSCRIPTION.features.map((f) => (
-                <li key={f} className="pricing-sub-card__feature">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20 6 9 17 4 12"/>
-                  </svg>
-                  {f}
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div className="pricing-sub-card__right">
-            <button
-              className="pricing-sub-card__cta"
-              disabled={isSubscriber || loadingId === SUBSCRIPTION.id}
-              onClick={() => handlePay(SUBSCRIPTION.id)}
-            >
-              {isSubscriber ? "当前套餐" : loadingId === SUBSCRIPTION.id ? "跳转中..." : "立即订阅"}
-            </button>
-            {!isSubscriber && (
-              <p className="pricing-sub-card__hint">按月订阅，随时可取消</p>
-            )}
-          </div>
+        <div className="pricing-sub-grid">
+          {SUBSCRIPTIONS.map((sub) => (
+            <div key={sub.id} className={`pricing-sub-card${sub.badge ? " pricing-sub-card--highlight" : ""}`}>
+              {sub.badge && <div className="pricing-sub-card__badge">{sub.badge}</div>}
+              <p className="pricing-sub-card__name">{sub.name}</p>
+              <p className="pricing-sub-card__price">
+                ¥{sub.price}
+                <span className="pricing-sub-card__period"> / 月</span>
+              </p>
+              <ul className="pricing-sub-card__features">
+                {sub.features.map((f) => (
+                  <li key={f} className="pricing-sub-card__feature">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              <button
+                className="pricing-sub-card__cta"
+                disabled={isSubscriber || loadingId === sub.id}
+                onClick={() => handlePay(sub.id)}
+              >
+                {isSubscriber ? "当前套餐" : loadingId === sub.id ? "跳转中..." : "立即订阅"}
+              </button>
+              {!isSubscriber && (
+                <p className="pricing-sub-card__hint">按月订阅，随时可取消</p>
+              )}
+            </div>
+          ))}
         </div>
       </section>
 
@@ -226,8 +266,8 @@ export function Pricing() {
       {/* ── 免费版说明 ── */}
       <section className="pricing-free-tip">
         <p>
-          <strong>免费版</strong>：每日赠送 30 积分，当天清零。等价于每天创作
-          <strong> 1 篇小红书图文 + 1 篇文字</strong>，或 <strong>3 篇纯文字内容</strong>。
+          <strong>免费版</strong>：每日赠送 16 积分，当天清零。等价于每天创作
+          <strong> 1 篇小红书图文</strong>，或 <strong>2 篇纯文字内容</strong>。
         </p>
         {!user && (
           <a href="/register" className="pricing-free-tip__cta">免费注册体验 →</a>
@@ -298,13 +338,18 @@ const STYLES = `
 .pricing-credits-info {
   display: flex;
   align-items: center;
-  max-width: 680px;
+  flex-wrap: wrap;
+  max-width: 860px;
   margin: 0 auto 40px;
   padding: 16px 28px;
   background: var(--bg-node);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   gap: 0;
+}
+@media (max-width: 640px) {
+  .pricing-credits-info { flex-direction: column; align-items: flex-start; gap: 16px; }
+  .pricing-credits-info__divider { display: none; }
 }
 .pricing-credits-info__col {
   display: flex; align-items: center; gap: 14px; flex: 1;
@@ -341,36 +386,44 @@ const STYLES = `
   font-size: 13px; color: var(--text-muted); margin: -8px 0 20px; line-height: 1.6;
 }
 
-/* ── 订阅卡片 ── */
+/* ── 订阅三栏网格 ── */
+.pricing-sub-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+}
+@media (max-width: 720px) {
+  .pricing-sub-grid { grid-template-columns: 1fr; }
+}
 .pricing-sub-card {
-  display: flex; align-items: center; gap: 32px;
-  padding: 28px 32px;
+  display: flex; flex-direction: column; gap: 12px;
+  padding: 24px 22px 20px;
   background: var(--bg-node);
-  border: 1.5px solid var(--accent);
+  border: 1px solid var(--border);
   border-radius: var(--radius-xl);
-  box-shadow: 0 0 0 1px var(--accent-glow), 0 4px 24px var(--accent-glow);
   position: relative;
 }
+.pricing-sub-card--highlight {
+  border: 1.5px solid var(--accent);
+  box-shadow: 0 0 0 1px var(--accent-glow), 0 4px 24px var(--accent-glow);
+}
 .pricing-sub-card__badge {
-  position: absolute; top: -11px; left: 28px;
+  position: absolute; top: -11px; left: 20px;
   background: var(--accent); color: var(--accent-text);
   font-size: 11px; font-weight: 800; letter-spacing: 0.08em;
   padding: 3px 12px; border-radius: 20px;
 }
-.pricing-sub-card__left { flex: 1; }
 .pricing-sub-card__name {
   font-size: 12px; font-weight: 700; text-transform: uppercase;
-  letter-spacing: 0.1em; color: var(--text-muted); margin: 0 0 8px;
+  letter-spacing: 0.1em; color: var(--text-muted); margin: 0;
 }
 .pricing-sub-card__price {
-  font-size: 40px; font-weight: 900; letter-spacing: -1px;
-  color: var(--text-primary); margin: 0 0 16px; line-height: 1;
+  font-size: 36px; font-weight: 900; letter-spacing: -1px;
+  color: var(--text-primary); margin: 0; line-height: 1;
 }
 .pricing-sub-card__period {
   font-size: 14px; font-weight: 400; color: var(--text-muted);
 }
 .pricing-sub-card__features {
-  list-style: none; padding: 0; margin: 0;
+  list-style: none; padding: 0; margin: 0; flex: 1;
   display: flex; flex-direction: column; gap: 8px;
 }
 .pricing-sub-card__feature {
@@ -380,25 +433,17 @@ const STYLES = `
 .pricing-sub-card__feature svg {
   flex-shrink: 0; margin-top: 1px; color: var(--status-done);
 }
-.pricing-sub-card__right {
-  display: flex; flex-direction: column; align-items: center; gap: 8px; flex-shrink: 0;
-}
 .pricing-sub-card__cta {
-  padding: 12px 32px;
+  width: 100%; padding: 11px;
   background: var(--accent); color: var(--accent-text);
   border: none; border-radius: var(--radius-md);
-  font-size: 14px; font-weight: 700; cursor: pointer; white-space: nowrap;
+  font-size: 14px; font-weight: 700; cursor: pointer;
   transition: opacity 0.15s, transform 0.1s;
 }
 .pricing-sub-card__cta:hover:not(:disabled) { opacity: 0.85; transform: translateY(-1px); }
 .pricing-sub-card__cta:disabled { opacity: 0.45; cursor: not-allowed; }
 .pricing-sub-card__hint {
   font-size: 11px; color: var(--text-muted); margin: 0; text-align: center;
-}
-@media (max-width: 640px) {
-  .pricing-sub-card { flex-direction: column; align-items: flex-start; }
-  .pricing-sub-card__right { width: 100%; }
-  .pricing-sub-card__cta { width: 100%; }
 }
 
 /* ── 积分包网格 ── */

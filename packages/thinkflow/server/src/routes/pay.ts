@@ -21,12 +21,14 @@ interface Plan {
 }
 
 const PLANS: Record<string, Plan> = {
-  // 订阅套餐：¥39/月，文字无限 + 赠100积分
-  subscriber_monthly: { name: "订阅版月付", price: "39.00", type: "subscription", plan: "subscriber", credits: 100 },
-  // 积分充值包
-  credits_100:  { name: "100积分包", price: "15.00",  type: "credits", credits: 100 },
-  credits_300:  { name: "300积分包", price: "40.00",  type: "credits", credits: 300 },
-  credits_1000: { name: "1000积分包", price: "118.00", type: "credits", credits: 1000 },
+  // 订阅套餐：三档
+  sub_basic:   { name: "入门版月付", price: "39.00",  type: "subscription", plan: "subscriber", credits: 200 },
+  sub_pro:     { name: "专业版月付", price: "99.00",  type: "subscription", plan: "subscriber", credits: 600 },
+  sub_max:     { name: "旗舰版月付", price: "299.00", type: "subscription", plan: "subscriber", credits: 2000 },
+  // 积分充值包（1积分=¥0.1，整除易算）
+  credits_100:  { name: "100积分包",  price: "10.00",  type: "credits", credits: 100 },
+  credits_300:  { name: "300积分包",  price: "30.00",  type: "credits", credits: 300 },
+  credits_1000: { name: "1000积分包", price: "100.00", type: "credits", credits: 1000 },
 }
 
 function zpaySign(params: Record<string, string>, key: string): string {

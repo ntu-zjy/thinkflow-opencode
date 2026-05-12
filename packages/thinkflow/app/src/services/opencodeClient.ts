@@ -94,15 +94,9 @@ export function subscribeEvents(
 
 // ─── 图片生成 ─────────────────────────────────────────────────────────────────
 // 图片生成：OpenRouter chat/completions + modalities
-// 质量策略：70% Medium（$0.041/张，1024×1536），30% Low（$0.005/张）——对用户透明
-// size 固定为 1024x1536（小红书竖版）
-
-function pickImageQuality(): "low" | "medium" {
-  return Math.random() < 0.3 ? "low" : "medium"
-}
+// size 固定为 1024x1536（小红书竖版），quality 固定为 medium
 
 async function generateImageViaOpenRouter(prompt: string, model: string): Promise<string> {
-  const quality = pickImageQuality()
   const resp = await fetch("/api/openrouter/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -111,7 +105,7 @@ async function generateImageViaOpenRouter(prompt: string, model: string): Promis
       messages: [{ role: "user", content: prompt }],
       modalities: ["image", "text"],
       image_generation_config: {
-        quality,
+        quality: "medium",
         size: "1024x1536",
       },
     }),

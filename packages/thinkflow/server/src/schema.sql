@@ -11,8 +11,8 @@ CREATE TABLE IF NOT EXISTS users (
   plan             TEXT NOT NULL DEFAULT 'free',         -- 'free' | 'subscriber'
   -- 永久积分（购买的积分包，不过期）
   credits_permanent INT NOT NULL DEFAULT 0,
-  -- 每日赠送积分（当天清零，免费用户每日 20，订阅用户每日 0）
-  credits_daily    INT NOT NULL DEFAULT 30,  -- 内测每日赠送30积分，当天清零
+  -- 每日赠送积分（当天清零，免费用户每日16，订阅用户每日0）
+  credits_daily    INT NOT NULL DEFAULT 16,  -- 免费用户每日赠送16积分（1篇图文），当天清零
   credits_daily_reset_at DATE NOT NULL DEFAULT CURRENT_DATE
 );
 
