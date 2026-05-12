@@ -660,7 +660,7 @@ export const useCanvasStore = create<CanvasStore>()(
     const hasVideoOutput = outputNodes.some((o) => o.data.platform === "video")
     const hasImageOutput = outputNodes.some((o) => o.data.platform === "xiaohongshu")
     const runType = hasVideoOutput ? "video" : hasImageOutput ? "image" : "text"
-    // 矩阵模式：每个 slot 算一次（此处用前缀避免与下方 matrixMode/matrixSlots 冲突）
+    // 矩阵模式：每个人设算一次（此处用前缀避免与下方 matrixMode/matrixSlots 冲突）
     const _creditMatrixMode = agentNode.data.matrixMode ?? false
     const _creditMatrixSlots = agentNode.data.matrixSlots ?? []
     const runCount = _creditMatrixMode && _creditMatrixSlots.length > 0 ? _creditMatrixSlots.length : 1
