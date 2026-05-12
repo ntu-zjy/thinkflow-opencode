@@ -131,7 +131,6 @@ jobs:
         working-directory: packages/thinkflow/desktop
         env:
           TAURI_SKIP_DEVSERVER_CHECK: true
-        env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload .dmg artifact
