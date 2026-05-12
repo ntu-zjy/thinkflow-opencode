@@ -148,3 +148,50 @@ export const payApi = {
       body: JSON.stringify({ planId, payType }),
     }),
 }
+
+// ─── Admin ────────────────────────────────────────────────────────────────────
+
+export interface AdminStats {
+  users: { total: number; new_7d: number; new_30d: number }
+  canvases: { total: number }
+  credits: { text_consumed: number; image_consumed: number; sold: number }
+  plans: Record<string, number>
+}
+
+export interface AdminUser {
+  id: string
+  email: string
+  display_name: string | null
+  plan: string
+  credits_daily: number
+  credits_permanent: number
+  created_at: string
+}
+
+export interface AdminTransaction {
+  id: string
+  delta: number
+  reason: string
+  created_at: string
+  email: string
+}
+
+export const adminApi = {
+  stats: () => request<AdminStats>("/admin/stats"),
+
+  users: (page = 1, limit = 20, q = "") =>
+    request<{ users: AdminUser[]; total: number; page: number; limit: number }>(
+      `/admin/users?page=${page}&limit=${limit}${q ? `&q=${encodeURIComponent(q)}` : ""}`
+    ),
+
+  credits: (limit = 50, reason?: string) =>
+    request<{ transactions: AdminTransaction[] }>(
+      `/admin/credits?limit=${limit}${reason ? `&reason=${encodeURIComponent(reason)}` : ""}`
+    ),
+
+  adjustCredits: (userId: string, delta: number, reason = "admin_adjust") =>
+    request<{ ok: boolean; updated: { credits_daily: number; credits_permanent: number } }>(
+      `/admin/users/${userId}/credits`,
+      { method: "PATCH", body: JSON.stringify({ delta, reason }) }
+    ),
+}
