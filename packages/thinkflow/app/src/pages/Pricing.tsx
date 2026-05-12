@@ -105,7 +105,12 @@ export function Pricing() {
       {/* ── 积分说明卡片 ── */}
       <div className="pricing-credits-info">
         <div className="pricing-credits-info__col">
-          <span className="pricing-credits-info__icon">✏️</span>
+          <span className="pricing-credits-info__icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5Z"/>
+            </svg>
+          </span>
           <div>
             <p className="pricing-credits-info__label">文字内容（知乎/公众号/日记等）</p>
             <p className="pricing-credits-info__cost"><strong>{CREDIT_COST.text} 积分</strong> / 次</p>
@@ -113,7 +118,13 @@ export function Pricing() {
         </div>
         <div className="pricing-credits-info__divider" />
         <div className="pricing-credits-info__col">
-          <span className="pricing-credits-info__icon">🖼️</span>
+          <span className="pricing-credits-info__icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+              <circle cx="8.5" cy="8.5" r="1.5"/>
+              <polyline points="21 15 16 10 5 21"/>
+            </svg>
+          </span>
           <div>
             <p className="pricing-credits-info__label">图文内容（小红书，最多 6 张图）</p>
             <p className="pricing-credits-info__cost"><strong>{CREDIT_COST.image} 积分</strong> / 次</p>
@@ -174,11 +185,22 @@ export function Pricing() {
 
               <div className="pricing-pack__equiv">
                 <div className="pricing-pack__equiv-row">
-                  <span className="pricing-pack__equiv-icon">🖼️</span>
+                  <span className="pricing-pack__equiv-icon">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                      <circle cx="8.5" cy="8.5" r="1.5"/>
+                      <polyline points="21 15 16 10 5 21"/>
+                    </svg>
+                  </span>
                   <span>可创作 <strong>{pack.imageRuns} 篇</strong>小红书图文</span>
                 </div>
                 <div className="pricing-pack__equiv-row">
-                  <span className="pricing-pack__equiv-icon">✏️</span>
+                  <span className="pricing-pack__equiv-icon">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5Z"/>
+                    </svg>
+                  </span>
                   <span>或 <strong>{pack.textRuns} 篇</strong>文字内容</span>
                 </div>
               </div>
@@ -287,7 +309,16 @@ const STYLES = `
 .pricing-credits-info__col {
   display: flex; align-items: center; gap: 14px; flex: 1;
 }
-.pricing-credits-info__icon { font-size: 22px; flex-shrink: 0; }
+.pricing-credits-info__icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px; height: 36px;
+  border-radius: 8px;
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
 .pricing-credits-info__label {
   font-size: 12px; color: var(--text-muted); margin: 0 0 4px;
 }
@@ -400,7 +431,13 @@ const STYLES = `
   display: flex; align-items: center; gap: 8px;
   font-size: 13px; color: var(--text-secondary); line-height: 1.5;
 }
-.pricing-pack__equiv-icon { font-size: 15px; flex-shrink: 0; }
+.pricing-pack__equiv-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
 .pricing-pack__bottom {
   display: flex; flex-direction: column; gap: 4px;
   padding-top: 12px; border-top: 1px solid var(--border);
