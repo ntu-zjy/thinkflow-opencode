@@ -164,14 +164,13 @@ export const uploadApi = {
 export interface AdminStats {
   users: { total: number; new_7d: number; new_30d: number }
   canvases: { total: number }
-  credits: {
-    text_consumed: number; image_consumed: number; video_consumed: number; sold: number
-    text_runs: number; image_runs: number; video_runs: number
+  credits: { text_consumed: number; image_consumed: number; video_consumed: number; sold: number }
+  usage: {
+    text:  { runs: number; tokens_input: number; tokens_output: number; tokens_cache_read: number; cost_usd: number }
+    image: { runs: number; tokens_input: number; tokens_output: number; tokens_cache_read: number; cost_usd: number }
+    video: { runs: number; tokens_input: number; tokens_output: number; tokens_cache_read: number; cost_usd: number }
   }
-  financials: {
-    revenue: number; cost: number; cost_text: number; cost_image: number; cost_video: number
-    profit: number; margin: number
-  }
+  financials: { revenue: number; cost_usd: number; cost_cny: number; profit: number; margin: number }
   plans: Record<string, number>
 }
 
@@ -180,11 +179,35 @@ export interface AdminRevenueDay {
   txn_count: number
   credits_added: number
   revenue: number
-  cost: number
+  cost_usd: number
+  cost_cny: number
   profit: number
   text_runs: number
   image_runs: number
   video_runs: number
+  text_tokens_in: number
+  text_tokens_out: number
+  text_cache_read: number
+}
+
+// ─── Usage ────────────────────────────────────────────────────────────────────
+
+export interface UsageRecord {
+  run_type: "text" | "image" | "video"
+  model?: string
+  tokens_input: number
+  tokens_output: number
+  tokens_cache_read?: number
+  tokens_cache_write?: number
+  cost_usd: number
+}
+
+export const usageApi = {
+  record: (data: UsageRecord) =>
+    request<{ ok: boolean }>("/usage/record", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
 }
 
 export interface AdminUser {

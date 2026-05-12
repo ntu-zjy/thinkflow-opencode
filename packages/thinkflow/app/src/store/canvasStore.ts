@@ -34,7 +34,7 @@ import {
   runMockWorkflow,
   generateImage,
 } from "../services/opencodeClient"
-import { creditsApi, canvasApi, uploadApi } from "../services/apiClient"
+import { creditsApi, canvasApi, uploadApi, usageApi } from "../services/apiClient"
 import { useMemoryStore } from "./memoryStore"
 import { markdownToHtml } from "../utils/markdownToHtml"
 import { getCard } from "../cards"
@@ -888,17 +888,27 @@ export const useCanvasStore = create<CanvasStore>()(
       set((s) => ({ _sessionIds: [...s._sessionIds, sessionId] }))
 
       let outputBuffer = ""
+      // 累计本次 session 所有 step-finish 的真实用量
+      let sessionUsage = { tokens_input: 0, tokens_output: 0, tokens_cache_read: 0, tokens_cache_write: 0, cost_usd: 0, model: "" }
       await new Promise<void>((resolve, reject) => {
         const unsubscribe = subscribeEvents(
           (event) => {
             const { payload } = event
             if (payload.type === "message.part.updated") {
               const props = payload.properties as {
-                part?: { type?: string; sessionID?: string; state?: { status?: string; title?: string } }
+                part?: { type?: string; sessionID?: string; state?: { status?: string; title?: string }; tokens?: { input?: number; output?: number; cache?: { read?: number; write?: number } }; cost?: number }
                 delta?: string
               }
               const part = props.part
               if (part?.sessionID && part.sessionID !== sessionId) return
+              // 累计真实 tokens + cost（每个 step-finish 都带）
+              if ((part as { type?: string })?.type === "step-finish" && part?.tokens) {
+                sessionUsage.tokens_input       += part.tokens.input  ?? 0
+                sessionUsage.tokens_output      += part.tokens.output ?? 0
+                sessionUsage.tokens_cache_read  += part.tokens.cache?.read  ?? 0
+                sessionUsage.tokens_cache_write += part.tokens.cache?.write ?? 0
+                sessionUsage.cost_usd           += part.cost ?? 0
+              }
               if (part?.type === "text" && props.delta) {
                 outputBuffer += props.delta
                 updateWorkflowNodeData<OutputNodeData>(outputNode.id, { content: outputBuffer })
@@ -935,6 +945,18 @@ export const useCanvasStore = create<CanvasStore>()(
               if (props.sessionID && props.sessionID !== sessionId) return
               appendLog(`${outputNode.data.platform} 生成完成`, "info")
               unsubscribe()
+              // 上报真实 usage（有 token 数据才上报）
+              if (sessionUsage.tokens_input > 0 || sessionUsage.tokens_output > 0) {
+                usageApi.record({
+                  run_type: runType === "video" ? "video" : runType === "image" ? "image" : "text",
+                  model: agentNode.data.model ?? "",
+                  tokens_input: sessionUsage.tokens_input,
+                  tokens_output: sessionUsage.tokens_output,
+                  tokens_cache_read: sessionUsage.tokens_cache_read,
+                  tokens_cache_write: sessionUsage.tokens_cache_write,
+                  cost_usd: sessionUsage.cost_usd,
+                }).catch(() => {})
+              }
               resolve()
             } else if (payload.type === "session.error" || payload.type === "session.failed") {
               const props = payload.properties as { sessionID?: string; error?: unknown; message?: unknown }
@@ -991,7 +1013,9 @@ export const useCanvasStore = create<CanvasStore>()(
                 const elapsed = Math.round((Date.now() - imgStart) / 1000)
                 appendLog(`[图文] 第 ${imgIdx + 1} 张生成中，已等待 ${elapsed}s...`, "info")
               }, 15000)
-              const rawImageUrl = await generateImage(imagePrompt).catch((err: Error) => {
+              const rawImageUrl = await generateImage(imagePrompt, undefined, (u) => {
+                usageApi.record({ run_type: "image", ...u }).catch(() => {})
+              }).catch((err: Error) => {
                 clearInterval(ticker)
                 appendLog(`[图文] 第 ${imgIdx + 1} 张生成失败: ${(err.message ?? "").slice(0, 60)}，使用占位图`, "info")
                 const label = encodeURIComponent(imagePrompt.slice(0, 40))

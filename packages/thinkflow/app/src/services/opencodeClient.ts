@@ -96,7 +96,9 @@ export function subscribeEvents(
 // 图片生成：OpenRouter chat/completions + modalities
 // size 固定为 1024x1536（小红书竖版），quality 固定为 medium
 
-async function generateImageViaOpenRouter(prompt: string, model: string): Promise<string> {
+interface ImageGenResult { url: string; generationId?: string; model: string }
+
+async function generateImageViaOpenRouter(prompt: string, model: string): Promise<ImageGenResult> {
   const resp = await fetch("/api/openrouter/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -111,19 +113,40 @@ async function generateImageViaOpenRouter(prompt: string, model: string): Promis
     }),
   })
   const text = await resp.text()
-  let data: { choices?: Array<{ message: { content?: string; images?: Array<{ image_url: { url: string } }> } }>; error?: { message: string; code?: number } }
+  let data: { id?: string; choices?: Array<{ message: { content?: string; images?: Array<{ image_url: { url: string } }> } }>; error?: { message: string; code?: number } }
   try { data = JSON.parse(text) } catch { throw new Error(`OpenRouter HTTP ${resp.status}, response not JSON: ${text.slice(0, 200)}`) }
   if (data.error) throw new Error(`openrouter:${data.error.code ?? 0}:${data.error.message}`)
   const url = data.choices?.[0]?.message?.images?.[0]?.image_url?.url
-  if (url) return url
+  if (url) return { url, generationId: data.id, model }
   throw new Error("OpenRouter: no image in response")
+}
+
+// 异步查 OpenRouter generation API，拿真实 tokens/cost，上报到后端
+async function reportImageUsage(generationId: string, model: string, onReport: (u: { tokens_input: number; tokens_output: number; cost_usd: number; model: string }) => void) {
+  // OpenRouter generation 数据有延迟，poll 最多 5 次
+  for (let i = 0; i < 5; i++) {
+    await new Promise((r) => setTimeout(r, 1500 + i * 1000))
+    const resp = await fetch(`/api/openrouter/v1/generation?id=${encodeURIComponent(generationId)}`).catch(() => null)
+    if (!resp?.ok) continue
+    const data = await resp.json().catch(() => null) as { data?: { tokens_prompt?: number; tokens_completion?: number; total_cost?: number } } | null
+    if (!data?.data) continue
+    const { tokens_prompt = 0, tokens_completion = 0, total_cost = 0 } = data.data
+    onReport({ tokens_input: tokens_prompt, tokens_output: tokens_completion, cost_usd: total_cost, model })
+    return
+  }
 }
 
 export async function generateImage(
   prompt: string,
   model: string = "openai/gpt-image-1",
+  onUsage?: (u: { tokens_input: number; tokens_output: number; cost_usd: number; model: string }) => void,
 ): Promise<string> {
-  return generateImageViaOpenRouter(prompt, model)
+  const result = await generateImageViaOpenRouter(prompt, model)
+  // 有 generation_id 且有回调时，异步查真实用量
+  if (result.generationId && onUsage) {
+    reportImageUsage(result.generationId, result.model, onUsage).catch(() => {})
+  }
+  return result.url
 }
 
 // ─── Mock 模式（OpenCode 不可用时） ───────────────────────────────────────────
