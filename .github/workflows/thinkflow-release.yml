@@ -2,7 +2,7 @@ name: ThinkFlow Release
 
 on:
   push:
-    branches: [feat/sealos-deploy-auth, thinkflow-mvp1]
+    branches: [dev, feat/sealos-deploy-auth, thinkflow-mvp1]
     paths:
       - "packages/thinkflow/**"
       - "packages/opencode/**"
@@ -43,6 +43,20 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      # 生产分支（thinkflow-mvp1）打 latest；开发分支打 dev
+      - name: Compute image tags
+        id: tags
+        run: |
+          SHA=${{ github.sha }}
+          if [ "${{ github.ref_name }}" = "thinkflow-mvp1" ]; then
+            SUFFIX="latest"
+          else
+            SUFFIX="dev"
+          fi
+          echo "opencode=${{ secrets.DOCKERHUB_USERNAME }}/thinkflow-opencode:${SUFFIX},${{ secrets.DOCKERHUB_USERNAME }}/thinkflow-opencode:${SHA}" >> $GITHUB_OUTPUT
+          echo "server=${{ secrets.DOCKERHUB_USERNAME }}/thinkflow-server:${SUFFIX},${{ secrets.DOCKERHUB_USERNAME }}/thinkflow-server:${SHA}" >> $GITHUB_OUTPUT
+          echo "frontend=${{ secrets.DOCKERHUB_USERNAME }}/thinkflow-frontend:${SUFFIX},${{ secrets.DOCKERHUB_USERNAME }}/thinkflow-frontend:${SHA}" >> $GITHUB_OUTPUT
+
       # ── OpenCode 服务镜像 ──────────────────────────────────────────────────
       - name: Build & push opencode image
         uses: docker/build-push-action@v6
@@ -50,9 +64,7 @@ jobs:
           context: .
           file: packages/thinkflow/Dockerfile.opencode
           push: true
-          tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/thinkflow-opencode:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/thinkflow-opencode:${{ github.sha }}
+          tags: ${{ steps.tags.outputs.opencode }}
           cache-from: type=gha,scope=opencode
           cache-to: type=gha,mode=max,scope=opencode
 
@@ -63,9 +75,7 @@ jobs:
           context: packages/thinkflow/server
           file: packages/thinkflow/server/Dockerfile
           push: true
-          tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/thinkflow-server:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/thinkflow-server:${{ github.sha }}
+          tags: ${{ steps.tags.outputs.server }}
           cache-from: type=gha,scope=server
           cache-to: type=gha,mode=max,scope=server
 
@@ -78,9 +88,7 @@ jobs:
           push: true
           build-args: |
             VITE_OPENCODE_SERVER_URL=${{ secrets.VITE_OPENCODE_SERVER_URL }}
-          tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/thinkflow-frontend:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/thinkflow-frontend:${{ github.sha }}
+          tags: ${{ steps.tags.outputs.frontend }}
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
 
