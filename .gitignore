@@ -25,3 +25,13 @@ target
 opencode-dev
 logs/
 *.bun-build
+
+# 构建产物 / 大文件 —— 避免再被误提交，造成 git 历史膨胀
+# 历史上这些路径累计塞过 360MB+，已用 git-filter-repo 全部剥离
+.next/
+.claude-trace/
+packages/thinkflow/desktop/src-tauri/sidecars/opencode-cli-*
+packages/tui/cmd/opencode/opencode
+packages/tui/opencode
+*.mp4
+
