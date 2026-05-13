@@ -75,7 +75,7 @@ const CREDIT_PACKS = [
 export function Pricing() {
   const { user } = useAuthStore()
   const [loadingId, setLoadingId] = useState<string | null>(null)
-  const [payType, setPayType] = useState<"wxpay" | "alipay">("wxpay")
+  const [payType, setPayType] = useState<"wxpay" | "alipay">("alipay")
   const [isMock, setIsMock] = useState(false)
 
   const handlePay = async (planId: string) => {
@@ -130,8 +130,9 @@ export function Pricing() {
         {/* 支付方式切换 */}
         <div className="pricing-paytype">
           <button
-            className={`pricing-paytype__btn${payType === "wxpay" ? " active" : ""}`}
-            onClick={() => setPayType("wxpay")}
+            className="pricing-paytype__btn pricing-paytype__btn--disabled"
+            disabled
+            title="微信支付暂未开通"
           >
             微信支付
           </button>
@@ -190,7 +191,7 @@ export function Pricing() {
       {/* ── 订阅套餐 ── */}
       <section className="pricing-section">
         <h2 className="pricing-section__title">订阅套餐</h2>
-        <div className="pricing-sub-grid">
+        <div className="pricing-sub-grid pricing-sub-grid--4">
           {SUBSCRIPTIONS.map((sub) => (
             <div key={sub.id} className={`pricing-sub-card${sub.badge ? " pricing-sub-card--highlight" : ""}`}>
               {sub.badge && <div className="pricing-sub-card__badge">{sub.badge}</div>}
@@ -221,6 +222,34 @@ export function Pricing() {
               )}
             </div>
           ))}
+
+          {/* 定制版 */}
+          <div className="pricing-sub-card pricing-sub-card--custom">
+            <p className="pricing-sub-card__name">定制版</p>
+            <p className="pricing-sub-card__price pricing-sub-card__price--custom">
+              面议
+            </p>
+            <ul className="pricing-sub-card__features">
+              {["私有化部署", "团队多人协作", "专属模型调优", "定制工作流开发"].map((f) => (
+                <li key={f} className="pricing-sub-card__feature">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                  {f}
+                </li>
+              ))}
+            </ul>
+            {/* TODO: 替换为真实微信二维码图片路径 */}
+            <div className="pricing-sub-card__qr-placeholder">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" style={{opacity: 0.25}}>
+                <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+                <rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="3" height="3"/>
+                <rect x="19" y="14" width="2" height="2"/><rect x="14" y="19" width="2" height="2"/>
+                <rect x="18" y="18" width="3" height="3"/>
+              </svg>
+              <p className="pricing-sub-card__qr-label">扫码添加微信洽谈</p>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -409,12 +438,19 @@ const STYLES = `
   font-size: 13px; color: var(--text-muted); margin: -8px 0 20px; line-height: 1.6;
 }
 
-/* ── 订阅三栏网格 ── */
+/* ── 订阅网格 ── */
 .pricing-sub-grid {
   display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
 }
+.pricing-sub-grid--4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+@media (max-width: 900px) {
+  .pricing-sub-grid--4 { grid-template-columns: repeat(2, 1fr); }
+}
 @media (max-width: 720px) {
   .pricing-sub-grid { grid-template-columns: 1fr; }
+  .pricing-sub-grid--4 { grid-template-columns: 1fr; }
 }
 .pricing-sub-card {
   display: flex; flex-direction: column; gap: 12px;
@@ -468,6 +504,28 @@ const STYLES = `
 .pricing-sub-card__hint {
   font-size: 11px; color: var(--text-muted); margin: 0; text-align: center;
 }
+
+/* ── 定制版卡片 ── */
+.pricing-sub-card--custom {
+  border-style: dashed;
+}
+.pricing-sub-card__price--custom {
+  font-size: 28px; color: var(--text-muted);
+}
+.pricing-sub-card__qr-placeholder {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 8px; padding: 16px 0 4px;
+  border-top: 1px solid var(--border);
+}
+.pricing-sub-card__qr-label {
+  font-size: 12px; color: var(--text-muted); margin: 0;
+}
+
+/* ── 微信支付置灰 ── */
+.pricing-paytype__btn--disabled {
+  opacity: 0.35; cursor: not-allowed;
+}
+.pricing-paytype__btn--disabled:hover { background: none; color: var(--text-muted); }
 
 /* ── 积分包网格 ── */
 .pricing-packs-grid {
