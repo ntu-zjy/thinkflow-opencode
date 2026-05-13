@@ -280,8 +280,8 @@ export const useCanvasStore = create<CanvasStore>()(
       if (wf.serverId) continue
       const created = await canvasApi.create(
         wf.name,
-        wf.nodes.map(cleanNodeForPersist),
-        wf.edges.map(cleanEdgeForPersist),
+        (wf.nodes ?? []).map(cleanNodeForPersist),
+        (wf.edges ?? []).map(cleanEdgeForPersist),
       ).catch(() => null)
       if (created) {
         newWorkflows[localId] = { ...newWorkflows[localId], serverId: created.id }
@@ -1170,8 +1170,8 @@ export const useCanvasStore = create<CanvasStore>()(
             id,
             {
               ...wf,
-              nodes: wf.nodes.map(cleanNodeForPersist),
-              edges: wf.edges.map(cleanEdgeForPersist),
+              nodes: (wf.nodes ?? []).map(cleanNodeForPersist),
+              edges: (wf.edges ?? []).map(cleanEdgeForPersist),
               history: [],
               historyIndex: -1,
             },
