@@ -133,6 +133,10 @@ export namespace Server {
               if (/^https:\/\/([a-z0-9-]+\.)*opencode\.ai$/.test(input)) {
                 return input
               }
+              // *.cloud.sealos.io —— ThinkFlow Sealos 部署的 frontend/server 都在这下面
+              if (/^https:\/\/([a-z0-9-]+\.)*cloud\.sealos\.io$/.test(input)) {
+                return input
+              }
               if (_corsWhitelist.includes("*") || _corsWhitelist.includes(input)) {
                 return input
               }
