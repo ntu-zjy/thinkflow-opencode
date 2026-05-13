@@ -79,7 +79,7 @@ jobs:
           cache-from: type=gha,scope=server
           cache-to: type=gha,mode=max,scope=server
 
-      # ── 前端镜像（构建时注入 OpenCode 服务地址）────────────────────────────
+      # ── 前端镜像（构建时注入 OpenCode 服务地址 + commit SHA）────────────────
       - name: Build & push frontend image
         uses: docker/build-push-action@v6
         with:
@@ -88,6 +88,7 @@ jobs:
           push: true
           build-args: |
             VITE_OPENCODE_SERVER_URL=${{ secrets.VITE_OPENCODE_SERVER_URL }}
+            VITE_BUILD_SHA=${{ github.sha }}
           tags: ${{ steps.tags.outputs.frontend }}
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend

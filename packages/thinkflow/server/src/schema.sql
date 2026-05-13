@@ -76,6 +76,25 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER canvases_updated_at
-  BEFORE UPDATE ON canvases
-  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+DO $$ BEGIN
+  CREATE TRIGGER canvases_updated_at
+    BEFORE UPDATE ON canvases
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+-- 数据库层硬约束：nodes_json / edges_json 必须是 array
+-- 防止任何上游漏过的脏数据写入污染下游
+-- 先清理存量脏数据（如果有），再加约束，避免迁移失败
+UPDATE canvases SET nodes_json = '[]'::jsonb WHERE jsonb_typeof(nodes_json) IS DISTINCT FROM 'array';
+UPDATE canvases SET edges_json = '[]'::jsonb WHERE jsonb_typeof(edges_json) IS DISTINCT FROM 'array';
+
+DO $$ BEGIN
+  ALTER TABLE canvases ADD CONSTRAINT canvases_nodes_json_is_array CHECK (jsonb_typeof(nodes_json) = 'array');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  ALTER TABLE canvases ADD CONSTRAINT canvases_edges_json_is_array CHECK (jsonb_typeof(edges_json) = 'array');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;

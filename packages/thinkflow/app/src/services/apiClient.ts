@@ -77,21 +77,41 @@ export interface CanvasFull extends CanvasMeta {
   edges_json: unknown[]
 }
 
+// 服务端 jsonb 字段任意 JSON 都能存（包括对象/null），客户端用前必须确保是数组，
+// 否则下游 .map 一炸整个画布卡死。apiClient 层统一收口，不让脏数据流到 store。
+function ensureArr<T>(x: unknown): T[] {
+  return Array.isArray(x) ? (x as T[]) : []
+}
+
 export const canvasApi = {
-  list: () => request<CanvasMeta[]>("/canvas"),
+  list: () =>
+    request<CanvasMeta[]>("/canvas").then((rows) => ensureArr<CanvasMeta>(rows)),
 
   create: (title: string, nodes: unknown[], edges: unknown[]) =>
     request<CanvasMeta>("/canvas", {
       method: "POST",
-      body: JSON.stringify({ title, nodes_json: nodes, edges_json: edges }),
+      body: JSON.stringify({
+        title,
+        nodes_json: ensureArr(nodes),
+        edges_json: ensureArr(edges),
+      }),
     }),
 
-  get: (id: string) => request<CanvasFull>(`/canvas/${id}`),
+  get: (id: string) =>
+    request<CanvasFull>(`/canvas/${id}`).then((c) => ({
+      ...c,
+      nodes_json: ensureArr(c.nodes_json),
+      edges_json: ensureArr(c.edges_json),
+    })),
 
   update: (id: string, payload: { title?: string; nodes_json?: unknown[]; edges_json?: unknown[] }) =>
     request<{ id: string; title: string; updated_at: string }>(`/canvas/${id}`, {
       method: "PUT",
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        ...payload,
+        ...(payload.nodes_json !== undefined ? { nodes_json: ensureArr(payload.nodes_json) } : {}),
+        ...(payload.edges_json !== undefined ? { edges_json: ensureArr(payload.edges_json) } : {}),
+      }),
     }),
 
   remove: (id: string) =>

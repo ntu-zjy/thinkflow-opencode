@@ -41,8 +41,15 @@ canvas.get("/:id", async (c) => {
     FROM canvases
     WHERE id = ${id} AND user_id = ${jwt.sub}
   `
-  if (!rows[0]) return c.json({ error: "画布不存在" }, 404)
-  return c.json(rows[0])
+  const row = rows[0]
+  if (!row) return c.json({ error: "画布不存在" }, 404)
+  // 历史存量数据可能 nodes_json/edges_json 是对象或 null（迁移前的脏数据），
+  // 出口处兜底成数组，避免前端 .map 崩溃。
+  return c.json({
+    ...row,
+    nodes_json: Array.isArray(row.nodes_json) ? row.nodes_json : [],
+    edges_json: Array.isArray(row.edges_json) ? row.edges_json : [],
+  })
 })
 
 canvas.put("/:id", async (c) => {

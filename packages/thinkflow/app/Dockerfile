@@ -54,6 +54,10 @@ COPY packages/util/ packages/util/
 ARG VITE_OPENCODE_SERVER_URL
 ENV VITE_OPENCODE_SERVER_URL=${VITE_OPENCODE_SERVER_URL}
 
+# 构建时注入 commit SHA，UI 角落显示前 7 位，方便确认线上是不是最新版本
+ARG VITE_BUILD_SHA=dev
+ENV VITE_BUILD_SHA=${VITE_BUILD_SHA}
+
 WORKDIR /app/packages/thinkflow/app
 RUN bun run build
 

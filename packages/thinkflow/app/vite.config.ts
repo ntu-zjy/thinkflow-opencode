@@ -223,10 +223,25 @@ function videoServePlugin() {
 const OPENROUTER_KEY = readAuthKey("openrouter", "OPENROUTER_API_KEY")
 const LOCAL_PROXY = readLocalProxy()
 
+// 构建时把 commit SHA 注入到 bundle，UI 角落显示前 7 位。
+// 排查"线上是不是最新版本"无需对照镜像 hash，直接看 UI 就行。
+// CI 在 docker build 时通过 --build-arg VITE_BUILD_SHA=${{ github.sha }} 注入；
+// 本地开发或未注入时退回到 git rev-parse；都拿不到就标 "dev"。
+function resolveBuildSha(): string {
+  if (process.env.VITE_BUILD_SHA) return process.env.VITE_BUILD_SHA
+  try {
+    const out = spawnSync("git", ["rev-parse", "HEAD"], { encoding: "utf-8", timeout: 2000 })
+    if (out.status === 0 && out.stdout) return out.stdout.trim()
+  } catch { /* ignore */ }
+  return "dev"
+}
+const BUILD_SHA = resolveBuildSha()
+
 export default defineConfig({
   plugins: [react(), opencodePlugin(), markitdownPlugin(), videoServePlugin()],
   define: {
     "import.meta.env.VITE_OPENCODE_WORKDIR": JSON.stringify(OPENCODE_DIR),
+    "import.meta.env.VITE_BUILD_SHA": JSON.stringify(BUILD_SHA),
   },
   server: {
     port: 1421,

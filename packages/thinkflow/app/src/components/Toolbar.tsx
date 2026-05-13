@@ -109,7 +109,10 @@ export function Toolbar({ theme, onToggleTheme, onRestartTour }: ToolbarProps) {
 
           <UserMenu />
         </div>
+        <BuildSha />
       </div>
+
+      <BuildShaStyles />
 
       {/* ── 积分不足弹窗 ── */}
       {creditsInsufficient && (
@@ -132,5 +135,36 @@ export function Toolbar({ theme, onToggleTheme, onRestartTour }: ToolbarProps) {
         </div>
       )}
     </>
+  )
+}
+
+// 构建版本徽章：Toolbar 右下角小字，鼠标悬停展示完整 SHA。
+// 部署完后可直接对照 CI 的 commit hash，确认浏览器拿到的是不是最新 bundle。
+function BuildSha() {
+  const sha = (import.meta.env.VITE_BUILD_SHA as string | undefined) ?? "dev"
+  const short = sha === "dev" ? "dev" : sha.slice(0, 7)
+  return (
+    <span className="tf-toolbar__build" title={`build ${sha}`}>
+      {short}
+    </span>
+  )
+}
+
+function BuildShaStyles() {
+  return (
+    <style>{`
+      .tf-toolbar__build {
+        position: absolute;
+        right: 12px;
+        bottom: -16px;
+        font-family: ui-monospace, "SF Mono", Menlo, monospace;
+        font-size: 10px;
+        color: var(--text-muted, #999);
+        opacity: 0.5;
+        pointer-events: auto;
+        user-select: text;
+      }
+      .tf-toolbar__build:hover { opacity: 1; }
+    `}</style>
   )
 }

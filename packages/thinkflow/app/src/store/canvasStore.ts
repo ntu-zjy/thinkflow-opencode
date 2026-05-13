@@ -163,6 +163,16 @@ function createDefaultWorkflow(name: string): WorkflowRecord {
   }
 }
 
+// ─── 数据边界防御 ─────────────────────────────────────────────────────────────
+// 来自服务端 jsonb 字段、localStorage 反序列化、旧版本迁移等任何外部输入，
+// 进入 store 之前都用这个收口，确保运行时一定是数组。
+// 历史上 wf.nodes 被脏数据污染成对象，partialize 写 localStorage 时 .map
+// 直接抛 TypeError，整个画布卡死。
+
+function asArray<T>(x: unknown): T[] {
+  return Array.isArray(x) ? (x as T[]) : []
+}
+
 // ─── 持久化清理函数 ───────────────────────────────────────────────────────────
 
 function cleanNodeForPersist(n: FlowNode): FlowNode {
@@ -268,8 +278,8 @@ export const useCanvasStore = create<CanvasStore>()(
       newWorkflows[localId] = {
         id: localId,
         name: meta.title,
-        nodes: (full.nodes_json as FlowNode[]) ?? [],
-        edges: (full.edges_json as FlowEdge[]) ?? [],
+        nodes: asArray<FlowNode>(full.nodes_json),
+        edges: asArray<FlowEdge>(full.edges_json),
         history: [],
         historyIndex: -1,
         serverId: meta.id,
@@ -280,8 +290,8 @@ export const useCanvasStore = create<CanvasStore>()(
       if (wf.serverId) continue
       const created = await canvasApi.create(
         wf.name,
-        (wf.nodes ?? []).map(cleanNodeForPersist),
-        (wf.edges ?? []).map(cleanEdgeForPersist),
+        asArray<FlowNode>(wf.nodes).map(cleanNodeForPersist),
+        asArray<FlowEdge>(wf.edges).map(cleanEdgeForPersist),
       ).catch(() => null)
       if (created) {
         newWorkflows[localId] = { ...newWorkflows[localId], serverId: created.id }
@@ -317,8 +327,8 @@ export const useCanvasStore = create<CanvasStore>()(
         // 尚未在后端创建
         const created = await canvasApi.create(
           wf.name,
-          wf.nodes.map(cleanNodeForPersist),
-          wf.edges.map(cleanEdgeForPersist),
+          asArray<FlowNode>(wf.nodes).map(cleanNodeForPersist),
+          asArray<FlowEdge>(wf.edges).map(cleanEdgeForPersist),
         ).catch(() => null)
         if (created) {
           set((s) => ({
@@ -329,8 +339,8 @@ export const useCanvasStore = create<CanvasStore>()(
       }
       canvasApi.update(wf.serverId, {
         title: wf.name,
-        nodes_json: wf.nodes.map(cleanNodeForPersist),
-        edges_json: wf.edges.map(cleanEdgeForPersist),
+        nodes_json: asArray<FlowNode>(wf.nodes).map(cleanNodeForPersist),
+        edges_json: asArray<FlowEdge>(wf.edges).map(cleanEdgeForPersist),
       }).catch(() => {})
     }, 1500)
     set({ _serverSyncTimer: timer })
@@ -385,7 +395,11 @@ export const useCanvasStore = create<CanvasStore>()(
     // 登录时同步到后端
     const token = localStorage.getItem("thinkflow-token")
     if (token) {
-      canvasApi.create(wf.name, wf.nodes.map(cleanNodeForPersist), wf.edges.map(cleanEdgeForPersist))
+      canvasApi.create(
+        wf.name,
+        asArray<FlowNode>(wf.nodes).map(cleanNodeForPersist),
+        asArray<FlowEdge>(wf.edges).map(cleanEdgeForPersist),
+      )
         .then((created) => {
           set((s) => ({
             workflows: { ...s.workflows, [wf.id]: { ...s.workflows[wf.id], serverId: created.id } },
@@ -594,7 +608,7 @@ export const useCanvasStore = create<CanvasStore>()(
         const updatedWorkflows: Record<string, WorkflowRecord> = wf
           ? {
               ...s.workflows,
-              [runWorkflowId]: { ...wf, nodes: wf.nodes.map(patchNode) },
+              [runWorkflowId]: { ...wf, nodes: asArray<FlowNode>(wf.nodes).map(patchNode) },
             }
           : s.workflows
         // 若当前活跃画布就是运行画布，同步更新 nodes（UI 即时反映）
@@ -625,7 +639,7 @@ export const useCanvasStore = create<CanvasStore>()(
     const appendLog = (text: string, type: AgentLog["type"] = "info") => {
       const wf = get().workflows[runWorkflowId]
       const currentLogs = wf
-        ? (wf.nodes.find((n) => n.id === agentNodeId) as AgentNodeType | undefined)?.data.logs ?? []
+        ? (asArray<FlowNode>(wf.nodes).find((n) => n.id === agentNodeId) as AgentNodeType | undefined)?.data.logs ?? []
         : (get().nodes.find((n) => n.id === agentNodeId) as AgentNodeType | undefined)?.data.logs ?? []
       updateWorkflowNodeData<AgentNodeData>(agentNodeId, {
         logs: [...currentLogs, { id: nanoid(), timestamp: Date.now(), text, type }],
@@ -641,7 +655,7 @@ export const useCanvasStore = create<CanvasStore>()(
           e.source === agentNodeId || e.target === agentNodeId ? { ...e, animated } : e
         const wf = s.workflows[runWorkflowId]
         const updatedWorkflows = wf
-          ? { ...s.workflows, [runWorkflowId]: { ...wf, edges: wf.edges.map(patchEdge) } }
+          ? { ...s.workflows, [runWorkflowId]: { ...wf, edges: asArray<FlowEdge>(wf.edges).map(patchEdge) } }
           : s.workflows
         const updatedEdges = s.activeWorkflowId === runWorkflowId
           ? s.edges.map(patchEdge)
@@ -1170,8 +1184,8 @@ export const useCanvasStore = create<CanvasStore>()(
             id,
             {
               ...wf,
-              nodes: (wf.nodes ?? []).map(cleanNodeForPersist),
-              edges: (wf.edges ?? []).map(cleanEdgeForPersist),
+              nodes: asArray<FlowNode>(wf.nodes).map(cleanNodeForPersist),
+              edges: asArray<FlowEdge>(wf.edges).map(cleanEdgeForPersist),
               history: [],
               historyIndex: -1,
             },
@@ -1212,13 +1226,14 @@ export const useCanvasStore = create<CanvasStore>()(
         }
 
         Object.values(state.workflows ?? {}).forEach((wf) => {
-          wf.nodes = wf.nodes.map(migrateAgentNode)
+          wf.nodes = asArray<FlowNode>(wf.nodes).map(migrateAgentNode)
+          wf.edges = asArray<FlowEdge>(wf.edges)
         })
 
         if (state.activeWorkflowId && state.workflows?.[state.activeWorkflowId]) {
           const wf = state.workflows[state.activeWorkflowId]
-          state.nodes = wf.nodes
-          state.edges = wf.edges
+          state.nodes = asArray<FlowNode>(wf.nodes)
+          state.edges = asArray<FlowEdge>(wf.edges)
           state._history = []
           state._historyIndex = -1
         }
