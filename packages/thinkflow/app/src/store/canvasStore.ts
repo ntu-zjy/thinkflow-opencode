@@ -34,6 +34,7 @@ import {
   runMockWorkflow,
   generateImage,
 } from "../services/opencodeClient"
+import { creditsApi, canvasApi, uploadApi, usageApi } from "../services/apiClient"
 import { useMemoryStore } from "./memoryStore"
 import { markdownToHtml } from "../utils/markdownToHtml"
 import { getCard } from "../cards"
@@ -49,6 +50,21 @@ const PLATFORM_LABELS: Record<string, string> = {
   video: "视频",
 }
 
+// ─── 图片 URL → S3（登录时自动上传，未登录直接用原始 URL） ──────────────────
+
+async function persistImageUrl(rawUrl: string): Promise<string> {
+  const token = localStorage.getItem("thinkflow-token")
+  if (!token) return rawUrl
+  // 仅上传 base64 data URL 或 OpenRouter 临时链接（不重复上传已是 Sealos 域名的 URL）
+  if (rawUrl.includes("cloud.sealos.io")) return rawUrl
+  try {
+    const { url } = await uploadApi.image(rawUrl, "images")
+    return url
+  } catch {
+    return rawUrl  // 上传失败时 fallback 用原始 URL
+  }
+}
+
 // ─── 创作形式 → 平台指令 ────────────────────────────────────────────────────
 
 function getPlatformInstruction(platform: string, contentFormat: string, customInstruction?: string): string {
@@ -60,7 +76,7 @@ function getPlatformInstruction(platform: string, contentFormat: string, customI
   const imgFormatNote = noSuffix ? "" : isText
     ? "\n\n请只输出文字内容，不需要配图或图片描述。"
     : isImageText
-    ? "\n\n请在文案开头输出 [IMG_PROMPT: <详细英文图片描述，包含风格、色调、主体、构图，约 20 个单词>]，换行后输出正文。"
+    ? "\n\n请在文案开头单独输出一行图片描述标记：\n[IMG_PROMPT: 详细英文图片描述，包含具体的主体对象、背景场景、光线方向与质感、色调搭配、道具细节、构图方式，描述越具体生图质量越高]\n然后换行输出正文。"
     : ""
 
   // 用户自定义指令优先，否则从卡片注册表获取默认指令
@@ -133,6 +149,7 @@ interface WorkflowRecord {
   edges: FlowEdge[]
   history: Array<{ nodes: FlowNode[]; edges: FlowEdge[] }>
   historyIndex: number
+  serverId?: string  // 后端 canvas UUID，登录时同步
 }
 
 function createDefaultWorkflow(name: string): WorkflowRecord {
@@ -200,6 +217,13 @@ interface CanvasStore {
   clearScheduleTimer: (agentNodeId: string) => void
   // 示例画布加载
   loadExampleWorkflow: (name: string, nodes: FlowNode[], edges: FlowEdge[]) => void
+  // 积分不足标志（运行被拒绝时置 true，弹窗关闭后清除）
+  _creditsInsufficient: boolean
+  clearCreditsInsufficient: () => void
+  // 服务端画布同步
+  syncCanvasesFromServer: () => Promise<void>
+  _serverSyncTimer: ReturnType<typeof setTimeout> | null
+  _scheduleServerSync: (workflowId: string) => void
 }
 
 // ─── Store 实现 ───────────────────────────────────────────────────────────────
@@ -217,6 +241,100 @@ export const useCanvasStore = create<CanvasStore>()(
   workflows: { [defaultWf.id]: defaultWf },
   activeWorkflowId: defaultWf.id,
   _scheduleTimers: {},
+  _creditsInsufficient: false,
+  clearCreditsInsufficient: () => set({ _creditsInsufficient: false }),
+  _serverSyncTimer: null,
+
+  // ─── 服务端画布同步 ────────────────────────────────────────────────────────
+
+  syncCanvasesFromServer: async () => {
+    const token = localStorage.getItem("thinkflow-token")
+    if (!token) return
+    const list = await canvasApi.list().catch(() => null)
+    if (!list) return
+    const { workflows, activeWorkflowId } = get()
+    // 找出已有 serverId 映射
+    const serverIdMap = new Map<string, string>() // serverId → localId
+    Object.entries(workflows).forEach(([localId, wf]) => {
+      if (wf.serverId) serverIdMap.set(wf.serverId, localId)
+    })
+    const newWorkflows = { ...workflows }
+    for (const meta of list) {
+      if (serverIdMap.has(meta.id)) continue // 已存在，跳过
+      // 远端有但本地没有 → 拉取完整数据
+      const full = await canvasApi.get(meta.id).catch(() => null)
+      if (!full) continue
+      const localId = nanoid(8)
+      newWorkflows[localId] = {
+        id: localId,
+        name: meta.title,
+        nodes: (full.nodes_json as FlowNode[]) ?? [],
+        edges: (full.edges_json as FlowEdge[]) ?? [],
+        history: [],
+        historyIndex: -1,
+        serverId: meta.id,
+      }
+    }
+    // 将本地没有 serverId 的工作流上传到后端
+    for (const [localId, wf] of Object.entries(newWorkflows)) {
+      if (wf.serverId) continue
+      const created = await canvasApi.create(
+        wf.name,
+        wf.nodes.map(cleanNodeForPersist),
+        wf.edges.map(cleanEdgeForPersist),
+      ).catch(() => null)
+      if (created) {
+        newWorkflows[localId] = { ...newWorkflows[localId], serverId: created.id }
+      }
+    }
+    set({ workflows: newWorkflows })
+    // 检查是否有 Dashboard 跳转请求
+    const openServerId = sessionStorage.getItem("thinkflow-open-canvas-serverId")
+    if (openServerId) {
+      sessionStorage.removeItem("thinkflow-open-canvas-serverId")
+      const target = Object.entries(newWorkflows).find(([, wf]) => wf.serverId === openServerId)
+      if (target) {
+        const [targetLocalId, targetWf] = target
+        set({ activeWorkflowId: targetLocalId, nodes: targetWf.nodes, edges: targetWf.edges, _history: [], _historyIndex: -1 })
+        return
+      }
+    }
+    // 刷新当前激活画布
+    const activeWf = newWorkflows[activeWorkflowId]
+    if (activeWf) set({ nodes: activeWf.nodes, edges: activeWf.edges })
+  },
+
+  _scheduleServerSync: (workflowId: string) => {
+    const prev = get()._serverSyncTimer
+    if (prev) clearTimeout(prev)
+    const timer = setTimeout(async () => {
+      const token = localStorage.getItem("thinkflow-token")
+      if (!token) return
+      const { workflows } = get()
+      const wf = workflows[workflowId]
+      if (!wf) return
+      if (!wf.serverId) {
+        // 尚未在后端创建
+        const created = await canvasApi.create(
+          wf.name,
+          wf.nodes.map(cleanNodeForPersist),
+          wf.edges.map(cleanEdgeForPersist),
+        ).catch(() => null)
+        if (created) {
+          set((s) => ({
+            workflows: { ...s.workflows, [workflowId]: { ...s.workflows[workflowId], serverId: created.id } },
+          }))
+        }
+        return
+      }
+      canvasApi.update(wf.serverId, {
+        title: wf.name,
+        nodes_json: wf.nodes.map(cleanNodeForPersist),
+        edges_json: wf.edges.map(cleanEdgeForPersist),
+      }).catch(() => {})
+    }, 1500)
+    set({ _serverSyncTimer: timer })
+  },
 
   setScheduleTimer: (agentNodeId, timer) =>
     set((s) => ({ _scheduleTimers: { ...s._scheduleTimers, [agentNodeId]: timer } })),
@@ -234,7 +352,7 @@ export const useCanvasStore = create<CanvasStore>()(
   // ─── 多工作流操作 ────────────────────────────────────────────────────────
 
   _saveCurrentWorkflow: () => {
-    const { nodes, edges, _history, _historyIndex, activeWorkflowId, workflows } = get()
+    const { nodes, edges, _history, _historyIndex, activeWorkflowId, workflows, _scheduleServerSync } = get()
     set({
       workflows: {
         ...workflows,
@@ -247,6 +365,8 @@ export const useCanvasStore = create<CanvasStore>()(
         },
       },
     })
+    // debounce 保存到后端（1.5s 内多次操作合并为一次请求）
+    _scheduleServerSync(activeWorkflowId)
   },
 
   createWorkflow: () => {
@@ -262,6 +382,17 @@ export const useCanvasStore = create<CanvasStore>()(
       _history: [],
       _historyIndex: -1,
     })
+    // 登录时同步到后端
+    const token = localStorage.getItem("thinkflow-token")
+    if (token) {
+      canvasApi.create(wf.name, wf.nodes.map(cleanNodeForPersist), wf.edges.map(cleanEdgeForPersist))
+        .then((created) => {
+          set((s) => ({
+            workflows: { ...s.workflows, [wf.id]: { ...s.workflows[wf.id], serverId: created.id } },
+          }))
+        })
+        .catch(() => {})
+    }
   },
 
   switchWorkflow: (id) => {
@@ -290,11 +421,16 @@ export const useCanvasStore = create<CanvasStore>()(
       const nextId = ids[idx > 0 ? idx - 1 : 1]
       switchWorkflow(nextId)
     }
+    const serverId = workflows[id]?.serverId
     set((s) => {
       const next = { ...s.workflows }
       delete next[id]
       return { workflows: next }
     })
+    // 同步删除后端
+    if (serverId && localStorage.getItem("thinkflow-token")) {
+      canvasApi.remove(serverId).catch(() => {})
+    }
   },
 
   renameWorkflow: (id, name) => {
@@ -304,6 +440,11 @@ export const useCanvasStore = create<CanvasStore>()(
         [id]: { ...s.workflows[id], name },
       },
     }))
+    // 同步更新后端标题
+    const serverId = get().workflows[id]?.serverId
+    if (serverId && localStorage.getItem("thinkflow-token")) {
+      canvasApi.update(serverId, { title: name }).catch(() => {})
+    }
   },
 
   loadExampleWorkflow: (name, nodes, edges) => {
@@ -514,6 +655,36 @@ export const useCanvasStore = create<CanvasStore>()(
 
     const dryRun = agentNode.data.dryRun
 
+    // ─ 积分检查（非 dry-run 才扣积分）────────────────────────────────────────
+    // 判断本次运行类型：视频节点 = video，小红书图文 = image，其余 = text
+    const hasVideoOutput = outputNodes.some((o) => o.data.platform === "video")
+    const hasImageOutput = outputNodes.some((o) => o.data.platform === "xiaohongshu")
+    const runType = hasVideoOutput ? "video" : hasImageOutput ? "image" : "text"
+    // 矩阵模式：每个人设算一次（此处用前缀避免与下方 matrixMode/matrixSlots 冲突）
+    const _creditMatrixMode = agentNode.data.matrixMode ?? false
+    const _creditMatrixSlots = agentNode.data.matrixSlots ?? []
+    const runCount = _creditMatrixMode && _creditMatrixSlots.length > 0 ? _creditMatrixSlots.length : 1
+
+    if (!dryRun) {
+      const token = localStorage.getItem("thinkflow-token")
+      if (token) {
+        const deductResult = await creditsApi.deduct(runType, runCount).catch((err: Error) => {
+          // 402 = 积分不足
+          if (err.message.includes("积分不足") || err.message === "积分不足") {
+            return { ok: false as const, error: "credits_insufficient" }
+          }
+          return null  // 网络错误等，不阻断运行（避免因网络问题影响使用）
+        })
+
+        if (deductResult && !deductResult.ok) {
+          updateWorkflowNodeData<AgentNodeData>(agentNodeId, { status: "idle" })
+          setEdgesAnimated(false)
+          set({ _creditsInsufficient: true })
+          return
+        }
+      }
+    }
+
     // 运行完成后自动存入「作品」记忆（从工作流中读取节点数据）
     const autoSaveToMemory = (outputNodeId: string, platform: string, persona?: string) => {
       const wf = get().workflows[runWorkflowId]
@@ -717,17 +888,27 @@ export const useCanvasStore = create<CanvasStore>()(
       set((s) => ({ _sessionIds: [...s._sessionIds, sessionId] }))
 
       let outputBuffer = ""
+      // 累计本次 session 所有 step-finish 的真实用量
+      let sessionUsage = { tokens_input: 0, tokens_output: 0, tokens_cache_read: 0, tokens_cache_write: 0, cost_usd: 0, model: "" }
       await new Promise<void>((resolve, reject) => {
         const unsubscribe = subscribeEvents(
           (event) => {
             const { payload } = event
             if (payload.type === "message.part.updated") {
               const props = payload.properties as {
-                part?: { type?: string; sessionID?: string; state?: { status?: string; title?: string } }
+                part?: { type?: string; sessionID?: string; state?: { status?: string; title?: string }; tokens?: { input?: number; output?: number; cache?: { read?: number; write?: number } }; cost?: number }
                 delta?: string
               }
               const part = props.part
               if (part?.sessionID && part.sessionID !== sessionId) return
+              // 累计真实 tokens + cost（每个 step-finish 都带）
+              if ((part as { type?: string })?.type === "step-finish" && part?.tokens) {
+                sessionUsage.tokens_input       += part.tokens.input  ?? 0
+                sessionUsage.tokens_output      += part.tokens.output ?? 0
+                sessionUsage.tokens_cache_read  += part.tokens.cache?.read  ?? 0
+                sessionUsage.tokens_cache_write += part.tokens.cache?.write ?? 0
+                sessionUsage.cost_usd           += part.cost ?? 0
+              }
               if (part?.type === "text" && props.delta) {
                 outputBuffer += props.delta
                 updateWorkflowNodeData<OutputNodeData>(outputNode.id, { content: outputBuffer })
@@ -735,13 +916,24 @@ export const useCanvasStore = create<CanvasStore>()(
               if (part?.type === "file") {
                 const fp = part as { mime?: string; url?: string; id?: string }
                 if (fp.mime?.startsWith("image/") && fp.url) {
+                  const assetId = fp.id ?? nanoid()
+                  // 先用原始 URL 显示，上传完成后替换为 S3 URL
                   const wf = get().workflows[runWorkflowId]
                   const existing = ((wf?.nodes ?? get().nodes).find((n) => n.id === outputNode.id) as OutputNodeType | undefined)?.data.images ?? []
                   updateWorkflowNodeData<OutputNodeData>(outputNode.id, {
-                    images: [...existing, { id: fp.id ?? nanoid(), url: fp.url, generatedAt: Date.now() }],
+                    images: [...existing, { id: assetId, url: fp.url, generatedAt: Date.now() }],
                     contentType: "image",
                   })
                   appendLog(`[${outputNode.data.platform}] 图片已生成`, "info")
+                  // 异步上传到 S3，完成后替换 URL
+                  persistImageUrl(fp.url).then((persistedUrl) => {
+                    if (persistedUrl === fp.url) return
+                    const cur = get().workflows[runWorkflowId]
+                    const curImages = ((cur?.nodes ?? get().nodes).find((n) => n.id === outputNode.id) as OutputNodeType | undefined)?.data.images ?? []
+                    updateWorkflowNodeData<OutputNodeData>(outputNode.id, {
+                      images: curImages.map((img) => img.id === assetId ? { ...img, url: persistedUrl } : img),
+                    })
+                  })
                 }
               }
               if (part?.type === "tool") {
@@ -753,6 +945,18 @@ export const useCanvasStore = create<CanvasStore>()(
               if (props.sessionID && props.sessionID !== sessionId) return
               appendLog(`${outputNode.data.platform} 生成完成`, "info")
               unsubscribe()
+              // 上报真实 usage（有 token 数据才上报）
+              if (sessionUsage.tokens_input > 0 || sessionUsage.tokens_output > 0) {
+                usageApi.record({
+                  run_type: runType === "video" ? "video" : runType === "image" ? "image" : "text",
+                  model: agentNode.data.model ?? "",
+                  tokens_input: sessionUsage.tokens_input,
+                  tokens_output: sessionUsage.tokens_output,
+                  tokens_cache_read: sessionUsage.tokens_cache_read,
+                  tokens_cache_write: sessionUsage.tokens_cache_write,
+                  cost_usd: sessionUsage.cost_usd,
+                }).catch(() => {})
+              }
               resolve()
             } else if (payload.type === "session.error" || payload.type === "session.failed") {
               const props = payload.properties as { sessionID?: string; error?: unknown; message?: unknown }
@@ -779,29 +983,59 @@ export const useCanvasStore = create<CanvasStore>()(
         cf === "image_text" ||
         (cf === "auto" && outputNode.data.platform === "xiaohongshu")
       if (shouldGenerateImage && outputBuffer) {
-        // 匹配所有图片标记（新格式多图 + 旧格式单图兼容）
-        const multiMatches = [...outputBuffer.matchAll(/\[IMG_PROMPT(?:_(?:COVER|\d+))?\s*:\s*([\s\S]+?)\]/g)]
+        // 匹配所有图片标记（新格式多图 + 旧格式单图兼容），最多6张
+        const MAX_IMAGES = 6
+        const allMatches = [...outputBuffer.matchAll(/\[IMG_PROMPT(?:_(?:COVER|\d+))?\s*:\s*([\s\S]+?)\]/g)]
+        const multiMatches = allMatches.slice(0, MAX_IMAGES)
         if (multiMatches.length > 0) {
           const caption = outputBuffer.replace(/\[IMG_PROMPT(?:_(?:COVER|\d+))?\s*:[\s\S]+?\]\n?/g, "").trim()
           updateWorkflowNodeData<OutputNodeData>(outputNode.id, { content: caption })
-          appendLog(`[图文] 解析到 ${multiMatches.length} 张图片描述，开始依次生图...`, "info")
-          const generatedImages: ImageAsset[] = []
-          for (let imgIdx = 0; imgIdx < multiMatches.length; imgIdx++) {
-            const imagePrompt = multiMatches[imgIdx][1].trim()
-            appendLog(`[图文] 生成第 ${imgIdx + 1}/${multiMatches.length} 张...`, "info")
-            const imageUrl = await generateImage(imagePrompt).catch((err: Error) => {
-              appendLog(`[图文] 第 ${imgIdx + 1} 张生成失败: ${(err.message ?? "").slice(0, 60)}，使用占位图`, "info")
-              const label = encodeURIComponent(imagePrompt.slice(0, 40))
-              return `data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300"><rect width="400" height="300" fill="%23ff2b54" opacity="0.1" rx="12"/><text x="50%" y="40%" font-family="sans-serif" font-size="16" fill="%23ff2b54" text-anchor="middle">图片生成失败，使用占位图</text><text x="50%" y="56%" font-family="sans-serif" font-size="12" fill="%23888" text-anchor="middle">${label}</text></svg>`
+          const total = multiMatches.length
+          const clipped = allMatches.length > MAX_IMAGES ? `（已限制最多 ${MAX_IMAGES} 张）` : ""
+          appendLog(`[图文] 解析到 ${total} 张图片描述${clipped}，并行生图中...`, "info")
+          // 先写入占位卡，让用户立即看到转圈反馈
+          const slots: (ImageAsset)[] = multiMatches.map((_, i) => ({
+            id: nanoid(),
+            url: "",
+            loading: true,
+            generatedAt: Date.now() + i,
+          }))
+          updateWorkflowNodeData<OutputNodeData>(outputNode.id, {
+            images: [...slots],
+            contentType: "image",
+          })
+          const allStart = Date.now()
+          await Promise.all(
+            multiMatches.map(async (match, imgIdx) => {
+              const imagePrompt = match[1].trim()
+              const imgStart = Date.now()
+              const ticker = setInterval(() => {
+                const elapsed = Math.round((Date.now() - imgStart) / 1000)
+                appendLog(`[图文] 第 ${imgIdx + 1} 张生成中，已等待 ${elapsed}s...`, "info")
+              }, 15000)
+              const rawImageUrl = await generateImage(imagePrompt, undefined, (u) => {
+                usageApi.record({ run_type: "image", ...u }).catch(() => {})
+              }).catch((err: Error) => {
+                clearInterval(ticker)
+                appendLog(`[图文] 第 ${imgIdx + 1} 张生成失败: ${(err.message ?? "").slice(0, 60)}，使用占位图`, "info")
+                const label = encodeURIComponent(imagePrompt.slice(0, 40))
+                return `data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300"><rect width="400" height="300" fill="%23ff2b54" opacity="0.1" rx="12"/><text x="50%" y="40%" font-family="sans-serif" font-size="16" fill="%23ff2b54" text-anchor="middle">图片生成失败，使用占位图</text><text x="50%" y="56%" font-family="sans-serif" font-size="12" fill="%23888" text-anchor="middle">${label}</text></svg>`
+              })
+              clearInterval(ticker)
+              // 上传到 S3（登录时自动持久化，未登录用原始 URL）
+              const imageUrl = await persistImageUrl(rawImageUrl)
+              const elapsed = ((Date.now() - imgStart) / 1000).toFixed(1)
+              slots[imgIdx] = { id: slots[imgIdx].id, url: imageUrl, loading: false, generatedAt: Date.now() }
+              appendLog(`[图文] 第 ${imgIdx + 1} 张完成，用时 ${elapsed}s`, "info")
+              // 每张完成后替换对应占位卡
+              updateWorkflowNodeData<OutputNodeData>(outputNode.id, {
+                images: [...slots],
+                contentType: "image",
+              })
             })
-            generatedImages.push({ id: nanoid(), url: imageUrl, generatedAt: Date.now() })
-            // 每张完成后即时更新，让用户看到进度
-            updateWorkflowNodeData<OutputNodeData>(outputNode.id, {
-              images: [...generatedImages],
-              contentType: "image",
-            })
-          }
-          appendLog(`[图文] 全部 ${generatedImages.length} 张图片生成完成`, "info")
+          )
+          const totalElapsed = ((Date.now() - allStart) / 1000).toFixed(1)
+          appendLog(`[图文] 全部 ${total} 张图片生成完成，总用时 ${totalElapsed}s`, "info")
         }
       }
     }
@@ -903,6 +1137,10 @@ export const useCanvasStore = create<CanvasStore>()(
     } catch (err) {
       appendLog(`运行失败: ${(err as Error).message}`, "error")
       updateWorkflowNodeData<AgentNodeData>(agentNodeId, { status: "error" })
+      // 运行失败退还积分
+      if (!dryRun && localStorage.getItem("thinkflow-token")) {
+        creditsApi.refund(runType, runCount).catch(() => {})
+      }
     } finally {
       setEdgesAnimated(false)
     }

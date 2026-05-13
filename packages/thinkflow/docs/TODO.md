@@ -146,16 +146,63 @@
 - [x] 目前图文模式只支持单图，图文模式一般是3-5张图甚至更多。
   canvasStore 图文两步法扩展为多图串行生成：匹配 [IMG_PROMPT_COVER:] + [IMG_PROMPT_1:] 到 [IMG_PROMPT_5:] 全部标记，逐张调用 generateImage 并即时更新节点；XhsPreview 多图改为 3 列网格（封面标签）；OutputNode 下载逻辑改为多图 ZIP（text + 每张图单独文件）。
 - [x] 生图模型替换为openai/gpt-5.4-image-2（对应链接为https://openrouter.ai/openai/gpt-5.4-image-2），Agent模型替换为claude sonnet 4.6 medium推理强度模型为anthropic/claude-sonnet-4.6（对应链接https://openrouter.ai/anthropic/claude-sonnet-4.6）
+- [x] **将当前的部署全部切换sealos**（分支：`feat/sealos-deploy-auth`，详见 `docs/sealos-deploy.md`）
+  - [x] 前端 Dockerfile（bun build + Nginx，含 OpenRouter proxy）：`packages/thinkflow/app/Dockerfile`
+  - [x] OpenCode Dockerfile 更新（补 video stub，加 entrypoint 写 auth.json）：`Dockerfile.opencode`
+  - [x] GitHub Actions 自动构建推送 Docker Hub：`.github/workflows/thinkflow-release.yml`
+  - [x] 配置 GitHub Secrets（DOCKERHUB_USERNAME / DOCKERHUB_TOKEN / VITE_OPENCODE_SERVER_URL）
+  - [x] Sealos 新加坡节点部署两个 App：thinkflow-opencode（4096）+ thinkflow-frontend（80）
+  - [x] 端到端验证通过，OpenCode 健康检查 `{"healthy":true}`，前端 HTTP 200
+  - OpenCode 公网地址：`https://eqctmtdymqbx.cloud.sealos.io`
+  - 前端公网地址：`https://bawzdlyeewhf.cloud.sealos.io`
+- [x] **接入用户注册、积分体系与定价**（分支：`feat/sealos-deploy-auth`，详见 `docs/sealos-deploy.md`）
+  - [x] 后端服务（Hono + Bun，port 3456）：`packages/thinkflow/server/`
+  - [x] 邮箱注册 / 登录，JWT HS256，30 天有效期
+  - [x] 积分体系：文字 8 分/次，图文 18 分/次（以「篇」为单位，不按张计费）
+  - [x] 内测每日赠送 30 积分，当天清零；永久积分（充值）不过期
+  - [x] 图片质量随机 Medium/Low 混合（70%/30%），对用户透明，降低成本
+  - [x] 图片数量硬限 6 张/次，避免成本失控
+  - [x] 定价页（/pricing）：订阅版 ¥39/月（无限文字）+ 积分包 ¥15/¥40/¥118
+  - [x] ZPAY 支付接入（回调验签 + 积分到账）
+  - [x] Toolbar 积分余量常驻显示，积分不足弹窗引导充值
+  - [x] 路由守卫：/app 未登录强制跳转 /login
+  - [x] 超级测试账号（999 积分，详见 `docs/TESTING.md`）
+  - [x] thinkflow-server 部署到 Sealos，地址：`https://dtwbvaymfksw.cloud.sealos.io`
+  - [x] 服务端画布存储（canvasStore 迁移，登录后自动同步，1.5s debounce 保存，新建/删除/重命名实时同步）
+  - [ ] 图片资产上传 S3 对象存储（替换 base64）
+  - [x] Dashboard 历史画布列表页（/dashboard）
+- [x] 画图问题
+  - [x] 图片生成请求加入 `modalities: ["image", "text"]`，修复封面图频繁失败（原因：缺少该参数时模型只返回文字）
+  - [x] 移除无效的 `reasoning: { effort: "high" }` 参数（图片生成模型不支持）
+  - [x] 多图从串行改为 `Promise.all` 并行，小红书 4-5 张图总耗时从 ~10 分钟降至 ~2 分钟
+  - [x] 并行发起请求前立即写入占位骨架卡片（转圈 spinner），每张完成后即时替换，消除空白等待感
+  - [x] nginx `proxy_buffers` 调大（`8 512k`），防止 base64 大体积响应被截断返回非 JSON
+  - [x] 图片提示词去掉字数限制，改为引导 Agent 写出具体描述维度（主体、场景、光线、色调、构图等）
+- [x] 数据后台 /admin：注册/积分/套餐统计总览、用户列表（搜索+分页+积分调整）、积分流水（按类型过滤）；管理员邮箱白名单（`ADMIN_EMAILS` 环境变量）保护
+- [x] 用户信息管理页（/profile）：显示名修改、积分余额三栏（今日/永久/套餐）、头像风格 + 备选 seed 选择（12 个预设头像）、画布管理入口
+- [x] DiceBear 头像支持选风格 + 选具体头像（Profile 页展示 13 个备选，seed 存 localStorage，UserMenu 同步显示）
+- [x] 修复登录后跳回登录页（/auth/me 新增 display_name 查询，旧版 schema 无该列报 500 → 清 token → 踢回登录页；改为 try/catch fallback 兼容旧 schema）
+- [x] thinkflow-server 启动时自动执行 schema 迁移（无需手动 bun run src/migrate.ts）
+- [x] 图片资产上传 S3 对象存储（Sealos 对象存储，生成图片自动 persistImageUrl → S3，替换 base64）
+- [x] **定价体系重构**：三档订阅（入门¥39/专业¥99/旗舰¥299，各月赠 200/600/2000 积分）；积分包整除定价（100→¥10 / 300→¥30 / 1000→¥100，1积分=¥0.1）；免费每日 16 积分
+- [x] 视频节点接入积分系统（90积分/次）；图片固定 medium quality；所有节点计费完整覆盖
+- [x] **Admin 后台商业分析**：收入/成本/利润/毛利率；真实 tokens+cost 采集（`usage_records` 表，OpenCode SSE step-finish + OpenRouter generation API）；各 tab CSV 导出
+- [x] **CI 稳定性**：pre-commit hook 自动同步 bun.lock；server Dockerfile 去掉 `--frozen-lockfile`；workflow 改 `bun-version-file` 避免版本漂移；Desktop Tauri 构建修复
+- [x] **Desktop（Tauri）CI 构建验证通过**（GitHub Actions macOS arm64，产出 .dmg artifact）
+- [ ] 上线内测之前，考虑给出一套实操方案，能够确保用户在线上平稳使用产品，同时开发者可以对思流进行开发，不影响线上产品平稳运行。合理的管理版本更新，用户公告系统，长期维护。
 
 ### 🟢 锦上添花
-- [ ] **Desktop（Tauri）验证**（已在本地验证 arm64，CI 构建待跑）
-  本地已成功构建 ThinkFlow.app + dmg；CI 构建需在 GitHub Actions 上运行一次验证。
+- [x] 接入支付（ZPAY 支付宝已通；PID=2026033008335992；微信支付暂未开通）
+- [ ] **定制版套餐联系二维码**：`Pricing.tsx` 定制版卡片目前用 SVG 占位，需替换为真实微信二维码图片（放 `app/public/` 目录，路径填入 `pricing-sub-card__qr-placeholder` 的 `<img src>`）
 
-- [ ] 中国用户无法访问vercel部署的链接，可按照解决方案解决
-
+  
+- [ ] 制作更好的，更适合给用户宣传用的landing页
+- [ ] 文风/画风克隆功能
+当用户第一次打开的时候，一个专门的Agent（依然是open code）和用户聊天，了解用户的整体人设，创作风格等等，了解你，构建属于用户的记忆体系。其实这个功能主要就是为了方便用户第一次使用的时候，有一个自己专属的记忆。我觉得这个功能也不是只有第一次可以用，这个Agent可以就像一个伙伴一样，并行于画布功能。这个Agent的话，每天也是有一些聊天额度，并且有自动compact上下文机制（类似Claude code，如果opencode有对应接口可以直接配置）。这个Agent相当于和用户的记忆库是绑定的，每次都会被提示词驱动，告诉用户记忆的结构，它可以自主决定读取哪些记忆。它和普通chatgpt聊天框不一样的点在于，它不用开启新会话，所有聊天都在同一个会话中（有一个上下文阈值，快达到的时候就compact），计费是按照时间计费的。
+  
+- [ ] 评测效果集合
 - [ ] **参考之前写好的thinkflow插件，对不同的输出卡片的提示词进行精心调整，目前每个内容平台对应的提示词还是过于简单了**
 
-- [ ] 输入图片的时候，不需要使用markitdown，直接输入Agent就行
 - [ ] 支持文件夹输入，网页端不支持输入文件夹，桌面端输入文件夹，代表着一个文件夹的地址，输入给Agent
 - [ ] **让记忆机制和画布能够更加无缝的衔接，记忆需要更便捷的被用户添加，能够用Agent的方式，和用户沟通去完善记忆**
   画布的Agent节点可以添加一个配置按钮，叫做“自动记忆”。开启后，Agent会自动连接一个记忆输出节点。Agent能够自动整理用户本次运行产生的记忆，显示在记忆节点里面，用户可以自主选择是否将这些记忆添加到记忆中。同时也支持用户直接创建记忆节点，或者是单独将输出的作品也添加到记忆中。

@@ -73,6 +73,7 @@ export interface ImageAsset {
   url: string
   title?: string
   generatedAt?: number
+  loading?: boolean
 }
 
 export interface MatrixResult {

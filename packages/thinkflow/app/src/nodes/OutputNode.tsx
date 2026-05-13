@@ -10,7 +10,38 @@ import { OutputModal } from "../components/OutputModal"
 import { downloadSingleText, downloadAsZip } from "../utils/download"
 import { markdownToHtml } from "../utils/markdownToHtml"
 import { createSession, sendPrompt, subscribeEvents } from "../services/opencodeClient"
+import { creditsApi } from "../services/apiClient"
 import { getCard, getAllCards } from "../cards"
+
+function ImageSkeleton() {
+  return (
+    <div style={{
+      width: "100%",
+      paddingBottom: "66%",
+      position: "relative",
+      borderRadius: "var(--radius-sm)",
+      background: "var(--bg-surface-2)",
+      overflow: "hidden",
+    }}>
+      <div style={{
+        position: "absolute",
+        inset: 0,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flexDirection: "column",
+        gap: 8,
+        color: "var(--text-tertiary)",
+        fontSize: 12,
+      }}>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ animation: "spin 1s linear infinite" }}>
+          <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+        </svg>
+        生图中...
+      </div>
+    </div>
+  )
+}
 
 const FORMAT_OPTIONS: { key: ContentFormat; label: string; title: string }[] = [
   { key: "text",       label: "纯文本", title: "只输出文字内容" },
@@ -125,6 +156,21 @@ export function OutputNode({ id, data, selected }: NodeProps<OutputNodeType>) {
 
   const doGenerateVideo = useCallback(async () => {
     if (!videoScript) return
+
+    // 扣积分（登录用户才扣）
+    const token = localStorage.getItem("thinkflow-token")
+    if (token) {
+      const deductResult = await creditsApi.deduct("video", 1).catch((err: Error) => {
+        if (err.message.includes("积分不足")) return { ok: false as const }
+        return null
+      })
+      if (deductResult && !deductResult.ok) {
+        setVideoGenStatus("error")
+        setVideoMessage("积分不足，无法生成视频（需要 90 积分）")
+        return
+      }
+    }
+
     setVideoGenStatus("generating")
     setVideoProgress(5)
     setVideoMessage("启动 Agent 创作视频...")
@@ -160,6 +206,8 @@ export function OutputNode({ id, data, selected }: NodeProps<OutputNodeType>) {
           videoUnsubRef.current = null
           setVideoGenStatus("error")
           setVideoMessage((props?.error as string | undefined) ?? "Agent 运行失败")
+          // 生成失败退还积分
+          if (token) creditsApi.refund("video", 1).catch(() => {})
         }
       })
       videoUnsubRef.current = unsub
@@ -169,6 +217,8 @@ export function OutputNode({ id, data, selected }: NodeProps<OutputNodeType>) {
     } catch (err) {
       setVideoGenStatus("error")
       setVideoMessage(err instanceof Error ? err.message : "生成失败")
+      // 启动失败退还积分
+      if (token) creditsApi.refund("video", 1).catch(() => {})
     }
   }, [videoScript, displayContent])
 
@@ -381,7 +431,9 @@ export function OutputNode({ id, data, selected }: NodeProps<OutputNodeType>) {
           ) : hasImage ? (
             <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
               {displayImages!.map((img) => (
-                <img key={img.id} src={img.url} alt={img.title ?? "生成图片"} style={{ maxWidth: "100%", borderRadius: "var(--radius-sm)", display: "block" }} />
+                img.loading
+                  ? <ImageSkeleton key={img.id} />
+                  : <img key={img.id} src={img.url} alt={img.title ?? "生成图片"} style={{ maxWidth: "100%", borderRadius: "var(--radius-sm)", display: "block" }} />
               ))}
               {displayContent && <ReactMarkdown remarkPlugins={[remarkGfm]}>{displayContent}</ReactMarkdown>}
             </div>

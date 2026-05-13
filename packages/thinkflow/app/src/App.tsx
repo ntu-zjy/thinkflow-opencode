@@ -2,10 +2,18 @@ import { useState, useEffect, useCallback } from "react"
 import { ReactFlowProvider } from "@xyflow/react"
 import { Canvas } from "./pages/Canvas"
 import { Landing } from "./pages/Landing"
+import { Login } from "./pages/Login"
+import { Register } from "./pages/Register"
+import { Pricing } from "./pages/Pricing"
+import { Dashboard } from "./pages/Dashboard"
+import { Profile } from "./pages/Profile"
+import { Admin } from "./pages/Admin"
 import { Toolbar } from "./components/Toolbar"
 import { MemoryPanel } from "./components/MemoryPanel"
 import { WorkflowSidebar } from "./components/WorkflowSidebar"
 import { TourGuide } from "./components/TourGuide"
+import { useAuthStore } from "./store/authStore"
+import { useCanvasStore } from "./store/canvasStore"
 // 触发输入卡片注册（副作用）
 import "./input-cards"
 
@@ -17,26 +25,46 @@ function getInitialTheme(): Theme {
   return "light"
 }
 
-// 判断是否进入主应用：路径为 /app 或 /app/ 或带 ?app 参数
-function isAppRoute(): boolean {
+type Route = "landing" | "login" | "register" | "pricing" | "app" | "dashboard" | "profile" | "admin"
+
+function getRoute(): Route {
   const { pathname, search } = window.location
-  return pathname.startsWith("/app") || search.includes("app")
+  if (pathname === "/login") return "login"
+  if (pathname === "/register") return "register"
+  if (pathname === "/pricing") return "pricing"
+  if (pathname === "/dashboard") return "dashboard"
+  if (pathname === "/profile") return "profile"
+  if (pathname.startsWith("/admin")) return "admin"
+  if (pathname.startsWith("/app") || search.includes("app")) return "app"
+  return "landing"
 }
 
 export default function App() {
   const [memoryOpen, setMemoryOpen] = useState(false)
   const [theme, setTheme] = useState<Theme>(getInitialTheme)
   const [showTour, setShowTour] = useState(() => !localStorage.getItem("thinkflow-tour-done"))
-  const [inApp] = useState(isAppRoute)
+  const [route] = useState<Route>(getRoute)
+  const { user, fetchMe, token } = useAuthStore()
+  const syncCanvasesFromServer = useCanvasStore((s) => s.syncCanvasesFromServer)
+
+  // 初始化时用 token 恢复用户信息，登录后同步服务端画布
+  useEffect(() => {
+    if (token && !user) {
+      fetchMe().then(() => syncCanvasesFromServer())
+    } else if (token && user) {
+      syncCanvasesFromServer()
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme)
     localStorage.setItem("thinkflow-theme", theme)
   }, [theme])
 
-  // Landing 页时 body 可滚动
+  // Landing/Login/Register 页时 body 可滚动
+  const isScrollable = route !== "app"
   useEffect(() => {
-    if (!inApp) {
+    if (isScrollable) {
       document.documentElement.style.overflow = "auto"
       document.body.style.overflow = "auto"
       document.body.style.height = "auto"
@@ -46,7 +74,7 @@ export default function App() {
       document.body.style.overflow = ""
       document.body.style.height = ""
     }
-  }, [inApp])
+  }, [isScrollable])
 
   const toggleTheme = () => setTheme((t) => (t === "light" ? "dark" : "light"))
 
@@ -60,9 +88,18 @@ export default function App() {
     setShowTour(true)
   }, [])
 
-  // Landing 页路由
-  if (!inApp) {
-    return <Landing />
+  if (route === "login") return <Login />
+  if (route === "register") return <Register />
+  if (route === "pricing") return <Pricing />
+  if (route === "landing") return <Landing />
+  if (route === "dashboard") return <Dashboard />
+  if (route === "profile") return <Profile />
+  if (route === "admin") return <Admin />
+
+  // /app 路由守卫：未登录且无 token → 跳转登录页
+  if (!token && !user) {
+    window.location.replace("/login")
+    return null
   }
 
   return (

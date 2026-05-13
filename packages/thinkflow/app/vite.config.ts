@@ -232,6 +232,11 @@ export default defineConfig({
     port: 1421,
     strictPort: true,
     proxy: {
+      "/api/thinkflow": {
+        target: "http://localhost:3456",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/thinkflow/, ""),
+      },
       "/api/openrouter": {
         target: "https://openrouter.ai",
         changeOrigin: true,
