@@ -138,7 +138,7 @@ async function reportImageUsage(generationId: string, model: string, onReport: (
 
 export async function generateImage(
   prompt: string,
-  model: string = "openai/gpt-image-1",
+  model: string = "openai/gpt-5.4-image-2",
   onUsage?: (u: { tokens_input: number; tokens_output: number; cost_usd: number; model: string }) => void,
 ): Promise<string> {
   const result = await generateImageViaOpenRouter(prompt, model)

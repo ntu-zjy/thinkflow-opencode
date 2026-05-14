@@ -102,7 +102,7 @@ bunx vitest run            # 全部用例通过
 
 小红书平台图片生成使用独立的图片生成模型，**不能用文本模型（如 Kimi K2）代替**：
 - **Dry-run / 离线降级**：返回 SVG 占位图（Mock），用于本地调试
-- **真实生成**：AgentNode 需选择图片生成模型（如 `openai/gpt-image-1` via OpenRouter），由 OpenCode 返回 `part.type === "file"` 的 SSE 事件，canvasStore 捕获后更新 `OutputNodeData.images`
+- **真实生成**：小红书图文走 `generateImage()` 默认 `openai/gpt-5.4-image-2`（OpenRouter）；若经 OpenCode 生图则返回 `part.type === "file"` 的 SSE 事件，canvasStore 捕获后更新 `OutputNodeData.images`
 - 如果当前模型无法生成图片（返回文字说明），视为**功能未完成**，需切换模型或调整提示词
 
 > ⚠️ 单元测试（vitest）只验证逻辑正确性，不能替代真实 OpenCode + 真实模型的端到端验证。
